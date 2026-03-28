@@ -5,9 +5,13 @@
 A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay.
 
 - **Card-aware bot AI** -- bots evaluate actual hole cards and board texture, not just random probabilities
+- **Chen+ scoring** -- position- and style-adjusted hand strength (classic Chen also shown for reference)
+- **Board texture analysis** -- dry/wet, ace-high, paired, monotone — affects c-bet rates, barrel frequency, bluff sizing
 - **Street-aware decisions** -- c-betting, double-barreling, giving up with air, multiway pot adjustments
 - **Preflop escalation** -- full 3-bet/4-bet/5-bet logic with per-persona frequencies
 - **Hero adaptation** -- bots adjust to your play style over a rolling 10-hand window
+- **Metatweak dynamics** -- bots adjust when a player is dominating or running cold (20-hand rolling window)
+- **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
 - **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
 - **Monte Carlo equity engine** -- 500-800 adaptive iterations against opponent ranges
 - **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability
@@ -32,11 +36,12 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - Light/dark mode (table felt stays emerald green in both)
 
 ### Real-Time Hand Analysis
-- **Hand strength**: Chen score, preflop tier (Premium/Strong/Playable/Marginal/Trash), contextual hand descriptions ("Top Pair, Ace-kicker", "Nut Flush Draw")
+- **Hand strength**: Chen score + Chen+ (position/style-adjusted), preflop tier (Premium/Strong/Playable/Marginal/Trash), contextual hand descriptions ("Top Pair, Ace-kicker", "Nut Flush Draw")
 - **Equity**: Monte Carlo simulation (300 iterations, adaptive to 500 in close spots) against random opponent ranges
 - **Hand improvement probabilities**: Per-rank % chance of making each hand by the river (e.g., "Flush: 19.2%", "Two Pair: 32.4%")
 - **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river
 - **Pot odds**: Ratio, percentage, required equity, pass/fail verdict against your actual equity
+- **Expected Value (EV)**: `(equity x pot) - call cost` -- green for +EV (profitable call), red for -EV
 - **SPR**: Stack-to-Pot Ratio with strategic guidance (low/medium/high SPR advice)
 - **Rule of 2/4**: Quick mental math reference alongside exact calculations
 - **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street. Color-coded: green (confident), yellow (marginal), red (fold).
@@ -169,7 +174,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 
 ### Stat Tooltips
 - Hover any dotted-underlined label for an explanation
-- Covers: Equity, Chen Score, Position, Pot Odds, SPR, Draws & Outs, Recommendation
+- Covers: Equity, Chen Score, Chen+, Position, Pot Odds, EV, SPR, Draws & Outs, Recommendation
 
 ### Authentication
 - **Not signed in**: Session stats saved to localStorage only. Yellow "Local" indicator.
@@ -188,6 +193,10 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position
 - **Sessions**: History cards with per-session stats, individual delete, per-session JSON/CSV/PokerStars export
 - **Hands**: Click any row to expand -- PokerStars-format hand history with color-coded streets, all players' hole cards, and per-hand export
+- **Hand Analysis Modal**: Click "Analyze" on any hand for a detailed street-by-street instructional breakdown:
+  - Player profiles with playstyle, stats, tilt, and leak descriptions
+  - Per-action explanations referencing Chen/Chen+, board texture, hand strength, draws, and the specific bot's persona
+  - Showdown summary and personalized key takeaway
 - **Export**: Lifetime and per-session in JSON, CSV, and PokerStars .txt (compatible with PokerTracker, Hold'em Manager, Equilab)
 - **Delete**: Per-session or all lifetime data with confirmation dialogs
 - **Winner shown at showdown** for every outcome (win, loss, fold) with cards and amount
@@ -201,28 +210,36 @@ The setup screen shows your full table roster with inline controls. Each bot can
 
 ## How Bot Behavior Works
 
-Each bot's decisions are driven by a probabilistic engine (`app/utils/botDecision.ts`) that uses the persona's config values as direct probability weights. The consistency system adds occasional off-strategy plays, and the tilt system widens ranges after losses. Over many hands, observed behavior statistically aligns with configured profiles.
+Each bot's decisions are driven by a card-aware engine (`app/utils/botDecision.ts`) that evaluates actual hole cards and board texture, adjusted by persona config. The consistency system adds occasional off-strategy plays, the tilt system widens ranges after losses, and the metatweak system adjusts for table dynamics.
 
 ### Decision Engine
 
 **Consistency check** (fires first):
 - Roll against consistency (0.88-0.99). If miss, return a random weighted action instead of the calculated one.
 
+**Hero adaptation** (if 10+ hands tracked):
+- Exploits hero tendencies: 3-bets more vs fold-happy heroes, bluffs less vs loose heroes, bluffs more vs passive heroes.
+
+**Metatweak** (table dynamics):
+- Tighten + trap vs a dominating player (win rate >28% in 20-hand window)
+- Widen slightly when running cold (<10% win rate)
+- Protect the lead when running hot (>25% win rate)
+
 **Preflop:**
-- Facing no raise: raise with probability = PFR; otherwise check
-- Facing a raise: call with probability = VPIP * 0.7; 3-bet with probability = PFR * 0.35 * aggression; fold the rest
+- **Chen+ scoring**: Hand strength adjusted for position (BTN +2, UTG -1) and playstyle. The percentile determines whether a hand falls within the bot's VPIP/PFR threshold.
+- Facing no raise: raise if hand percentile < PFR; otherwise check
+- Facing a raise: value 3-bet (top hands by quality), bluff 3-bet (persona-driven random), flat call (85% of VPIP in position, 75% OOP), or fold
+- BB defends wide (125% of VPIP range) due to pot discount
+- Full 3-bet/4-bet/5-bet escalation with per-persona frequencies
+- Short-stack push/fold mode below 25BB
 
-**Postflop (no bet facing):**
-- Bluff bet with probability = bluffFreq (independent roll)
-- Value bet with probability = 0.22 * aggression (separate roll)
-- Otherwise check
-
-**Postflop (facing a bet):**
-- Bluff raise with probability = bluffFreq * 0.5 * aggression
-- Fold to large bets (>75% pot) with probability = 1 - VPIP * 1.2
-- Value raise with probability = 0.10 * aggression
-- Call with probability = VPIP * 1.3 * (1 - potOdds)
-- Otherwise fold
+**Postflop (card-aware):**
+- **Board texture analysis**: dry/wet, ace-high, paired, monotone, connectedness
+- **Range advantage**: preflop raiser has advantage on ace-high/broadway boards; caller on low/connected boards
+- **C-bet**: Scales with texture (higher on dry ace-high, lower on wet low boards), reduced in multiway pots
+- **Second/third barrel**: Texture-aware continuation. River bluffs boosted on ace-high dry boards and bricked wet boards.
+- **Donk bets**: Fictional bots lead into the preflop raiser at 5-22%. Pro bots never donk-bet.
+- **Facing a bet**: Monster raise, strong hand call/raise, draw semi-bluff (pot odds dependent), weak fold, rare bluff raise
 
 ### Testing Approach
 
@@ -245,7 +262,7 @@ Three levels of verification, each more realistic than the last:
 | Persistence | Supabase (GitHub OAuth, email/password, RLS) + localStorage fallback |
 | Package Manager | Yarn |
 | Deployment | Netlify (static) |
-| Testing | Vitest (666 tests) |
+| Testing | Vitest (737 tests) |
 
 ## Getting Started
 
@@ -280,28 +297,38 @@ holdem-simulator/
 │   │   ├── PlayerSeat.vue         # Nameplate, cards, action badge, tilt indicator
 │   │   ├── PokerTable.vue         # Felt table with polar-coordinate seat layout
 │   │   ├── PositionBadge.vue      # D/SB/BB/UTG/CO/MP position badges
+│   │   ├── BotAvatar.vue           # Bot initials avatar with deterministic color
+│   │   ├── BotProfileModal.vue    # In-game bot stat adjustment modal
+│   │   ├── HandAnalysisModal.vue  # Street-by-street hand analysis with persona explanations
 │   │   ├── SetupScreen.vue        # Game config, bot roster, auth, pro count selector
 │   │   ├── StatsPanel.vue         # 4-tab panel: Live, Session, Ranges, Table
 │   │   └── SupabaseStatus.vue     # Auth status pill with sign-in/out dropdown
 │   ├── composables/
+│   │   ├── useGameEngine.ts       # Game loop, betting rounds, metatweak dynamics
+│   │   ├── useGameState.ts        # Reactive game state (players, pot, street, community)
 │   │   ├── useSessionStats.ts     # Session tracking, export, auto-save, Supabase sync
 │   │   └── useSupabase.ts         # Supabase client, GitHub/email/anonymous auth
 │   ├── pages/
+│   │   ├── bots.vue               # Bot gallery page with all 27 personas
 │   │   ├── index.vue              # Main game page (table, betting, bot loop, tilt, timeout)
 │   │   ├── replay.vue             # Hand replay with comparison panel
-│   │   └── stats.vue              # Cross-session analytics, PokerStars export, delete
+│   │   └── stats.vue              # Cross-session analytics, hand analysis, PokerStars export
 │   ├── public/
 │   │   ├── og-image.svg           # Open Graph social image (SVG source)
 │   │   └── og-image.png           # Open Graph social image (1200x630 PNG)
 │   └── utils/
-│       ├── botDecision.ts         # Bot decision engine, tilt system, consistency
+│       ├── botDecision.ts         # Bot decision engine, board texture, tilt, metatweak
+│       ├── botDescriptions.ts     # Bot playstyle descriptions for UI
 │       ├── cards.ts               # Card types, suit symbols, pip layouts
 │       ├── chips.ts               # Chip denomination breakdowns by stake tier
-│       ├── handAnalysis.ts        # Hand evaluator, draws, equity, recommendations
+│       ├── handAnalysis.ts        # Hand evaluator, Chen/Chen+, draws, equity
 │       ├── pokerStarsExport.ts    # PokerStars hand history format converter
 │       ├── ranges.ts              # 169 starting hands + position-based ranges
-│       └── seats.ts               # Position assignment + polar coordinate layout
-├── tests/                         # 14 Vitest test suites (666 tests)
+│       ├── seats.ts               # Position assignment + polar coordinate layout
+│       └── sidePots.ts            # Side pot calculation and multi-way pot awards
+├── scripts/
+│   └── simulate.ts                # Headless bot-vs-bot simulation with stats
+├── tests/                         # 16 Vitest test suites (737 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config with OG meta tags + Supabase runtime config
 ├── netlify.toml                   # Static deploy config with SPA redirect
@@ -322,12 +349,13 @@ All game parameters are centralized in `holdem.config.ts` (project root):
 - **Equity thresholds**: Value bet, thin value, drawing, give-up cutoffs
 - **Bet sizing**: Open raises, 3-bets, value bets, bluffs, protection bets, overbets
 - **Tilt mechanics**: Consecutive loss trigger, big loss threshold, mild/full severity, per-stat boost magnitudes, decay duration
+- **Metatweak**: Rolling window size, dominance/cold/hot thresholds, min hands before adjusting
 - **Session management**: Hero timeout (5 min), auto-save interval (60s), re-buy toggle
 - **Animation timing**: Deal stagger, bot thinking delay, showdown pause
 
 ## Test Suites
 
-Run all tests: `yarn test` (666 tests, 14 files, ~22 seconds)
+Run all tests: `yarn test` (737 tests, 16 files, ~18 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -415,6 +443,10 @@ Run all tests: `yarn test` (666 tests, 14 files, ~22 seconds)
 | **Outs** | Cards remaining in the deck that will improve your hand. Flush draw = 9 outs. Open-ended straight draw = 8 outs. Gutshot = 4 outs. |
 | **SPR** | Stack-to-Pot Ratio -- your remaining stack divided by the pot. Low SPR (<4): you're committed with strong hands. High SPR (>10): be cautious committing your stack. |
 | **Chen Score** | A quick preflop hand strength formula (0-20). Accounts for pairs, suited cards, connectedness, and high card value. Higher = stronger starting hand. |
+| **Chen+** | Position- and style-adjusted Chen score. Adds bonuses for late position, suited connectors (for loose players), and big cards (for TAG players). What bots actually use for decisions. |
+| **EV (Expected Value)** | The average profit or loss of a play over many repetitions. +EV means profitable long-term. Calculated as `(equity x pot) - call cost`. |
+| **Donk Bet** | Betting into the preflop raiser (out of turn from the typical flow). Generally considered a weak play by pros, but common among recreational players. |
+| **Board Texture** | How the community cards interact: "dry" (few draws possible, e.g., K-7-2 rainbow), "wet" (many draws, e.g., J-T-9 two-tone), "monotone" (three+ cards of one suit). |
 | **OESD** | Open-Ended Straight Draw -- four consecutive cards needing one on either end to complete a straight. 8 outs. |
 | **Gutshot** | Inside straight draw -- four cards needing one specific middle card. 4 outs (half an OESD). |
 | **Tilt** | Playing emotionally after losses, leading to looser, more aggressive, and less rational decisions. |
@@ -434,10 +466,11 @@ Run all tests: `yarn test` (666 tests, 14 files, ~22 seconds)
 |-------|--------|-------|
 | **1** | Done | Visual foundation -- table, cards, chips, setup, stats panel, bet controls |
 | **2** | Done | Core engine -- deck, shuffle, hand evaluator, all 9 ranks, edge cases |
-| **3** | Partial | Game loop -- betting round state machine done, side pots + blind rotation planned |
-| **4** | Done | Bot AI -- 25 personas (18 pro), per-persona tilt + consistency, 666 tests |
+| **3** | Done | Game loop -- betting rounds, side pots, all-in auto-runout, blind rotation |
+| **4** | Done | Bot AI -- 25 personas (18 pro), per-persona tilt + consistency, 737 tests |
 | **5** | Done | Stats -- Supabase, session tracking, analytics, PokerStars/CSV/JSON export, replay |
-| **6** | Planned | Polish -- dealing animations, chip movement, celebrations |
+| **6** | Done | Advanced AI -- Chen+, board texture, metatweak, donk bets, hand analysis modal |
+| **7** | Planned | Polish -- dealing animations, chip movement, celebrations |
 
 ## Future Enhancements
 
@@ -445,7 +478,7 @@ Run all tests: `yarn test` (666 tests, 14 files, ~22 seconds)
 - **Leak finder**: Analyze hand history for patterns ("You lose 80% of hands where you call a 3-bet with KJo")
 - **Bot difficulty slider**: Scale all bots between Beginner and Shark
 - **Multiplayer**: WebSocket-based real players (would require a server)
-- **Hand strength in bot decisions**: Factor actual hand evaluation into bot betting (currently config-driven only)
+- **Advanced board texture reasoning**: Blocker analysis, range narrowing by street, turn/river card categorization (scare cards, blanks)
 
 ## License
 

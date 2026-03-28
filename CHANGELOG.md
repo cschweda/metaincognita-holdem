@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-03-28
+
+### Added
+- **Chen+ scoring** — Position- and playstyle-adjusted hand strength. Adds bonuses for late position (BTN +2, CO +1, UTG -1), suited connectors for loose/creative players, and big cards for TAG players. Both classic Chen and Chen+ are shown in the stats panel with separate tooltips. Bots use Chen+ for all decisions.
+- **Board texture analysis** — New `analyzeBoardTexture()` categorizes boards as dry/wet, ace-high, paired, monotone/two-tone, and connected. `rangeAdvantage()` estimates who benefits from the board (preflop raiser on ace-high boards, caller on low connected boards). C-bets, barrels, and bluffs all scale with texture.
+- **Metatweak table dynamics** — Bots monitor a 20-hand rolling window and adjust: tighten + trap vs a player on a heater (win rate >28%), widen when running cold (<10%), protect the lead when running hot (>25%). Config in `holdem.config.ts` under `metatweak`.
+- **Expected Value (EV) display** — New stat in StatsPanel between Pot Odds and SPR. Shows `(equity × pot after call) - call cost` with +EV (green) / -EV (red) color coding and tooltip explaining the formula.
+- **Donk bet system** — New `donkBetFreq` field on bot profiles. Fictional bots donk-bet into the preflop raiser at 5–22% (Calling Carl 22%, Wild Wendy 20%, Loose Lucy 18%). Pro bots never donk-bet (0%) — they check to the raiser and use check-raises/floats instead.
+- **Hand analysis modal** — Click "Analyze" on any expanded hand in the stats page to see a detailed, instructional street-by-street breakdown:
+  - **Player profiles**: each bot's playstyle (TAG/LAG/nit/calling station), VPIP/PFR/AF, tilt tendency, leak description, pro vs fictional badge
+  - **Street-by-street actions** with per-action explanations referencing Chen/Chen+ scores, board texture, hand strength, draw outs, and the bot's persona (e.g., "As a LAG pro, Dom Twan raises with air to put opponents in tough spots")
+  - **Showdown summary** with final hand evaluation for all non-folded players
+  - **Key takeaway** — personalized lesson for the hero
+
+### Changed
+- **Calibrated chen percentiles** — `chenToPercentile()` now uses empirically measured values from all 1,326 starting hands. Previously the mapping was estimated and caused bots to play ~50% too tight (e.g., VPIP 30% config produced 15% observed).
+- **Wider preflop defense ranges** — Modern aggressive poker: BB defends 125% of VPIP range, in-position flat calls at 85% of VPIP, OOP at 75%. Facing 3-bet: 45% of VPIP. Facing 4-bet: 20% of VPIP.
+- **Position handled by Chen+** — Removed the separate position multiplier from `decidePreflopAction()` since Chen+ already adjusts hand strength by seat. Eliminates the double-counting that was skewing VPIPs.
+- **C-bet sizing by texture** — Bigger bets on wet boards (charge draws), smaller on dry. Board-aware barrel rates on turn and river.
+- **River bluffs are board-aware** — High frequency on ace-high dry boards (represent the ace), wet boards that bricked (represent missed draw), low on paired boards (opponent may have trips).
+
 ## [0.11.1] - 2026-03-28
 
 ### Fixed
