@@ -63,6 +63,15 @@ const deleteSessionTarget = ref<SessionRow | null>(null)
 const deleteHandTarget = ref<HandRow | null>(null)
 const deleteAllConfirmText = ref('')
 
+// ─── Hand Analysis Modal ─────────────────────────────────────
+const showAnalysisModal = ref(false)
+const analysisHand = ref<HandRow | null>(null)
+
+function openAnalysis(h: HandRow) {
+  analysisHand.value = h
+  showAnalysisModal.value = true
+}
+
 onMounted(async () => {
   try {
     const saved = localStorage.getItem('holdem-session-stats')
@@ -773,6 +782,7 @@ const displayedHands = computed(() => {
                       <NuxtLink v-if="h.players && h.players.length > 0" :to="`/replay?hand=${h.id}`">
                         <UButton variant="outline" color="primary" size="xs" icon="i-lucide-play">Replay</UButton>
                       </NuxtLink>
+                      <UButton v-if="h.actions && h.actions.length > 0" variant="outline" color="info" size="xs" icon="i-lucide-search" @click.stop="openAnalysis(h)">Analyze</UButton>
                       <UButton variant="ghost" color="neutral" size="xs" icon="i-lucide-download" @click="exportSingleHandPokerStars(h)">Export</UButton>
                       <UButton variant="ghost" color="error" size="xs" icon="i-lucide-trash-2" @click.stop="openDeleteHandModal(h)">Delete</UButton>
                     </div>
@@ -984,5 +994,13 @@ const displayedHands = computed(() => {
         </div>
       </template>
     </UModal>
+
+    <!-- ═══ HAND ANALYSIS MODAL ═══ -->
+    <HandAnalysisModal
+      v-if="analysisHand"
+      :hand="analysisHand"
+      v-model:open="showAnalysisModal"
+      @close="analysisHand = null"
+    />
   </div>
 </template>
