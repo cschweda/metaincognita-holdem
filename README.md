@@ -210,46 +210,145 @@ The setup screen shows your full table roster with inline controls. Each bot can
 
 ## How Bot Behavior Works
 
-Each bot's decisions are driven by a card-aware engine (`app/utils/botDecision.ts`) that evaluates actual hole cards and board texture, adjusted by persona config. The consistency system adds occasional off-strategy plays, the tilt system widens ranges after losses, and the metatweak system adjusts for table dynamics.
+Every decision a bot makes passes through a layered pipeline in `app/utils/botDecision.ts`. The bot doesn't pick randomly -- it evaluates its actual hole cards against the board, adjusts for position and playstyle, considers who's been winning, remembers what the hero tends to do, and then decides based on the combination of all those factors. Each layer is described below.
 
-### Decision Engine
+### Persona Config Fields
 
-**Consistency check** (fires first):
-- Roll against consistency (0.88-0.99). If miss, return a random weighted action instead of the calculated one.
+Each of the 25 bot personas is defined by a set of numerical stats in `holdem.config.ts`. These stats control every aspect of how the bot plays:
 
-**Hero adaptation** (if 10+ hands tracked):
-- Exploits hero tendencies: 3-bets more vs fold-happy heroes, bluffs less vs loose heroes, bluffs more vs passive heroes.
+| Field | Range | What it controls | Example impact |
+|-------|-------|------------------|----------------|
+| **VPIP** | 0.14--0.38 | Fraction of hands the bot voluntarily enters. This is the primary "loose vs tight" knob. | Tight Tony (14%) sees ~1 in 7 hands. Loose Lucy (38%) sees ~1 in 3. |
+| **PFR** | 0.11--0.28 | Fraction of hands the bot raises preflop. Always <= VPIP. The gap between VPIP and PFR determines how often the bot flat-calls vs raises. | Calling Carl: VPIP 30%, PFR 12% -- he calls a lot but rarely raises. Dom Twan: VPIP 31%, PFR 26% -- almost every hand he plays, he raises. |
+| **Aggression** | 0.60--1.50 | Multiplier on postflop betting and raising frequency. Directly scales c-bet rates, barrel frequencies, and raise sizing. | Carl at 0.60 checks and calls. Dom Twan at 1.50 bets and raises at every opportunity. |
+| **Bluff Frequency** | 0.08--0.25 | How often the bot bets or raises with nothing (air). Controls c-bet bluffs, barrel bluffs, and river bluffs. | Tight Tony (8%) almost never bluffs -- if he bets, he has it. Wild Wendy (25%) bets with air a quarter of the time. |
+| **Creative Frequency** | 0.03--0.12 | Probability of unconventional plays: limp-reraises, trap-checks with monsters, slow-plays. | Lhil Paak (11%) and Utu Sngar (12%) take the most unorthodox lines. Tight Tony (3%) is textbook. |
+| **3-Bet Frequency** | 0.04--0.22 | How often the bot re-raises when facing an open. Includes both value 3-bets (premium hands) and bluff 3-bets (light hands for fold equity). | Calling Carl (4%) almost never 3-bets. Wild Wendy (22%) 3-bets constantly. |
+| **4-Bet Frequency** | 0.015--0.10 | How often the bot re-raises a 3-bet. Much narrower range than 3-bets. | Wild Wendy (10%) 4-bets liberally. Most pros are 3--7%. |
+| **5-Bet Frequency** | 0.005--0.02 | How often the bot puts in the 5th bet preflop (essentially committing their stack). Almost always AA/KK. | Dom Twan at 2% does this with a slightly wider range than most. |
+| **Donk Bet Frequency** | 0.00--0.22 | How often the bot leads (bets) into the preflop raiser on the flop, rather than checking to them. This is considered a weak play by professionals. **All pro bots have 0%.** | Calling Carl (22%) donk-bets constantly -- a classic recreational player habit. Loose Lucy (18%) and Wild Wendy (20%) also lead frequently. Pro bots never donk-bet; they check to the raiser and use check-raises or floats instead. |
+| **Tilt Multiplier** | 0.3--2.5 | How fast the bot tilts after losses and how severely tilt affects their play. Scales both the trigger threshold (losses needed) and the magnitude of stat changes. | Hill Phellmuth (2.5x) tilts after 1 loss and becomes a maniac. Ihil Pvey (0.3x) needs 10+ consecutive losses and barely changes. |
+| **Consistency** | 0.88--0.99 | The probability of making the "correct" decision each hand. On a consistency miss, the bot makes a random off-strategy play (fold when it should call, raise with nothing, etc.). | Ihil Pvey (99%) almost never misplays. Wild Wendy (88%) makes a random play ~12% of the time. |
+| **Leak** | text | A natural-language description of the bot's primary weakness, shown in the hand analysis modal and bot gallery. | "Folds too much to 3-bets; won't bluff rivers" (Tight Tony) |
 
-**Metatweak** (table dynamics):
-- Tighten + trap vs a dominating player (win rate >28% in 20-hand window)
-- Widen slightly when running cold (<10% win rate)
-- Protect the lead when running hot (>25% win rate)
+### Chen+ Hand Evaluation
 
-**Preflop:**
-- **Chen+ scoring**: Hand strength adjusted for position (BTN +2, UTG -1) and playstyle. The percentile determines whether a hand falls within the bot's VPIP/PFR threshold.
-- Facing no raise: raise if hand percentile < PFR; otherwise check
-- Facing a raise: value 3-bet (top hands by quality), bluff 3-bet (persona-driven random), flat call (85% of VPIP in position, 75% OOP), or fold
-- BB defends wide (125% of VPIP range) due to pot discount
-- Full 3-bet/4-bet/5-bet escalation with per-persona frequencies
-- Short-stack push/fold mode below 25BB
+Classic Chen scoring rates starting hands 0--20 based on card rank, pairs, suitedness, and connectedness. It doesn't account for position or playstyle -- pocket aces score 20 whether you're UTG or on the Button.
 
-**Postflop (card-aware):**
-- **Board texture analysis**: dry/wet, ace-high, paired, monotone, connectedness
-- **Range advantage**: preflop raiser has advantage on ace-high/broadway boards; caller on low/connected boards
-- **C-bet**: Scales with texture (higher on dry ace-high, lower on wet low boards), reduced in multiway pots
-- **Second/third barrel**: Texture-aware continuation. River bluffs boosted on ace-high dry boards and bricked wet boards.
-- **Donk bets**: Fictional bots lead into the preflop raiser at 5-22%. Pro bots never donk-bet.
-- **Facing a bet**: Monster raise, strong hand call/raise, draw semi-bluff (pot odds dependent), weak fold, rare bluff raise
+**Chen+** extends this with context-aware adjustments:
+
+| Factor | Adjustment | Reasoning |
+|--------|------------|-----------|
+| **Button/Dealer** | +2 | You act last on every street. Information advantage makes marginal hands profitable. |
+| **Cutoff** | +1 | Second-best position. Nearly as good as the Button. |
+| **UTG / UTG+1** | -1 | You act first with 4--5 players behind. Need a stronger hand to enter. |
+| **Big Blind** | +1 | Already invested 1 BB. Getting a discount to see the flop. |
+| **Suited connectors (loose player)** | +1 | Players with VPIP > 27% extract extra value from speculative hands because they play more pots and get paid off more. |
+| **Creative + suited gapper** | +1 | Players with creative freq > 8% profit from unusual holdings because opponents can't put them on a hand. |
+| **Big cards (tight-aggressive)** | +1 | Players with VPIP < 22% and aggression > 1.2 get more value from big-card hands because they play them aggressively and get action from worse hands. |
+
+The Chen+ score is then mapped to a **percentile** -- the fraction of all 1,326 unique starting hands that are this strong or better. This percentile was calibrated empirically (not estimated). A bot with VPIP 0.30 plays any hand whose Chen+ percentile falls below 0.30. Because Chen+ is position-adjusted, the same ATo might qualify from the Button but not from UTG.
+
+Both the classic Chen score and the Chen+ score are shown in the stats panel during play so you can see the difference position makes.
+
+### Board Texture Analysis
+
+After the flop, every decision considers the **board texture** -- the pattern of community cards and what kinds of hands they favor. The engine categorizes boards along several dimensions:
+
+| Property | Detection | Impact on bot play |
+|----------|-----------|-------------------|
+| **Ace-high** | Highest card is an ace | Preflop raiser c-bets more (they have more aces in range). River bluffs are more credible -- "I have the ace." |
+| **Broadway-heavy** | 2+ cards >= Jack | Favors the raiser's range (big cards). Less donk-betting from callers. |
+| **Low board** | All cards <= 9 | Favors the caller's range (small pairs, suited connectors). Raiser c-bets less. |
+| **Dry** | No flush draw, low connectedness, unpaired | Fewer draws mean fewer scare cards on later streets. Bots bluff more (opponents fold more on dry boards). Smaller bet sizing. |
+| **Wet** | Flush draw + connected cards | Many draws possible. Bots bet bigger to charge draws. Less bluffing (opponents call more with draws). |
+| **Monotone** | 3+ cards of one suit | Flush is possible. Bots slow down significantly unless they have the flush. |
+| **Two-tone** | 2 cards of one suit | Flush draw possible. Bots size up to charge the draw. |
+| **Paired** | Board has a pair | Full house and trips are possible. Bots bluff less (opponents may have trips). |
+| **Connected** | Cards are close in rank | Straight draws are likely. Bots bet to deny free cards. |
+
+**Range advantage** is computed per street: the preflop raiser's range (weighted toward big cards and premium pairs) has an advantage on ace-high and broadway boards. The preflop caller's range (weighted toward suited connectors, small pairs) has an advantage on low, connected boards. This multiplier adjusts c-bet frequency, barrel rate, and bluff sizing.
+
+### Metatweak (Table Dynamics)
+
+Real players adjust when someone is on a hot streak or when the table dynamic shifts. The metatweak system tracks a 20-hand rolling window of winners and adjusts bot profiles before each decision:
+
+| Situation | Detection | Bot adjustment | Real-world analogy |
+|-----------|-----------|---------------|-------------------|
+| **Someone is dominating** | Any player's win rate > 28% in the window | Reduce bluff frequency by up to 40%. Increase aggression by up to 30% when they do play. | "That guy is crushing -- don't bluff him, but when I have a hand, I'm going to trap him." |
+| **Bot is running cold** | This bot's win rate < 10% over 15+ hands | Widen VPIP by up to 8%, PFR by up to 5%. | "I haven't won a hand in forever. I need to get involved or I'll get blinded out." |
+| **Bot is running hot** | This bot's win rate > 25% | Tighten VPIP slightly (up to 5%), reduce bluffs by up to 12%. | "I'm up big. No need to gamble -- protect the stack and play strong hands." |
+
+The adjustments are bounded and gentle -- a bot's fundamental personality doesn't change, but it adapts around the edges, just like a real player would.
+
+### Hero Adaptation
+
+After tracking 10+ hands of the hero's play (via `useHeroProfileStore`), bots begin exploiting observed tendencies:
+
+| Hero tendency | Detection | Bot exploit |
+|--------------|-----------|-------------|
+| **Folds to 3-bets a lot** | Fold-to-3-bet > 60% | Bot 3-bets wider (up to 1.6x their normal rate). Free money. |
+| **Very loose** | VPIP > 40% | Bot reduces bluffs (hero calls too often for bluffs to work). Value bets thinner. |
+| **Passive** | Low aggression factor | Bot bluffs more (hero won't raise back, so bluffs are safer). |
+
+### Preflop Decision Flow
+
+When it's a bot's turn preflop, the decision proceeds in this order:
+
+1. **Consistency check**: Roll against the bot's consistency (0.88--0.99). If the roll fails, return a random weighted action -- fold (40%), call (40%), or raise (20%) when facing a bet; check (60%) or random bet (40%) otherwise. This simulates human error.
+
+2. **Hero adaptation**: If 10+ hands tracked, adjust the bot's profile based on hero tendencies.
+
+3. **Metatweak**: Adjust profile based on table dynamics (hot/cold/dominated).
+
+4. **Short-stack check**: If below 25 BB and facing a raise, switch to push/fold mode. Shove with top ~15-25% of hands (wider when desperate), fold everything else.
+
+5. **Chen+ evaluation**: Compute the position- and style-adjusted Chen+ score for the bot's hole cards. Map it to a percentile via the calibrated table.
+
+6. **Decision**:
+   - **Not facing a raise**: Raise if hand percentile < PFR. Otherwise check.
+   - **Completing BB (small bet to call)**: BB defends with 125% of VPIP range (wide defense due to pot discount). Raise the strong subset.
+   - **Facing an open raise**: Value 3-bet with top hands (55% of 3-bet range by card quality), bluff 3-bet with playable hands (45% of 3-bet range by persona randomness), flat call with the rest of the continuing range (85% of VPIP in position, 75% out of position), or fold.
+   - **Facing a 3-bet**: Value 4-bet, bluff 4-bet, flat call (45% of VPIP), or fold.
+   - **Facing a 4-bet**: Shove with top hands, call (20% of VPIP), or fold.
+   - **Facing a 5-bet+**: Only continue with the top 1% of hands.
+
+### Postflop Decision Flow
+
+After the flop, decisions become board-texture-aware:
+
+**When not facing a bet:**
+
+1. **C-bet** (if preflop raiser on the flop): Rate scales with hand strength (80% with strong hands, 55% with draws, 20% with air) multiplied by board texture (higher on dry/ace-high boards, lower on wet/low boards). Reduced 35% in multiway pots. Bet sizing: smaller on dry boards (~35% pot), larger on wet boards (~65% pot) to charge draws.
+
+2. **Second barrel** (if bet the flop, now on the turn): Strong hands 75%, draws 45%, air bluffs scale with `bluffFreq * aggression * texture_modifier`. Board texture reduces barreling on monotone boards (flush now possible) and boosts it on dry boards.
+
+3. **Third barrel** (if bet flop and turn, now on the river): Monsters 85%, strong 60%, air bluffs are board-aware: boosted 1.5x on ace-high dry boards (representing the ace), 1.3x on wet boards that bricked (representing a missed draw), reduced 0.7x on paired boards (opponent may have trips).
+
+4. **Donk bet** (not the preflop raiser): Pro bots never donk-bet. Fictional bots lead at their `donkBetFreq` rate, with strong hands leading more and air leading less. This is a deliberate leak -- exploitable by alert opponents.
+
+5. **Probe bet** (non-raiser with air): Board-texture-driven. More likely on ace-high boards (represent the ace), dry boards (more fold equity), and vs passive tables.
+
+**When facing a bet:**
+
+- **Monster hands**: Raise for value (15% + aggression * 25%).
+- **Strong hands**: Usually call. Sometimes raise (aggression * 12%). Fold top-pair-only to pot-sized river bets from tight opponents.
+- **Draws** (flop/turn only): Semi-bluff raise (bluffFreq * aggression * 50%). Call if pot odds justify. Fold otherwise.
+- **Weak made hands**: Call small bets on the flop, tighten by street. River calls are rare.
+- **Nothing**: Fold almost always. Rare bluff raise (bluffFreq * 15% * aggression). Float tiny flop bets occasionally (VPIP * 25%).
+
+Street pressure increases from flop (1.0x) to turn (0.75x) to river (0.55x) -- it takes a stronger hand to continue on later streets. Passive players (low aggression) get a boost to call frequency; aggressive players fold or raise instead of flat-calling.
 
 ### Testing Approach
 
-Three levels of verification, each more realistic than the last:
+Four levels of verification, each more realistic than the last:
 
 | Level | Hands/Bot | What it tests | Speed |
 |-------|-----------|---------------|-------|
 | **Simplified** (`phase4-bot-behavior`) | 100K | Pure probability engine, no cards | ~30ms |
 | **Universal** (`phase4-all-personas`) | 500K | All 25 bots, stat alignment, ordering | ~230ms |
 | **Realistic** (`phase4-realistic-sim`) | 50K | Real cards, hand evaluator, position variation, tilt lifecycle | ~16s |
+| **Escalation** (`phase6-escalation`) | 50K | 3-bet/4-bet/5-bet rates, fold-to-3-bet, per-persona verification | ~6s |
 
 ## Tech Stack
 
