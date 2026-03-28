@@ -186,6 +186,18 @@ const potOddsVerdict = computed(() => {
   return { pass: false, text: 'Fold — odds don\'t justify' }
 })
 
+// ─── Expected Value (EV) ──────────────────────────────────────
+const expectedValue = computed<number | null>(() => {
+  if (!analysis.value) return null
+  const pot = props.pot || 0
+  const toCall = props.toCall || 0
+  if (toCall === 0) return null // nothing to evaluate when not facing a bet
+  const equity = analysis.value.equity / 100 // convert from 0-100 to 0-1
+  // EV = (equity × total pot after calling) - call amount
+  const ev = equity * (pot + toCall) - toCall
+  return ev
+})
+
 // ─── SPR (Stack-to-Pot Ratio) ──────────────────────────────────
 const spr = computed(() => {
   const pot = props.pot || 1
@@ -323,8 +335,11 @@ function afLabel(af: number): string {
               <span class="px-2 py-0.5 rounded text-xs font-semibold text-white" :class="tierColor">
                 {{ analysis.preflopTierLabel }}
               </span>
-              <UTooltip text="Chen formula — a quick preflop hand strength score (0-20). Higher = stronger starting hand. Accounts for pairs, suited cards, connectedness, and high cards.">
-                <span class="text-gray-300 text-xs border-b border-dotted border-gray-600 cursor-help">Chen: {{ analysis.chenScore }}</span>
+              <UTooltip text="Classic Chen formula — raw preflop hand strength (0-20). Based on pairs, suited cards, connectedness, and high cards. Does not account for position or playstyle.">
+                <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Chen: {{ analysis.chenScore }}</span>
+              </UTooltip>
+              <UTooltip text="Chen+ — position- and style-adjusted hand strength. Adds bonuses for late position (BTN/CO), suited connectors for loose players, and big cards for tight-aggressive players. This is what bots use for decisions.">
+                <span class="text-gray-300 text-xs font-semibold border-b border-dotted border-gray-600 cursor-help">Chen+: {{ analysis.chenMaxScore }}</span>
               </UTooltip>
               <UTooltip :text="positionTooltip">
                 <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Pos: {{ position }}</span>
@@ -410,6 +425,21 @@ function afLabel(af: number): string {
             <div v-if="potOddsVerdict" class="mt-1.5 text-xs font-semibold"
               :class="potOddsVerdict.pass ? 'text-green-400' : 'text-red-400'">
               {{ potOddsVerdict.pass ? '✓' : '✗' }} {{ potOddsVerdict.text }}
+            </div>
+          </div>
+
+          <!-- Expected Value (EV) -->
+          <div v-if="expectedValue !== null" class="border-t border-gray-700/50 pt-3">
+            <div class="flex items-center justify-between">
+              <UTooltip text="Expected Value — the average profit or loss of calling this bet over many hands. Positive EV (+EV) means the call is profitable long-term. Calculated as: (equity × pot) - ((1 - equity) × call amount). Fold EV is always $0.">
+                <span class="text-xs text-gray-400 border-b border-dotted border-gray-600 cursor-help">Expected Value</span>
+              </UTooltip>
+              <span class="text-lg font-bold font-mono" :class="expectedValue >= 0 ? 'text-green-400' : 'text-red-400'">
+                {{ expectedValue >= 0 ? '+' : '' }}${{ expectedValue.toFixed(1) }}
+              </span>
+            </div>
+            <div class="text-[0.6rem] mt-0.5" :class="expectedValue >= 0 ? 'text-green-500/70' : 'text-red-500/70'">
+              {{ expectedValue >= 0 ? '+EV — profitable call long-term' : '-EV — calling loses money long-term' }}
             </div>
           </div>
 

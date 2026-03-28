@@ -132,6 +132,7 @@ function createPlayers(): SimPlayer[] {
       threeBetFreq: persona.threeBetFreq,
       fourBetFreq: persona.fourBetFreq,
       fiveBetFreq: persona.fiveBetFreq,
+      donkBetFreq: persona.donkBetFreq,
     },
   }))
 }
@@ -254,6 +255,7 @@ function simulateHand(
           wasPreflopRaiser: p.id === preflopRaiserId,
           preflopCallers: preflopCallerCount,
           streetHistory: playerStreetActions.get(p.id) as any,
+          tableDynamics: getTableDynamics(p.id),
         },
         p.consistency,
       )
@@ -394,6 +396,12 @@ function simulateHand(
     }
   }
 
+  // Update metatweak window
+  if (winnerId >= 0) {
+    recentWinners.push(winnerId)
+    if (recentWinners.length > METATWEAK_WINDOW) recentWinners.shift()
+  }
+
   // Update tilt
   for (const p of players) {
     if (p.eliminated) continue
@@ -481,6 +489,30 @@ const stats = {
   showdowns: 0,
   threeBetp: 0,
   allIns: 0,
+}
+
+// Metatweak: rolling window of recent winners
+const METATWEAK_WINDOW = config.metatweak?.windowSize ?? 20
+const recentWinners: number[] = [] // circular buffer of winner IDs
+
+function getTableDynamics(playerId: number) {
+  if (recentWinners.length < (config.metatweak?.minHands ?? 10)) return undefined
+  const winCounts = new Map<number, number>()
+  for (const id of recentWinners) winCounts.set(id, (winCounts.get(id) ?? 0) + 1)
+  const total = recentWinners.length
+  let dominantId = -1, dominantWins = 0
+  for (const [id, wins] of winCounts) {
+    if (wins > dominantWins) { dominantId = id; dominantWins = wins }
+  }
+  const myWins = winCounts.get(playerId) ?? 0
+  const avgStack = players.reduce((s, p) => s + (p.eliminated ? 0 : p.chips), 0) / players.filter(p => !p.eliminated).length
+  return {
+    dominantPlayerId: dominantId,
+    dominantWinRate: dominantWins / total,
+    myRecentWinRate: myWins / total,
+    avgStackDepth: avgStack / BB,
+    handsInWindow: total,
+  }
 }
 
 const progressInterval = Math.max(1, Math.floor(NUM_HANDS / 20)) // report ~20 times

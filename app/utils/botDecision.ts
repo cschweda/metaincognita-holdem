@@ -13,7 +13,7 @@
  * of hands, not a random 30%.
  */
 import type { Card } from './cards'
-import { chenScore, bestHand, detectDraws } from './handAnalysis'
+import { chenScore, chenPlusScore, bestHand, detectDraws } from './handAnalysis'
 
 export interface BotProfile {
   vpip: number        // 0.10–0.50 — probability of voluntarily entering a pot
@@ -24,6 +24,7 @@ export interface BotProfile {
   threeBetFreq?: number // 0.03–0.25 — probability of 3-betting when facing an open
   fourBetFreq?: number  // 0.01–0.15 — probability of 4-betting when facing a 3-bet
   fiveBetFreq?: number  // 0.005–0.03 — probability of 5-betting when facing a 4-bet
+  donkBetFreq?: number  // 0.00–0.25 — probability of leading into the preflop raiser (non-pro leak)
 }
 
 // ─── Hero Adaptation ──────────────────────────────────────────
@@ -185,6 +186,14 @@ export interface DecisionContext {
     recentBluffRate: number // how often opponents showed down weak hands (0-1)
     tableIsPassive: boolean // true if table has been check-heavy
   }
+  // Table dynamics — metatweak adjustments
+  tableDynamics?: {
+    dominantPlayerId?: number   // who is on a heater (most wins in window)
+    dominantWinRate: number     // their win rate in the window (0-1)
+    myRecentWinRate: number     // this bot's win rate in the window (0-1)
+    avgStackDepth: number       // average stack in BB across the table
+    handsInWindow: number       // how many hands are in the tracking window
+  }
 }
 
 export interface BotAction {
@@ -211,9 +220,12 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
   }
 
   // ─── Apply hero adaptation if enough data ─────
-  const adaptedProfile = heroProfile && heroProfile.handsTracked >= 10
+  let adaptedProfile = heroProfile && heroProfile.handsTracked >= 10
     ? applyHeroAdaptation(profile, heroProfile)
     : profile
+
+  // ─── Metatweak: adjust for table dynamics ─────
+  adaptedProfile = applyTableDynamics(adaptedProfile, ctx.tableDynamics)
 
   const rand = Math.random()
 
@@ -259,6 +271,52 @@ function applyHeroAdaptation(base: BotProfile, hero: HeroProfile): BotProfile {
   return adapted
 }
 
+// ─── Metatweak: Table Dynamics ────────────────────────────────
+/**
+ * Adjusts bot profile based on table dynamics — the "metatweak".
+ * Real players adapt when someone is running hot or the table shifts.
+ *
+ * - When a dominant player is on a heater: tighten up, trap more, bluff less
+ * - When this bot is running cold: widen slightly to avoid being blinded out
+ * - When this bot is running hot: tighten slightly (protect the lead)
+ * - Deep stacks: play more speculative hands; short stacks: tighten up
+ */
+function applyTableDynamics(
+  base: BotProfile,
+  dynamics?: DecisionContext['tableDynamics'],
+): BotProfile {
+  if (!dynamics || dynamics.handsInWindow < 10) return base
+
+  const adapted = { ...base }
+
+  // Someone is dominating the table (win rate > 28% in recent window)
+  if (dynamics.dominantWinRate > 0.28) {
+    const dominance = (dynamics.dominantWinRate - 0.28) * 3 // 0–0.5 scale
+    // Tighten value range and reduce bluffs vs the heater
+    adapted.bluffFreq = adapted.bluffFreq * (1 - dominance * 0.4)
+    // But increase aggression when we do play — trap and punish
+    adapted.aggression = Math.min(adapted.aggression * (1 + dominance * 0.3), 2.5)
+  }
+
+  // This bot is running cold (win rate < 10% over window)
+  if (dynamics.myRecentWinRate < 0.10 && dynamics.handsInWindow >= 15) {
+    const coldness = (0.10 - dynamics.myRecentWinRate) * 5 // 0–0.5 scale
+    // Widen slightly to stay active — real players loosen when card-dead
+    adapted.vpip = Math.min(adapted.vpip * (1 + coldness * 0.15), 0.55)
+    adapted.pfr = Math.min(adapted.pfr * (1 + coldness * 0.10), 0.45)
+  }
+
+  // This bot is running hot (win rate > 25%)
+  if (dynamics.myRecentWinRate > 0.25) {
+    const hotness = (dynamics.myRecentWinRate - 0.25) * 3 // 0–0.5 scale
+    // Tighten slightly to protect the lead — real winners get cautious
+    adapted.vpip = adapted.vpip * (1 - hotness * 0.10)
+    adapted.bluffFreq = adapted.bluffFreq * (1 - hotness * 0.25)
+  }
+
+  return adapted
+}
+
 // ─── Card-Aware Helpers ───────────────────────────────────────
 
 /**
@@ -266,22 +324,21 @@ function applyHeroAdaptation(base: BotProfile, hero: HeroProfile): BotProfile {
  * A percentile of 0.15 means this hand is in the top 15% of starting hands.
  */
 function chenToPercentile(chen: number): number {
-  // Maps chen score to approximate hand percentile (0=best, 1=worst).
-  // Widened so that observed VPIP/PFR track config values:
-  // A bot with VPIP 0.30 should play ~30% of hands, not 15%.
-  if (chen >= 20) return 0.01   // AA
-  if (chen >= 16) return 0.03   // KK
-  if (chen >= 14) return 0.06   // QQ, AKs
-  if (chen >= 12) return 0.09   // JJ, AQs, AKo
-  if (chen >= 10) return 0.15   // TT, AJs+, KQs
-  if (chen >= 8)  return 0.25   // 99, broadways
-  if (chen >= 7)  return 0.33   // 88, suited connectors
-  if (chen >= 6)  return 0.42   // 77, suited broadways
-  if (chen >= 5)  return 0.52   // 66, suited connectors
-  if (chen >= 4)  return 0.62   // 55, suited gappers
-  if (chen >= 3)  return 0.73   // 44, low suited
-  if (chen >= 2)  return 0.84   // 33, 22
-  if (chen >= 1)  return 0.93   // low suited junk
+  // Maps chen score to the actual % of starting hands at or above this strength.
+  // Calibrated empirically against all 1326 unique hold'em starting hands.
+  if (chen >= 20) return 0.005  // AA (6 combos = 0.5%)
+  if (chen >= 16) return 0.009  // KK
+  if (chen >= 14) return 0.014  // QQ, AKs
+  if (chen >= 12) return 0.021  // JJ, AQs, AKo
+  if (chen >= 10) return 0.044  // TT, AJs+, KQs
+  if (chen >= 8)  return 0.107  // 99, broadways
+  if (chen >= 7)  return 0.178  // 88, suited connectors
+  if (chen >= 6)  return 0.255  // 77, suited one-gappers
+  if (chen >= 5)  return 0.433  // 66, suited connectors
+  if (chen >= 4)  return 0.517  // 55, suited gappers
+  if (chen >= 3)  return 0.671  // 44, low suited
+  if (chen >= 2)  return 0.789  // 33, 22
+  if (chen >= 1)  return 0.882  // low suited junk
   return 1.0                     // absolute garbage
 }
 
@@ -343,8 +400,8 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
 
   // ─── Short-stack push/fold mode (<25BB) ────────────────
   if (stackBB < 25 && toCall > 0 && ctx.holeCards) {
-    const chen = chenScore(ctx.holeCards)
-    const handPct = chenToPercentile(chen)
+    const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression })
+    const handPct = chenToPercentile(chenMax)
     // Shove with top ~15% of hands, fold everything else
     const shoveThreshold = stackBB < 10 ? 0.25 : 0.18 // wider when desperate
     if (handPct < shoveThreshold) {
@@ -353,22 +410,19 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     return { type: 'fold' }
   }
 
-  // ─── Position-aware range blending ─────────────────────
-  const POSITION_RANGES: Record<string, number> = {
-    'UTG': 0.15, 'UTG+1': 0.17, 'MP': 0.22, 'MP+1': 0.22,
-    'CO': 0.30, 'BTN': 0.42, 'D': 0.42, 'D/BTN': 0.42,
-    'D/SB': 0.42, 'SB': 0.36, 'BB': 0.40,
-  }
-  const posRange = POSITION_RANGES[ctx.position ?? ''] ?? 0.25
-  const effectivePfr = (profile.pfr + posRange) / 2
-  const effectiveVpip = (profile.vpip + posRange) / 2
+  // ─── Effective ranges ──────────────────────────────────
+  // Position is handled by Chen+ (which adjusts hand strength by seat).
+  // Profile VPIP/PFR are used directly as the threshold.
+  const effectiveVpip = profile.vpip
+  const effectivePfr = profile.pfr
 
-  // ─── Card-aware hand strength ──────────────────────────
+  // ─── Card-aware hand strength (uses Chen+ for position/style context) ──
   let handPct = rand
   if (ctx.holeCards) {
-    const chen = chenScore(ctx.holeCards)
-    handPct = chenToPercentile(chen)
-    const jitterScale = chen >= 10 ? 0.02 : chen >= 7 ? 0.06 : 0.10
+    const style = { vpip: profile.vpip, aggression: profile.aggression, creativeFreq: profile.creativeFreq }
+    const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', style)
+    handPct = chenToPercentile(chenMax)
+    const jitterScale = chenMax >= 10 ? 0.02 : chenMax >= 7 ? 0.06 : 0.10
     handPct = Math.max(0, Math.min(1, handPct + (Math.random() - 0.5) * jitterScale))
   }
 
@@ -380,9 +434,12 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     return { type: 'check' }
   }
 
-  // Completing the BB
+  // Completing the SB or defending the BB — modern poker defends very wide
+  // BB gets a discount, so defend ~90% of VPIP range; SB ~80%
   if (toCall <= bb && raiseLevel <= 1) {
-    if (handPct < effectiveVpip) {
+    const isBB = ctx.position === 'BB'
+    const defenseRange = isBB ? Math.min(effectiveVpip * 1.25, 0.70) : effectiveVpip
+    if (handPct < defenseRange) {
       if (handPct < effectivePfr) {
         const raiseSize = Math.round(currentBet * (2.5 + profile.aggression * 0.5))
         return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
@@ -401,7 +458,11 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     const valueFreq = reraiseFreq * 0.55   // top hands by card quality
     // Bluff rate calibrated so total ≈ reraiseFreq: need bluffRate * callRange ≈ reraiseFreq * 0.45
     const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15)
-    const flatCallFreq = profile.vpip * 0.65
+    // Flat call range — modern poker defends wide vs single raises
+    // In position: defend ~85% of VPIP range; out of position: ~75%
+    const ipPositions = ['BTN', 'D', 'D/BTN', 'CO']
+    const inPosition = ipPositions.includes(ctx.position ?? '')
+    const flatCallFreq = effectiveVpip * (inPosition ? 0.85 : 0.75)
 
     // Value 3-bet with premium hands
     if (handPct < valueFreq && chips > currentBet * 3) {
@@ -413,7 +474,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       const raiseSize = Math.round(currentBet * (3.0 + (profile.aggression - 1) * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    if (handPct < valueFreq + flatCallFreq) {
+    if (handPct < flatCallFreq) {
       return { type: 'call' }
     }
     return { type: 'fold' }
@@ -423,7 +484,8 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     const reraiseFreq = profile.fourBetFreq ?? (profile.pfr * 0.15 * profile.aggression)
     const valueFreq = reraiseFreq * 0.6
     const bluffRate4 = (reraiseFreq * 0.4) / Math.max(effectiveVpip, 0.15)
-    const flatCallFreq = profile.vpip * 0.35
+    // Facing 3-bet: tighter defense but still wide by modern standards
+    const flatCallFreq4 = effectiveVpip * 0.45
 
     if (handPct < valueFreq && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * 2.5)
@@ -433,7 +495,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       const raiseSize = Math.round(currentBet * 2.5)
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    if (handPct < valueFreq + flatCallFreq) {
+    if (handPct < flatCallFreq4) {
       return { type: 'call' }
     }
     return { type: 'fold' }
@@ -441,12 +503,13 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
 
   if (raiseLevel === 3) {
     const reraiseFreq = profile.fiveBetFreq ?? 0.01
-    const flatCallFreq = profile.vpip * 0.15
+    // Facing 4-bet: only continuing with strong hands
+    const flatCallFreq5 = effectiveVpip * 0.20
 
     if (handPct < reraiseFreq) {
       return { type: 'raise', amount: chips + playerBet }
     }
-    if (handPct < reraiseFreq + flatCallFreq) {
+    if (handPct < reraiseFreq + flatCallFreq5) {
       return { type: 'call' }
     }
     return { type: 'fold' }
@@ -455,6 +518,92 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   // Facing 5-bet+
   if (handPct < 0.01) return { type: 'call' }
   return { type: 'fold' }
+}
+
+// ─── Board Texture Analysis ──────────────────────────────────
+
+interface BoardTexture {
+  highCard: number         // highest board card rank (2-14)
+  isAceHigh: boolean       // board has an ace
+  isBroadwayHeavy: boolean // 2+ cards >= Jack
+  isLow: boolean           // all cards <= 9
+  isDry: boolean           // no flush/straight draws, unpaired
+  isWet: boolean           // flush draw + straight draw possible
+  isPaired: boolean        // board has a pair
+  isMonotone: boolean      // 3+ cards same suit
+  hasTwoTone: boolean      // exactly 2 cards of one suit (flush draw possible)
+  connectedness: number    // 0-1: how connected the board is (straight draw density)
+  suitedness: number       // max cards of one suit / total cards
+}
+
+function analyzeBoardTexture(community: Card[]): BoardTexture {
+  if (community.length < 3) {
+    return { highCard: 0, isAceHigh: false, isBroadwayHeavy: false, isLow: true, isDry: true, isWet: false, isPaired: false, isMonotone: false, hasTwoTone: false, connectedness: 0, suitedness: 0 }
+  }
+
+  const ranks = community.map(c => c.rank).sort((a, b) => b - a)
+  const highCard = ranks[0]
+  const isAceHigh = highCard === 14
+  const broadwayCount = ranks.filter(r => r >= 11).length
+  const isBroadwayHeavy = broadwayCount >= 2
+  const isLow = highCard <= 9
+
+  // Paired board
+  const rankCounts = new Map<number, number>()
+  for (const r of ranks) rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1)
+  const isPaired = [...rankCounts.values()].some(c => c >= 2)
+
+  // Suit analysis
+  const suitCounts = new Map<string, number>()
+  for (const c of community) suitCounts.set(c.suit, (suitCounts.get(c.suit) ?? 0) + 1)
+  const maxSuit = Math.max(...suitCounts.values())
+  const isMonotone = maxSuit >= 3
+  const hasTwoTone = maxSuit === 2
+  const suitedness = maxSuit / community.length
+
+  // Connectedness: count how many 2-card gaps <= 2 exist
+  const uniqueRanks = [...new Set(ranks)].sort((a, b) => a - b)
+  let connectedPairs = 0
+  let totalPairs = 0
+  for (let i = 0; i < uniqueRanks.length; i++) {
+    for (let j = i + 1; j < uniqueRanks.length; j++) {
+      totalPairs++
+      if (uniqueRanks[j] - uniqueRanks[i] <= 3) connectedPairs++
+    }
+  }
+  const connectedness = totalPairs > 0 ? connectedPairs / totalPairs : 0
+
+  const isDry = !isMonotone && !hasTwoTone && connectedness < 0.4 && !isPaired
+  const isWet = (isMonotone || hasTwoTone) && connectedness >= 0.4
+
+  return { highCard, isAceHigh, isBroadwayHeavy, isLow, isDry, isWet, isPaired, isMonotone, hasTwoTone, connectedness, suitedness }
+}
+
+/**
+ * Estimate range advantage based on board texture and preflop action.
+ * Returns a multiplier: >1 = we have range advantage, <1 = opponent does.
+ * The preflop raiser's range is weighted toward big cards and premium pairs.
+ * The caller's range is weighted toward suited connectors and small pairs.
+ */
+function rangeAdvantage(board: BoardTexture, isPreflopRaiser: boolean): number {
+  let advantage = 1.0
+
+  if (isPreflopRaiser) {
+    // Raiser has more big cards → advantage on high/broadway boards
+    if (board.isAceHigh) advantage += 0.20
+    if (board.isBroadwayHeavy) advantage += 0.15
+    // Disadvantage on low connected boards (caller has more suited connectors)
+    if (board.isLow && board.connectedness > 0.5) advantage -= 0.15
+  } else {
+    // Caller has more speculative hands → advantage on low/connected/suited boards
+    if (board.isLow) advantage += 0.10
+    if (board.connectedness > 0.5) advantage += 0.10
+    if (board.isMonotone) advantage += 0.10
+    // Disadvantage on ace-high dry boards
+    if (board.isAceHigh && board.isDry) advantage -= 0.20
+  }
+
+  return advantage
 }
 
 function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: number): BotAction {
@@ -466,6 +615,10 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const strength = cardAware
     ? postflopHandStrength(ctx.holeCards!, ctx.community!)
     : -1 // sentinel: use old probabilistic logic
+
+  // ─── Board texture analysis ───────────────────────────
+  const board = cardAware ? analyzeBoardTexture(ctx.community!) : null
+  const rangeAdv = board ? rangeAdvantage(board, ctx.wasPreflopRaiser ?? false) : 1.0
 
   // ─── Probabilistic fallback (no cards provided) ─────
   if (!cardAware) {
@@ -518,28 +671,45 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     // ─── Not facing a bet ──────────────────────────────
 
     // C-bet: preflop raiser should bet the flop most of the time
+    // Board texture matters: bet more on dry ace-high boards (range advantage),
+    // less on wet low boards (opponent has more sets/straights/flushes)
     if (isPreflopRaiser && ctx.street === 'flop') {
-      // C-bet with any hand: strong = value, draw = semi-bluff, air = bluff c-bet
-      const cbetRate = hasStrongHand ? 0.80
+      const textureMod = board
+        ? (board.isDry ? 1.15 : 1.0)         // dry boards = bet more (fewer draws to give free cards)
+          * (board.isAceHigh ? 1.15 : 1.0)    // ace-high = raiser range advantage
+          * (board.isWet ? 0.80 : 1.0)         // wet boards = check more (opponent can have draws/sets)
+          * (board.isLow ? 0.90 : 1.0)         // low boards = less raiser range advantage
+          * rangeAdv
+        : 1.0
+      const cbetRate = (hasStrongHand ? 0.80
         : hasDraw ? 0.55 + profile.aggression * 0.10
         : hasWeakMade ? 0.40
-        : 0.15 + profile.bluffFreq * 0.5  // air c-bet — reduced, based on bluffiness
+        : 0.20 + profile.bluffFreq * 0.6) * textureMod  // air c-bet scales with texture
       // Reduce in multiway pots
       const multiDiscount = isMultiway ? 0.65 : 1.0
       if (Math.random() < cbetRate * multiDiscount) {
-        const betSize = Math.round(pot * (0.45 + profile.aggression * 0.15 + Math.random() * 0.15))
+        // Size based on texture: bigger on wet boards (charge draws), smaller on dry
+        const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
+        const betSize = Math.round(pot * (sizeMult + profile.aggression * 0.12 + Math.random() * 0.12))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
       }
       return { type: 'check' }
     }
 
     // Second barrel (turn): if bet the flop, consider barreling
+    // Board texture: barrel more on dry boards and scare cards, less on draw-completing cards
     if (betOnFlop && ctx.street === 'turn') {
-      const barrelRate = hasStrongHand ? 0.75
+      const turnTexture = board
+        ? (board.isDry ? 1.10 : 1.0)
+          * (board.isAceHigh ? 1.10 : 1.0)
+          * (board.isMonotone ? 0.70 : 1.0)  // flush possible = slow down
+          * rangeAdv
+        : 1.0
+      const barrelRate = (hasStrongHand ? 0.75
         : hasMonster ? 0.90
         : hasDraw ? 0.45 + profile.aggression * 0.10
-        : hasNothing ? profile.bluffFreq * 0.5  // give up most air on turn
-        : 0.30
+        : hasNothing ? profile.bluffFreq * 0.6 * profile.aggression  // bluff barrel with air
+        : 0.30) * turnTexture
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.50 + profile.aggression * 0.15 + Math.random() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
@@ -547,11 +717,20 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' }
     }
 
-    // Third barrel (river): only with strong hands or committed bluffs
+    // Third barrel (river): strong hands for value, board-texture-aware bluffs
+    // Key insight: on ace-high dry boards, river bluffs work because opponent
+    // rarely has an ace (would have raised earlier). On wet boards that bricked,
+    // bluffs represent the missed draw.
     if (betOnTurn && ctx.street === 'river') {
+      const riverBluffBoost = board
+        ? (board.isAceHigh && board.isDry ? 1.5 : 1.0) // ace-high dry = great bluff spot
+          * (board.isWet ? 1.3 : 1.0)                    // wet board that bricked = "missed draw" bluff
+          * (board.isPaired ? 0.7 : 1.0)                  // paired boards = opponent may have trips
+          * rangeAdv
+        : 1.0
       const barrelRate = hasMonster ? 0.85
         : hasStrongHand ? 0.60
-        : hasNothing ? profile.bluffFreq * 0.3 * profile.aggression  // rare triple-barrel bluff
+        : hasNothing ? profile.bluffFreq * 0.4 * profile.aggression * riverBluffBoost
         : 0.20
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
@@ -560,21 +739,52 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' }
     }
 
-    // Not the preflop raiser — bet less often, more value-oriented
-    if (hasStrongHand && Math.random() < 0.25 + profile.aggression * 0.25) {
-      const betSize = Math.round(pot * (0.45 + profile.aggression * 0.15 + Math.random() * 0.15))
-      return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+    // Not the preflop raiser — lead (donk bet) on boards where we have range advantage
+    // or where the board texture favors our range (low, connected boards)
+    const callerRangeAdv = board ? rangeAdvantage(board, false) : 1.0
+    const donkFreq = profile.donkBetFreq ?? 0 // fictional bots donk-bet; pros don't
+
+    // Donk bet with strong hands — non-pro players lead into the raiser frequently
+    if (hasStrongHand) {
+      const leadRate = donkFreq > 0
+        ? donkFreq + profile.aggression * 0.15 // fictional: use their donk freq
+        : (0.25 + profile.aggression * 0.25) * callerRangeAdv // pro: texture-based
+      if (Math.random() < leadRate) {
+        const betSize = Math.round(pot * (0.45 + profile.aggression * 0.15 + Math.random() * 0.15))
+        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+      }
     }
 
-    if (hasDraw && Math.random() < profile.bluffFreq + profile.aggression * 0.10) {
-      const betSize = Math.round(pot * (0.40 + Math.random() * 0.20))
-      return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+    // Donk bet with draws (semi-bluff lead)
+    if (hasDraw) {
+      const drawLeadRate = donkFreq > 0
+        ? donkFreq * 0.7 // fictional: lead with draws at ~70% of their donk rate
+        : (profile.bluffFreq + profile.aggression * 0.10) * callerRangeAdv // pro: texture-based
+      if (Math.random() < drawLeadRate) {
+        const betSize = Math.round(pot * (0.40 + Math.random() * 0.20))
+        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+      }
     }
 
-    // Donk bet with air — very rare, only high-bluff players vs passive tables
-    if (hasNothing && oppPassive && Math.random() < profile.bluffFreq * 0.3) {
-      const bluffSize = Math.round(pot * (0.33 + Math.random() * 0.22))
-      return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
+    // Probe bet / donk bet with air — board-texture-aware
+    // Fictional bots donk with air at their donkBetFreq; pros use texture reads.
+    {
+      const probeRate = donkFreq > 0
+        ? donkFreq * 0.4 // fictional: donk bluff at ~40% of their donk rate
+        : profile.bluffFreq * profile.aggression * 0.25
+          * (board?.isAceHigh ? 1.5 : 1.0)   // represent the ace
+          * (board?.isDry ? 1.4 : 1.0)        // dry = more fold equity
+          * (board?.isLow ? 1.2 : 1.0)        // low boards with overcards = represent overpair
+          * (oppPassive ? 1.3 : 1.0)           // passive table = more fold equity
+      if (hasNothing && Math.random() < probeRate) {
+        const bluffSize = Math.round(pot * (0.33 + Math.random() * 0.22))
+        return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
+      }
+      // Also probe with weak made hands on scary boards (represent strength)
+      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && Math.random() < probeRate * 0.8) {
+        const betSize = Math.round(pot * (0.30 + Math.random() * 0.20))
+        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+      }
     }
 
     return { type: 'check' }

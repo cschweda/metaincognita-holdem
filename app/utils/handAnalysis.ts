@@ -53,7 +53,8 @@ export interface HandAnalysis {
   handDescription: string
 
   // Preflop strength
-  chenScore: number
+  chenScore: number       // classic chen formula (raw hand strength)
+  chenMaxScore: number    // chen+ adjusted for position & playstyle
   preflopTier: 'premium' | 'strong' | 'playable' | 'marginal' | 'trash'
   preflopTierLabel: string
 
@@ -118,6 +119,49 @@ export function chenScore(hole: [Card, Card]): number {
   if (gap <= 1 && a < 12) score += 1
 
   return Math.max(Math.ceil(score), 0)
+}
+
+/**
+ * Chen+ — position- and style-adjusted preflop hand strength.
+ * Starts with classic chen, then adjusts:
+ *   +1 to +3 for late position (CO/BTN play wider profitably)
+ *   -1 to -2 for early position under pressure
+ *   +1 for suited connectors when playstyle is loose/creative
+ *   +1 for high-card hands when playstyle is tight/aggressive
+ * Returns a score 0–20+ where higher = stronger in context.
+ */
+export function chenPlusScore(
+  hole: [Card, Card],
+  position: string,
+  style?: { vpip?: number; aggression?: number; creativeFreq?: number },
+): number {
+  let score = chenScore(hole)
+  const [a, b] = hole.map(c => c.rank).sort((x, y) => y - x)
+  const suited = hole[0].suit === hole[1].suit
+  const gap = a - b - 1
+  const connected = gap <= 1
+
+  // Position adjustment — late position makes hands more valuable
+  // Kept moderate since these directly shift the percentile threshold
+  const POS_ADJ: Record<string, number> = {
+    'BTN': 2, 'D': 2, 'D/BTN': 2, 'D/SB': 1,
+    'CO': 1, 'SB': 0, 'BB': 1,
+    'MP': 0, 'MP+1': 0,
+    'UTG': -1, 'UTG+1': -1,
+  }
+  score += POS_ADJ[position] ?? 0
+
+  // Style adjustments (when bot/hero profile is available)
+  if (style) {
+    // Loose/creative players extract more value from suited connectors
+    if (suited && connected && (style.vpip ?? 0) > 0.27) score += 1
+    if ((style.creativeFreq ?? 0) > 0.08 && suited && gap <= 2) score += 1
+
+    // Tight-aggressive players get more from big-card hands
+    if ((style.vpip ?? 0) < 0.22 && (style.aggression ?? 0) > 1.2 && a >= 12) score += 1
+  }
+
+  return Math.max(score, 0)
 }
 
 export function preflopTier(score: number): { tier: HandAnalysis['preflopTier']; label: string } {
@@ -692,7 +736,8 @@ export function analyzeHand(
   toCall: number = 0,
 ): HandAnalysis {
   const chen = chenScore(holeCards)
-  const { tier, label } = preflopTier(chen)
+  const chenMax = chenPlusScore(holeCards, position)
+  const { tier, label } = preflopTier(chenMax)
 
   const madeHand = community.length >= 3 ? bestHand(holeCards, community) : null
   const handDesc = describeHand(holeCards, community)
@@ -720,6 +765,7 @@ export function analyzeHand(
     madeHand,
     handDescription: handDesc,
     chenScore: chen,
+    chenMaxScore: chenMax,
     preflopTier: tier,
     preflopTierLabel: label,
     draws,

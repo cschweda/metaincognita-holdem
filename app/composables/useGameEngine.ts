@@ -17,6 +17,7 @@ export interface GameEngineOptions {
     preflopCallers: number
     streetHistory?: { flop?: string; turn?: string }
     opponentReads?: { avgAggression: number; recentBluffRate: number; tableIsPassive: boolean }
+    tableDynamics?: { dominantPlayerId?: number; dominantWinRate: number; myRecentWinRate: number; avgStackDepth: number; handsInWindow: number }
   }) => { type: string; amount?: number }
   onEndHand: () => void
   onHeroActivity?: () => void
@@ -44,6 +45,31 @@ export function useGameEngine(options: GameEngineOptions) {
   let recentShowdownBluffs = 0
   let recentShowdowns = 0
   let handsForMemory = 0
+
+  // Metatweak — rolling window of recent hand winners
+  const METATWEAK_WINDOW = 20
+  const recentWinnerIds: number[] = []
+
+  function getTableDynamics(botId: number) {
+    if (recentWinnerIds.length < 10) return undefined
+    const winCounts = new Map<number, number>()
+    for (const id of recentWinnerIds) winCounts.set(id, (winCounts.get(id) ?? 0) + 1)
+    const total = recentWinnerIds.length
+    let dominantId = -1, dominantWins = 0
+    for (const [id, wins] of winCounts) {
+      if (wins > dominantWins) { dominantId = id; dominantWins = wins }
+    }
+    const myWins = winCounts.get(botId) ?? 0
+    const avgStack = gs.playerStates.value.reduce((s, p) => s + (p.eliminated ? 0 : p.chips), 0) /
+      gs.playerStates.value.filter(p => !p.eliminated).length
+    return {
+      dominantPlayerId: dominantId,
+      dominantWinRate: dominantWins / total,
+      myRecentWinRate: myWins / total,
+      avgStackDepth: avgStack / bb.value,
+      handsInWindow: total,
+    }
+  }
 
   function findSeatByPosition(label: string): number {
     return positions.value.findIndex(p => p === label || p.includes(label))
@@ -211,6 +237,7 @@ export function useGameEngine(options: GameEngineOptions) {
           recentBluffRate: recentShowdowns > 0 ? recentShowdownBluffs / recentShowdowns : 0.15,
           tableIsPassive: recentTableChecks > recentTableBets * 2,
         } : undefined,
+        tableDynamics: getTableDynamics(p.id),
       })
       applyAction(p, action)
 
@@ -358,6 +385,11 @@ export function useGameEngine(options: GameEngineOptions) {
     setTimeout(() => runBettingRound(nextSeat, true), 400)
   }
 
+  function recordHandWinner(winnerId: number) {
+    recentWinnerIds.push(winnerId)
+    if (recentWinnerIds.length > METATWEAK_WINDOW) recentWinnerIds.shift()
+  }
+
   return {
     findSeatByPosition,
     postBlindsAndStartBetting,
@@ -369,6 +401,7 @@ export function useGameEngine(options: GameEngineOptions) {
     handleCall,
     handleRaise,
     resumeBettingAfterHero,
+    recordHandWinner,
   }
 }
 

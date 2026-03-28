@@ -186,6 +186,7 @@ const engine = useGameEngine({
       preflopCallers: streetContext?.preflopCallers,
       streetHistory: streetContext?.streetHistory as any,
       opponentReads: streetContext?.opponentReads,
+      tableDynamics: streetContext?.tableDynamics,
     })
   },
   onEndHand: () => endHand(),

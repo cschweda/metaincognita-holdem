@@ -128,6 +128,7 @@ function resetBotToDefault() {
   bot.threeBetFreq = original.threeBetFreq
   bot.fourBetFreq = original.fourBetFreq
   bot.fiveBetFreq = original.fiveBetFreq
+  bot.donkBetFreq = original.donkBetFreq
   bot.tiltMultiplier = original.tiltMultiplier
   bot.name = original.name
 }
@@ -153,6 +154,7 @@ const engine = useGameEngine({
       threeBetFreq: botConfig.threeBetFreq,
       fourBetFreq: botConfig.fourBetFreq,
       fiveBetFreq: botConfig.fiveBetFreq,
+      donkBetFreq: botConfig.donkBetFreq,
     }
 
     const profile = applyTilt(baseProfile, p.tilt, config.tilt, p.tiltMultiplier)
@@ -189,6 +191,7 @@ const engine = useGameEngine({
         preflopCallers: streetContext?.preflopCallers,
         streetHistory: streetContext?.streetHistory as any,
         opponentReads: streetContext?.opponentReads,
+        tableDynamics: streetContext?.tableDynamics,
       },
       consistency,
       heroProfile,
@@ -337,6 +340,9 @@ function endHand() {
   gs.heroWinAmount.value = gs.pot.value
   gs.handWinnerId.value = winnerId
   gs.handWinnerName.value = gs.playerStates.value[winnerId]?.name || 'Unknown'
+
+  // Record winner for metatweak table dynamics
+  if (winnerId >= 0) engine.recordHandWinner(winnerId)
 
   // Update tilt for bots
   for (const p of gs.playerStates.value) {

@@ -35,6 +35,7 @@ export interface BotConfig {
   threeBetFreq?: number
   fourBetFreq?: number
   fiveBetFreq?: number
+  donkBetFreq?: number
   leak?: string
 }
 
@@ -113,6 +114,7 @@ function generateDefaultBots(count: number): BotConfig[] {
     threeBetFreq: persona.threeBetFreq,
     fourBetFreq: persona.fourBetFreq,
     fiveBetFreq: persona.fiveBetFreq,
+    donkBetFreq: persona.donkBetFreq,
     leak: persona.leak,
   }))
 }
