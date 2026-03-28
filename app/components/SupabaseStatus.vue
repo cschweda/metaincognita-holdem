@@ -6,6 +6,7 @@
 import {
   ensureSession,
   useSupabase,
+  isSupabaseConnectionFailed,
   signInWithGitHub,
   signOut,
   getCurrentUser,
@@ -42,9 +43,16 @@ onMounted(async () => {
   try {
     const userId = await ensureSession()
     connected.value = !!userId
-    user.value = await getCurrentUser()
+    // Check if ensureSession discovered invalid credentials
+    if (isSupabaseConnectionFailed()) {
+      supabaseConfigured.value = false
+      connected.value = false
+    } else {
+      user.value = await getCurrentUser()
+    }
   } catch {
     connected.value = false
+    supabaseConfigured.value = false
   }
   checking.value = false
 })
@@ -114,7 +122,7 @@ async function handleLogout() {
           class="text-[0.6rem] font-medium"
           :class="checking ? 'text-yellow-400' : !supabaseConfigured ? 'text-gray-400' : connected ? 'text-yellow-400' : 'text-red-400'"
         >
-          {{ checking ? 'Connecting...' : !supabaseConfigured ? 'Local Only' : connected ? 'Local' : 'Offline' }}
+          {{ checking ? 'Connecting...' : !supabaseConfigured ? (isSupabaseConnectionFailed() ? 'Failed' : 'Local Only') : connected ? 'Local' : 'Offline' }}
         </span>
       </button>
 
@@ -125,10 +133,12 @@ async function handleLogout() {
       >
         <div class="p-3 border-b border-gray-800">
           <div class="text-xs text-gray-400">
-            {{ !supabaseConfigured ? 'No database configured. Stats saved to this browser only.' : connected ? 'Stats saved locally to this browser.' : 'Not connected.' }}
+            {{ !supabaseConfigured
+              ? (isSupabaseConnectionFailed() ? 'Database connection failed. Stats saved to this browser only.' : 'No database configured. Stats saved to this browser only.')
+              : connected ? 'Stats saved locally to this browser.' : 'Not connected.' }}
           </div>
-          <div v-if="!supabaseConfigured" class="text-[0.6rem] text-gray-500/60 mt-1">
-            Lifetime stats unavailable. Configure Supabase for cloud persistence.
+          <div v-if="!supabaseConfigured" class="text-[0.6rem] mt-1" :class="isSupabaseConnectionFailed() ? 'text-red-500/60' : 'text-gray-500/60'">
+            {{ isSupabaseConnectionFailed() ? 'Check SUPABASE_URL and SUPABASE_KEY in your .env file.' : 'Configure Supabase for cloud persistence.' }}
           </div>
           <div v-else-if="connected" class="text-[0.6rem] text-yellow-500/60 mt-1">
             Sign in with GitHub to sync across devices

@@ -6,7 +6,7 @@
  * Includes GitHub OAuth and email/password auth for cross-session stat persistence.
  */
 import config from '@config'
-import { useSupabase, isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'
+import { useSupabase, isSupabaseConnectionFailed, isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'
 import { dynamicBotName, describeBotStyle, FICTIONAL_NAMES } from '~/utils/botDescriptions'
 
 const emit = defineEmits<{
@@ -58,6 +58,10 @@ const passwordValidation = computed(() => validatePassword(passwordInput.value))
 
 onMounted(async () => {
   isLoggedIn.value = await isGitHubUser()
+  // Re-check after async auth attempt — credentials may have been invalidated
+  if (isSupabaseConnectionFailed()) {
+    supabaseAvailable.value = false
+  }
 })
 
 async function handleEmailAuth() {
@@ -464,13 +468,18 @@ function handleStart() {
     </div>
 
     <!-- Auth status + Start -->
-    <!-- Supabase not configured — local storage only -->
+    <!-- Supabase not configured or connection failed — local storage only -->
     <div v-if="!supabaseAvailable" class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3">
       <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-gray-500" />
-        <span class="text-sm text-gray-300">Local Storage Only</span>
+        <div class="w-2 h-2 rounded-full" :class="isSupabaseConnectionFailed() ? 'bg-red-500' : 'bg-gray-500'" />
+        <span class="text-sm text-gray-300">{{ isSupabaseConnectionFailed() ? 'Connection Failed — Local Only' : 'Local Storage Only' }}</span>
       </div>
-      <div class="text-xs text-gray-500 mt-0.5">No database configured. Session stats are saved to this browser's local storage. Lifetime stats across sessions are not available. To enable cloud persistence, configure Supabase environment variables.</div>
+      <div class="text-xs text-gray-500 mt-0.5">
+        {{ isSupabaseConnectionFailed()
+          ? 'Supabase credentials appear invalid or the connection failed. Stats will be saved to this browser only. Check your SUPABASE_URL and SUPABASE_KEY environment variables.'
+          : 'No database configured. Session stats are saved to this browser\'s local storage. Lifetime stats across sessions are not available. To enable cloud persistence, configure Supabase environment variables.'
+        }}
+      </div>
     </div>
     <!-- Signed in -->
     <div v-else-if="isLoggedIn" class="bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">

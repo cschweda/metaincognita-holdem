@@ -6,19 +6,39 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 
 let client: SupabaseClient | null = null
+let connectionFailed = false // true if credentials were provided but are invalid
 
 /** Reset the singleton — only for testing. */
-export function _resetClientForTesting() { client = null }
+export function _resetClientForTesting() { client = null; connectionFailed = false }
+
+/** Returns true if Supabase was configured but the connection/auth failed. */
+export function isSupabaseConnectionFailed(): boolean { return connectionFailed }
 
 export function useSupabase(): SupabaseClient | null {
+  if (connectionFailed) return null // already tried and failed — don't retry
   if (client) return client
 
   const config = useRuntimeConfig()
-  const url = config.public.supabaseUrl as string
-  const key = config.public.supabaseKey as string
+  const url = (config.public.supabaseUrl as string || '').trim()
+  const key = (config.public.supabaseKey as string || '').trim()
 
+  // Both must be present
   if (!url || !key) {
     console.warn('Supabase not configured — stats will only persist in localStorage')
+    return null
+  }
+
+  // Basic URL validation — must be a valid https URL
+  if (!url.startsWith('https://') || !url.includes('.supabase.co')) {
+    console.warn('Supabase URL appears invalid (expected https://xxx.supabase.co) — falling back to localStorage')
+    connectionFailed = true
+    return null
+  }
+
+  // Key must be non-trivial (Supabase anon keys are 30+ chars)
+  if (key.length < 20) {
+    console.warn('Supabase key appears invalid (too short) — falling back to localStorage')
+    connectionFailed = true
     return null
   }
 
@@ -34,22 +54,34 @@ export function useSupabase(): SupabaseClient | null {
 
 /**
  * Ensures a session exists — either existing GitHub session or anonymous fallback.
+ * If Supabase credentials are invalid (bad key, wrong project), catches the error,
+ * disables the Supabase layer, and falls back to localStorage-only mode.
  */
 export async function ensureSession(): Promise<string | null> {
   const sb = useSupabase()
   if (!sb) return null
 
-  const { data: { session } } = await sb.auth.getSession()
-  if (session?.user) return session.user.id
+  try {
+    const { data: { session } } = await sb.auth.getSession()
+    if (session?.user) return session.user.id
 
-  // No existing session — sign in anonymously
-  const { data, error } = await sb.auth.signInAnonymously()
-  if (error) {
-    console.warn('Anonymous sign-in failed:', error.message)
+    // No existing session — sign in anonymously
+    const { data, error } = await sb.auth.signInAnonymously()
+    if (error) {
+      console.warn('Supabase auth failed — falling back to localStorage:', error.message)
+      connectionFailed = true
+      client = null
+      return null
+    }
+
+    return data.user?.id || null
+  } catch (e: any) {
+    // Network error, invalid credentials, wrong project URL, etc.
+    console.warn('Supabase connection failed — falling back to localStorage:', e?.message || e)
+    connectionFailed = true
+    client = null
     return null
   }
-
-  return data.user?.id || null
 }
 
 // Keep the old name as alias for backward compat
