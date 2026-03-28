@@ -14,6 +14,7 @@ import type { User } from '@supabase/supabase-js'
 
 const connected = ref(false)
 const checking = ref(true)
+const supabaseConfigured = ref(true)
 const user = ref<User | null>(null)
 const showMenu = ref(false)
 
@@ -31,7 +32,7 @@ const displayName = computed(() => {
 
 onMounted(async () => {
   const sb = useSupabase()
-  if (!sb) { checking.value = false; return }
+  if (!sb) { supabaseConfigured.value = false; checking.value = false; return }
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     user.value = session?.user || null
@@ -107,13 +108,13 @@ async function handleLogout() {
       >
         <div
           class="w-2 h-2 rounded-full"
-          :class="checking ? 'bg-yellow-500 animate-pulse' : connected ? 'bg-yellow-500' : 'bg-red-500'"
+          :class="checking ? 'bg-yellow-500 animate-pulse' : !supabaseConfigured ? 'bg-gray-500' : connected ? 'bg-yellow-500' : 'bg-red-500'"
         />
         <span
           class="text-[0.6rem] font-medium"
-          :class="checking ? 'text-yellow-400' : connected ? 'text-yellow-400' : 'text-red-400'"
+          :class="checking ? 'text-yellow-400' : !supabaseConfigured ? 'text-gray-400' : connected ? 'text-yellow-400' : 'text-red-400'"
         >
-          {{ checking ? 'Connecting...' : connected ? 'Local' : 'Offline' }}
+          {{ checking ? 'Connecting...' : !supabaseConfigured ? 'Local Only' : connected ? 'Local' : 'Offline' }}
         </span>
       </button>
 
@@ -124,15 +125,18 @@ async function handleLogout() {
       >
         <div class="p-3 border-b border-gray-800">
           <div class="text-xs text-gray-400">
-            {{ connected ? 'Stats saved locally to this browser.' : 'Not connected.' }}
+            {{ !supabaseConfigured ? 'No database configured. Stats saved to this browser only.' : connected ? 'Stats saved locally to this browser.' : 'Not connected.' }}
           </div>
-          <div v-if="connected" class="text-[0.6rem] text-yellow-500/60 mt-1">
+          <div v-if="!supabaseConfigured" class="text-[0.6rem] text-gray-500/60 mt-1">
+            Lifetime stats unavailable. Configure Supabase for cloud persistence.
+          </div>
+          <div v-else-if="connected" class="text-[0.6rem] text-yellow-500/60 mt-1">
             Sign in with GitHub to sync across devices
           </div>
         </div>
         <div class="p-1.5">
           <button
-            v-if="connected"
+            v-if="connected && supabaseConfigured"
             class="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 rounded-md transition-colors"
             @click="handleLogin"
           >

@@ -267,10 +267,10 @@ describe('Realistic tilt: tilted bots play looser than when calm', () => {
     }
   })
 
-  it('Mike Matusow tilts frequently and plays much wider', () => {
-    const matusow = config.personas.find(p => p.name === 'Mike Matusow')!
+  it('Mike the Mouth tilts frequently and plays much wider', () => {
+    const matusow = config.personas.find(p => p.name === 'Mike the Mouth')!
     const stats = simulateRealistic(matusow)
-    // Matusow (2.2x) should tilt a lot
+    // the Mouth (2.2x) should tilt a lot
     expect(stats.tiltedHands).toBeGreaterThan(N * 0.05) // at least 5% of hands tilted
     if (stats.tiltedHands > 100) {
       expect(stats.tiltedVpip).toBeGreaterThan(stats.normalVpip)

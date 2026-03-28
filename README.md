@@ -112,7 +112,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 | Entonio Asfandiari | 29% | Charismatic aggressor, constant pressure | 0.9x | 94% |
 | Kabe Gaplan | 26% | Steady, intelligent, solid fundamentals | 0.8x | 95% |
 | Bean-Robert Jellande | 36% | Fearless gambler, huge bluffs | 1.4x | 90% |
-| Mike Matusow | 28% | Solid until tilt -- then reckless all-ins | 2.2x | 91% |
+| Mike the Mouth | 28% | Solid until tilt -- then reckless all-ins | 2.2x | 91% |
 | Mhris Coneymaker | 30% | Online grinder, occasional overplays | 1.1x | 92% |
 | Rhip Ceese | 24% | Legendary, near-zero leaks, ice cold | 0.3x | 98% |
 | Utu Sngar | 26% | Genius reads, fearless, erratic brilliance | 1.0x | 93% |
@@ -171,7 +171,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - **Near-perfect (0.98-0.99)**: Ihil Pvey, Rhip Ceese, Serik Eidel -- misplay ~1-2% of decisions
 - **Very disciplined (0.95-0.97)**: Solid Sam, Boyle Drunson, Aatrik Pantonius, Cohnny Jhan
 - **Mostly solid (0.92-0.94)**: Degreanu, Utu Sngar, Coneymaker, Lhil Paak
-- **Inconsistent (0.88-0.91)**: Wild Wendy, Jellande, Matusow, Ncotty Sguyen
+- **Inconsistent (0.88-0.91)**: Wild Wendy, Jellande, Mike the Mouth, Ncotty Sguyen
 
 ### Session Management
 - **5-minute hero timeout**: Inactivity auto-folds current hand, pauses game, saves session. Resume or end from pause screen.
@@ -190,9 +190,29 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - Hover any dotted-underlined label for an explanation
 - Covers: Equity, Chen Score, Chen+, Position, Pot Odds, EV, SPR, Draws & Outs, Recommendation
 
-### Authentication
-- **Not signed in**: Session stats saved to localStorage only. Yellow "Local" indicator.
-- **GitHub OAuth**: Sign in to sync stats across devices and sessions. Green indicator with username.
+### Authentication & Persistence
+
+The app has three persistence tiers depending on configuration:
+
+**Tier 1 — No Supabase (default for new clones):**
+- No `.env` file or empty `SUPABASE_URL`/`SUPABASE_KEY` values
+- Setup screen shows gray "Local Storage Only" indicator with message: "No database configured"
+- All login UI (GitHub, email/password) is hidden
+- Session stats saved to `localStorage` only — survives page refresh but not browser clear
+- No lifetime stats across sessions
+- The app is fully functional for playing poker — only cross-session analytics are unavailable
+
+**Tier 2 — Supabase configured, not signed in:**
+- `.env` has valid `SUPABASE_URL` and `SUPABASE_KEY`
+- Yellow "Local" indicator. GitHub OAuth and email/password login buttons shown.
+- Anonymous Supabase session created automatically
+- Session stats saved to localStorage AND Supabase (auto-sync every 60s + on tab close)
+- Stats page shows lifetime data across sessions
+
+**Tier 3 — Supabase configured, signed in (GitHub or email):**
+- Green indicator with username
+- Full cross-device sync. Stats follow your account.
+- All export, replay, and analytics features available
 - **Email/Password**: Create an account (8+ chars, uppercase, lowercase, number). Bcrypt hashed by Supabase.
 
 ### Hand Replay (`/replay`)
@@ -375,7 +395,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | Supabase (GitHub OAuth, email/password, RLS) + localStorage fallback |
 | Package Manager | Yarn |
 | Deployment | Netlify (static) |
-| Testing | Vitest (737 tests) |
+| Testing | Vitest (753 tests) |
 
 ## Bot Simulation Script
 
@@ -532,7 +552,7 @@ holdem-simulator/
 │       └── sidePots.ts            # Side pot calculation and multi-way pot awards
 ├── scripts/
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 16 Vitest test suites (737 tests)
+├── tests/                         # 17 Vitest test suites (753 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config with OG meta tags + Supabase runtime config
 ├── netlify.toml                   # Static deploy config with SPA redirect
@@ -557,9 +577,80 @@ All game parameters are centralized in `holdem.config.ts` (project root):
 - **Session management**: Hero timeout (5 min), auto-save interval (60s), re-buy toggle
 - **Animation timing**: Deal stagger, bot thinking delay, showdown pause
 
+### Supabase Setup (Optional)
+
+Supabase provides cloud persistence for cross-session lifetime stats. **It is entirely optional** — the app works fully without it (local storage only).
+
+**To enable:**
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy your project URL and anon/public key from Settings > API
+3. Create a `.env` file in the project root:
+
+```
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_KEY=your-anon-public-key
+```
+
+4. Run the following SQL in Supabase's SQL editor to create the required tables:
+
+```sql
+-- Sessions table
+create table sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id),
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  stake_level int not null default 3,
+  player_count int not null default 6,
+  starting_stack numeric not null default 200,
+  hands_played int not null default 0,
+  hands_won int not null default 0,
+  hands_lost int not null default 0,
+  hands_folded int not null default 0,
+  final_stack numeric,
+  peak_stack numeric,
+  total_profit numeric not null default 0
+);
+
+-- Hands table
+create table hands (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id),
+  session_id uuid references sessions(id) on delete cascade,
+  hand_number int not null,
+  hole_cards text not null,
+  board text,
+  result text not null,
+  profit numeric not null default 0,
+  position text not null,
+  pot_size numeric not null default 0,
+  stake_level int not null default 3,
+  player_count int not null default 6,
+  played_at timestamptz not null default now(),
+  actions jsonb,
+  players jsonb
+);
+
+-- Row Level Security
+alter table sessions enable row level security;
+alter table hands enable row level security;
+
+create policy "Users can manage own sessions" on sessions
+  for all using (auth.uid() = user_id);
+
+create policy "Users can manage own hands" on hands
+  for all using (auth.uid() = user_id);
+```
+
+5. Enable anonymous sign-in in Supabase: Authentication > Providers > Anonymous > Enable
+6. (Optional) Enable GitHub OAuth: Authentication > Providers > GitHub > Add client ID/secret from a GitHub OAuth App
+
+**Detection:** The app checks `SUPABASE_URL` and `SUPABASE_KEY` at runtime via Nuxt's `runtimeConfig.public`. If either is empty or missing, `useSupabase()` returns `null` and the entire auth/persistence layer is bypassed. No errors are thrown — the setup screen shows "Local Storage Only" and all login UI is hidden.
+
 ## Test Suites
 
-Run all tests: `yarn test` (737 tests, 16 files, ~18 seconds)
+Run all tests: `yarn test` (753 tests, 17 files, ~18 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)

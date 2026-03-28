@@ -244,10 +244,10 @@ describe('Tennifer Jilly — unpredictable, moderate tilt', () => {
   })
 })
 
-// ─── Mike Matusow ──────────────────────────────────────────────
+// ─── Mike the Mouth ──────────────────────────────────────────────
 
-describe('Mike Matusow — "The Mouth", solid but self-destructs on tilt', () => {
-  const matusow = getPersona('Mike Matusow')
+describe('Mike the Mouth — "The Mouth", solid but self-destructs on tilt', () => {
+  const matusow = getPersona('Mike the Mouth')
 
   it('plays solid when not tilted (VPIP ~28%)', () => {
     const stats = runStats(matusow)
@@ -267,7 +267,7 @@ describe('Mike Matusow — "The Mouth", solid but self-destructs on tilt', () =>
     expect(state.tilted).toBe(true)
   })
 
-  it('tilted Matusow bluffs significantly more', () => {
+  it('tilted the Mouth bluffs significantly more', () => {
     const baseStats = simulateBotStats(profileFrom(matusow), N)
     const tiltedProfile = applyTilt(
       profileFrom(matusow),

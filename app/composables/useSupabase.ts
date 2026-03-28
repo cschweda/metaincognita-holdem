@@ -7,6 +7,9 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 
 let client: SupabaseClient | null = null
 
+/** Reset the singleton — only for testing. */
+export function _resetClientForTesting() { client = null }
+
 export function useSupabase(): SupabaseClient | null {
   if (client) return client
 

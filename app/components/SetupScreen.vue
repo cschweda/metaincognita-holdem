@@ -6,7 +6,7 @@
  * Includes GitHub OAuth and email/password auth for cross-session stat persistence.
  */
 import config from '@config'
-import { isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'
+import { useSupabase, isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'
 import { dynamicBotName, describeBotStyle, FICTIONAL_NAMES } from '~/utils/botDescriptions'
 
 const emit = defineEmits<{
@@ -45,6 +45,7 @@ const stackBB = ref(config.stackRange.defaultBB)
 const heroName = ref(config.betting.defaultHeroName)
 const showAdvanced = ref(false)
 const isLoggedIn = ref(false)
+const supabaseAvailable = ref(!!useSupabase())
 const showEmailAuth = ref(false)
 const isSignUp = ref(false)
 const emailInput = ref('')
@@ -463,13 +464,23 @@ function handleStart() {
     </div>
 
     <!-- Auth status + Start -->
-    <div v-if="isLoggedIn" class="bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">
+    <!-- Supabase not configured — local storage only -->
+    <div v-if="!supabaseAvailable" class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-gray-500" />
+        <span class="text-sm text-gray-300">Local Storage Only</span>
+      </div>
+      <div class="text-xs text-gray-500 mt-0.5">No database configured. Session stats are saved to this browser's local storage. Lifetime stats across sessions are not available. To enable cloud persistence, configure Supabase environment variables.</div>
+    </div>
+    <!-- Signed in -->
+    <div v-else-if="isLoggedIn" class="bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">
       <div class="flex items-center gap-2">
         <div class="w-2 h-2 rounded-full bg-green-500" />
-        <span class="text-sm text-green-300">Signed in with GitHub</span>
+        <span class="text-sm text-green-300">Signed in</span>
       </div>
-      <div class="text-xs text-green-400/60 mt-0.5">Hands and stats will be saved to your account</div>
+      <div class="text-xs text-green-400/60 mt-0.5">Hands and stats will be saved to your account across sessions and devices</div>
     </div>
+    <!-- Not signed in but Supabase is available -->
     <div v-else class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3 space-y-3">
       <div>
         <div class="flex items-center gap-2">

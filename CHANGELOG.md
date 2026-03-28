@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-03-28
+
+### Added
+- **Bot thinking insight** — The "X is thinking..." indicator now shows real-time calculation details: Chen/Chen+ scores preflop, made hand + draws + board texture postflop, pot odds needed to call. Displayed as monospaced reasoning lines during the 0.8-2s thinking delay.
+- **Supabase graceful fallback** — When Supabase is not configured (no `.env` or empty credentials), the setup screen shows "Local Storage Only" with a gray indicator and hides all login UI (GitHub/email). The SupabaseStatus pill shows "Local Only" instead of "Offline". No errors thrown.
+- **Supabase setup documentation** — Full SQL schema, RLS policies, env var setup, and 3-tier persistence explanation in README.
+- **16 Supabase fallback tests** — Verifies every auth function (`ensureSession`, `signInWithGitHub`, `signUpWithEmail`, etc.) returns safe defaults when Supabase client is null. Password validation tested independently.
+
+### Changed
+- **Renamed metatweak to Table Flow** — All references (code, config key, comments, README, changelog) renamed from `metatweak` to `tableFlow` for clarity.
+- **Mike Matusow renamed to Mike the Mouth** — Avoids using the real name while keeping the initial-swap pattern. Updated across config, tests, README, and changelog.
+- **README expanded** — Detailed bot behavior section (12 config fields, Chen+, board texture, table flow, hero adaptation, full preflop/postflop decision flows), simulation script documentation, table of contents.
+
 ## [0.12.0] - 2026-03-28
 
 ### Added
@@ -94,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Near-perfect (0.98-0.99): Ihil Pvey, Rhip Ceese, Serik Eidel — misplay ~1-2% of decisions
 - Very disciplined (0.95-0.97): Solid Sam, Phellmuth (calm), Boyle, Pantonius, Jhan, Twan — 3-5%
 - Mostly solid (0.92-0.94): Degreanu, Utu Sngar, Coneymaker, Paak, Asfandiari — 6-8%
-- Inconsistent (0.88-0.91): Wild Wendy, Jellande, Matusow, Ncotty Sguyen — 9-12%
+- Inconsistent (0.88-0.91): Wild Wendy, Jellande, Mike the Mouth, Ncotty Sguyen — 9-12%
 - Random actions are weighted: facing a bet → 40% fold / 40% call / 20% raise; unchallenged → 60% check / 40% random bet
 - Simulates fatigue, distraction, overconfidence, and bad reads in a single knob
 
@@ -194,7 +207,7 @@ Pro player bots with real-world playstyles and per-persona tilt.
 - **Entonio Asfandiari** (VPIP 29%, tilt 0.9x) — Charismatic aggressor. Constant pressure with well-timed bluffs but can overplay position.
 - **Kabe Gaplan** (VPIP 26%, tilt 0.8x) — Steady, intelligent, solid fundamentals. Rarely makes big mistakes but predictable bet sizing.
 - **Bean-Robert Jellande** (VPIP 36%, tilt 1.4x) — Fearless gambler. Plays wide, bets big, loves action. Will bluff massive pots but tilts when caught.
-- **Mike Matusow** (VPIP 28%, tilt 2.2x) — "The Mouth." Solid player who self-destructs on tilt. Explosive outbursts lead to reckless all-ins and wild bluffs.
+- **Mike the Mouth** (VPIP 28%, tilt 2.2x) — "The Mouth." Solid player who self-destructs on tilt. Explosive outbursts lead to reckless all-ins and wild bluffs.
 
 #### Per-Persona Tilt System
 - Each bot has a `tiltMultiplier` that scales how fast they tilt and how hard it hits
