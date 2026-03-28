@@ -100,8 +100,12 @@ export function useSessionStats() {
           total_profit: session.value.totalProfit,
           ended_at: new Date().toISOString(),
         })
+        // sendBeacon cannot include custom headers, so we use a Blob with
+        // the apikey in the URL as a query param (Supabase supports this).
+        // RLS policies on the sessions table ensure only the owning user can upsert.
+        const beaconUrl = `${runtimeConfig.public.supabaseUrl}/rest/v1/sessions?apikey=${encodeURIComponent(runtimeConfig.public.supabaseKey)}`
         navigator.sendBeacon(
-          `${runtimeConfig.public.supabaseUrl}/rest/v1/sessions`,
+          beaconUrl,
           new Blob([body], { type: 'application/json' })
         )
       }

@@ -142,9 +142,10 @@ async function deleteSession(sessionId: string) {
   const sb = useSupabase()
 
   if (sb && userId.value) {
-    const { error: handsErr } = await sb.from('hands').delete().eq('session_id', sessionId)
+    // Always scope deletes by user_id — defense-in-depth alongside RLS
+    const { error: handsErr } = await sb.from('hands').delete().eq('session_id', sessionId).eq('user_id', userId.value)
     if (handsErr) console.warn('Failed to delete session hands:', handsErr.message)
-    const { error: sessErr } = await sb.from('sessions').delete().eq('id', sessionId)
+    const { error: sessErr } = await sb.from('sessions').delete().eq('id', sessionId).eq('user_id', userId.value)
     if (sessErr) console.warn('Failed to delete session:', sessErr.message)
   }
 
@@ -169,7 +170,7 @@ async function deleteHand(handId: string) {
   const sb = useSupabase()
 
   if (sb && userId.value && !handId.startsWith('local-')) {
-    const { error: err } = await sb.from('hands').delete().eq('id', handId)
+    const { error: err } = await sb.from('hands').delete().eq('id', handId).eq('user_id', userId.value)
     if (err) console.warn('Failed to delete hand:', err.message)
   }
 
@@ -209,9 +210,10 @@ async function loadData(sb: ReturnType<typeof useSupabase>) {
   if (!sb) return
   loading.value = true
 
+  // Always filter by user_id — defense-in-depth alongside RLS policies
   const [sessResult, handsResult] = await Promise.all([
-    sb.from('sessions').select('*').order('started_at', { ascending: false }).limit(50),
-    sb.from('hands').select('*').order('played_at', { ascending: false }).limit(500),
+    sb.from('sessions').select('*').eq('user_id', userId.value).order('started_at', { ascending: false }).limit(50),
+    sb.from('hands').select('*').eq('user_id', userId.value).order('played_at', { ascending: false }).limit(500),
   ])
 
   if (sessResult.error) {
