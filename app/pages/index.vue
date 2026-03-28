@@ -635,16 +635,30 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             v-if="gs.dealt.value && !gs.heroTurn.value && gs.street.value !== 'showdown' && gs.activePlayers.value.length > 1"
             class="flex justify-center"
           >
-            <div class="inline-flex items-center gap-4 bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-full px-5 py-2.5 shadow-lg">
-              <div class="flex gap-1.5">
-                <div class="w-2.5 h-2.5 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
-                <div class="w-2.5 h-2.5 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
-                <div class="w-2.5 h-2.5 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
+            <div class="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-2xl px-5 py-2.5 shadow-lg max-w-md">
+              <!-- Header: name + dots -->
+              <div class="flex items-center gap-3">
+                <div class="flex gap-1.5 shrink-0">
+                  <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
+                  <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
+                  <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
+                </div>
+                <span class="text-sm font-medium text-white">
+                  {{ gs.playerStates.value[gs.activeSeat.value]?.name || 'Bot' }}
+                  <span class="text-gray-400 font-normal">is thinking</span>
+                </span>
               </div>
-              <span class="text-sm font-medium text-white">
-                {{ gs.playerStates.value[gs.activeSeat.value]?.name || 'Bot' }}
-                <span class="text-gray-400 font-normal">is thinking</span>
-              </span>
+              <!-- Thinking insight -->
+              <div v-if="gs.botThinkingInsight.value && gs.botThinkingInsight.value.factors.length > 0" class="mt-1.5 space-y-0.5 border-t border-gray-700/30 pt-1.5">
+                <div
+                  v-for="(factor, fi) in gs.botThinkingInsight.value.factors"
+                  :key="fi"
+                  class="text-[0.65rem] font-mono leading-tight"
+                  :class="fi === 0 ? 'text-gray-300' : 'text-gray-500'"
+                >
+                  <span class="text-gray-600 mr-1">{{ fi === 0 ? '>' : ' ' }}</span>{{ factor }}
+                </div>
+              </div>
             </div>
           </div>
 

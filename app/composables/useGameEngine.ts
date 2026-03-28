@@ -4,7 +4,9 @@
  * and replay.vue with customizable bot decision and end-hand callbacks.
  */
 import { displayCard } from '~/utils/cards'
+import type { Card } from '~/utils/cards'
 import { assignPositions } from '~/utils/seats'
+import { chenScore, chenPlusScore, bestHand, detectDraws, HAND_RANK_NAMES } from '~/utils/handAnalysis'
 import type { useGameState, PlayerState } from '~/composables/useGameState'
 
 export interface GameEngineOptions {
@@ -220,12 +222,18 @@ export function useGameEngine(options: GameEngineOptions) {
         return // Hero takes over
       }
 
-      // Bot decision with thinking delay
+      // Bot decision with thinking delay — show insight during the wait
       const heroOut = gs.playerStates.value[0]?.folded
       const delay = heroOut
         ? botDelay.heroFoldedMin + Math.random() * (botDelay.heroFoldedMax - botDelay.heroFoldedMin)
         : botDelay.min + Math.random() * (botDelay.max - botDelay.min)
+
+      // Build thinking insight (only when hero can see it)
+      if (!heroOut) {
+        gs.botThinkingInsight.value = buildThinkingInsight(p, gs)
+      }
       await sleep(delay)
+      gs.botThinkingInsight.value = null
 
       const currentRaiseLevel = gs.street.value === 'preflop' ? preflopRaiseLevel : 0
       const action = makeBotDecision(p, currentRaiseLevel, {
@@ -407,4 +415,111 @@ export function useGameEngine(options: GameEngineOptions) {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Build a snapshot of what the bot is "thinking about" for display during
+ * the thinking delay. Computes Chen/Chen+, hand strength, board texture,
+ * and reasoning factors based on the current game state.
+ */
+function buildThinkingInsight(
+  p: PlayerState,
+  gs: ReturnType<typeof import('~/composables/useGameState').useGameState>,
+) {
+  const factors: string[] = []
+  const street = gs.street.value
+  const community = gs.allCommunity.value
+  const holeCards = p.holeCards
+  const position = '' // position comes from outside, but we can derive from activeSeat context
+  const toCall = Math.max(0, gs.currentBet.value - p.betThisRound)
+  const pot = gs.pot.value
+  const stackBB = p.chips / Math.max(1, gs.currentBet.value > 0 ? gs.currentBet.value : 2)
+
+  let chen: number | undefined
+  let chenPlus: number | undefined
+  let handStrength: string | undefined
+  let boardTexture: string | undefined
+
+  // Preflop
+  if (street === 'preflop' && holeCards) {
+    chen = chenScore(holeCards)
+    chenPlus = chenPlusScore(holeCards, '')
+    factors.push(`Hand strength: Chen ${chen}, Chen+ ${chenPlus}`)
+
+    if (chen >= 12) factors.push('Premium hand — looking to raise for value')
+    else if (chen >= 8) factors.push('Solid hand — playable from most positions')
+    else if (chen >= 5) factors.push('Speculative hand — needs the right price')
+    else factors.push('Weak hand — need a good reason to play')
+
+    if (toCall > 0) {
+      factors.push(`Facing $${toCall} to call into $${pot} pot`)
+      if (toCall > pot * 0.5) factors.push('Large bet relative to pot — need a strong hand')
+    }
+
+    if (p.chips < 50) factors.push(`Short stack ($${p.chips}) — push/fold territory`)
+  }
+
+  // Postflop
+  if (street !== 'preflop' && holeCards && community.length >= 3) {
+    const visibleCommunity = street === 'flop' ? community.slice(0, 3)
+      : street === 'turn' ? community.slice(0, 4)
+      : community.slice(0, 5)
+
+    // Hand strength
+    const result = bestHand(holeCards, visibleCommunity)
+    if (result) {
+      handStrength = HAND_RANK_NAMES[result.rank] || 'Unknown'
+      factors.push(`Made hand: ${handStrength}`)
+    } else {
+      handStrength = 'High Card'
+      factors.push('No made hand — playing high card')
+    }
+
+    // Draws
+    const draws = detectDraws(holeCards, visibleCommunity)
+    if (draws.length > 0) {
+      const drawDesc = draws.map(d => `${d.type} (${d.outs} outs)`).join(', ')
+      factors.push(`Draws: ${drawDesc}`)
+    }
+
+    // Board texture
+    const ranks = visibleCommunity.map((c: Card) => c.rank).sort((a: number, b: number) => b - a)
+    const highCard = ranks[0]
+    const textureParts: string[] = []
+    if (highCard === 14) textureParts.push('Ace-high')
+    else if (highCard >= 11) textureParts.push('Broadway-heavy')
+    else textureParts.push('Low board')
+
+    const suitCounts = new Map<string, number>()
+    for (const c of visibleCommunity) suitCounts.set(c.suit, (suitCounts.get(c.suit) ?? 0) + 1)
+    const maxSuit = Math.max(...suitCounts.values())
+    if (maxSuit >= 3) textureParts.push('monotone')
+    else if (maxSuit === 2) textureParts.push('two-tone')
+    else textureParts.push('rainbow')
+
+    const uniqueRanks = [...new Set(ranks)].sort((a: number, b: number) => a - b)
+    let connPairs = 0
+    for (let i = 1; i < uniqueRanks.length; i++) {
+      if (uniqueRanks[i] - uniqueRanks[i - 1] <= 2) connPairs++
+    }
+    if (connPairs >= 2) textureParts.push('connected')
+    else if (connPairs === 0) textureParts.push('dry')
+
+    boardTexture = textureParts.join(', ')
+    factors.push(`Board: ${boardTexture}`)
+
+    // Pot odds
+    if (toCall > 0) {
+      const potOdds = ((toCall / (pot + toCall)) * 100).toFixed(0)
+      factors.push(`Pot odds: need ${potOdds}% equity to call $${toCall}`)
+    }
+  }
+
+  return {
+    chenScore: chen,
+    chenPlusScore: chenPlus,
+    handStrength,
+    boardTexture,
+    factors,
+  }
 }

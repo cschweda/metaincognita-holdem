@@ -41,6 +41,16 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
   const handWinnerId = ref(-1)
   const needsToAct = ref<Set<number>>(new Set())
 
+  // Bot thinking insight — shown in the UI during the thinking delay
+  const botThinkingInsight = ref<{
+    chenScore?: number
+    chenPlusScore?: number
+    position?: string
+    handStrength?: string    // "Top Pair", "Flush Draw", "Air", etc.
+    boardTexture?: string    // "Dry, Ace-high", "Wet, connected", etc.
+    factors: string[]        // reasoning lines shown one at a time
+  } | null>(null)
+
   const hero = computed(() => playerStates.value[0])
   const heroHoleCards = computed(() => hero.value?.holeCards || null)
 
@@ -80,6 +90,7 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
     dealt.value = true
     heroWonHand.value = false
     heroWinAmount.value = 0
+    botThinkingInsight.value = null
     heroTotalWagered.value = 0
     handWinnerId.value = -1
     handWinnerName.value = ''
@@ -91,6 +102,7 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
     pot, currentBet, waitingForHero, allCommunity, animating,
     handActionLog, streetAtEnd, heroWonHand, heroWinAmount,
     heroTotalWagered, handWinnerName, handWinnerId, needsToAct,
+    botThinkingInsight,
     hero, heroHoleCards, visibleCommunity, toCall, minRaise, maxRaise,
     heroTurn, heroBusted, activePlayers, activeNonAllIn,
     resetGameState,
