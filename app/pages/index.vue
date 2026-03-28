@@ -341,7 +341,7 @@ function endHand() {
   gs.handWinnerId.value = winnerId
   gs.handWinnerName.value = gs.playerStates.value[winnerId]?.name || 'Unknown'
 
-  // Record winner for metatweak table dynamics
+  // Record winner for table flow dynamics
   if (winnerId >= 0) engine.recordHandWinner(winnerId)
 
   // Update tilt for bots

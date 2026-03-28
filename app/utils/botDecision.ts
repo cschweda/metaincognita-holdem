@@ -186,7 +186,7 @@ export interface DecisionContext {
     recentBluffRate: number // how often opponents showed down weak hands (0-1)
     tableIsPassive: boolean // true if table has been check-heavy
   }
-  // Table dynamics — metatweak adjustments
+  // Table Flow — dynamic adjustments based on recent results
   tableDynamics?: {
     dominantPlayerId?: number   // who is on a heater (most wins in window)
     dominantWinRate: number     // their win rate in the window (0-1)
@@ -224,7 +224,7 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
     ? applyHeroAdaptation(profile, heroProfile)
     : profile
 
-  // ─── Metatweak: adjust for table dynamics ─────
+  // ─── Table Flow: adjust for table dynamics ─────
   adaptedProfile = applyTableDynamics(adaptedProfile, ctx.tableDynamics)
 
   const rand = Math.random()
@@ -271,9 +271,9 @@ function applyHeroAdaptation(base: BotProfile, hero: HeroProfile): BotProfile {
   return adapted
 }
 
-// ─── Metatweak: Table Dynamics ────────────────────────────────
+// ─── Table Flow: Table Dynamics ───────────────────────────────
 /**
- * Adjusts bot profile based on table dynamics — the "metatweak".
+ * Adjusts bot profile based on table flow — the shifting momentum of the game.
  * Real players adapt when someone is running hot or the table shifts.
  *
  * - When a dominant player is on a heater: tighten up, trap more, bluff less

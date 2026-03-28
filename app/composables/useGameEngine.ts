@@ -46,8 +46,8 @@ export function useGameEngine(options: GameEngineOptions) {
   let recentShowdowns = 0
   let handsForMemory = 0
 
-  // Metatweak — rolling window of recent hand winners
-  const METATWEAK_WINDOW = 20
+  // Table Flow — rolling window of recent hand winners
+  const TABLE_FLOW_WINDOW = 20
   const recentWinnerIds: number[] = []
 
   function getTableDynamics(botId: number) {
@@ -387,7 +387,7 @@ export function useGameEngine(options: GameEngineOptions) {
 
   function recordHandWinner(winnerId: number) {
     recentWinnerIds.push(winnerId)
-    if (recentWinnerIds.length > METATWEAK_WINDOW) recentWinnerIds.shift()
+    if (recentWinnerIds.length > TABLE_FLOW_WINDOW) recentWinnerIds.shift()
   }
 
   return {

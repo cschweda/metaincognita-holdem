@@ -396,10 +396,10 @@ function simulateHand(
     }
   }
 
-  // Update metatweak window
+  // Update table flow window
   if (winnerId >= 0) {
     recentWinners.push(winnerId)
-    if (recentWinners.length > METATWEAK_WINDOW) recentWinners.shift()
+    if (recentWinners.length > TABLE_FLOW_WINDOW) recentWinners.shift()
   }
 
   // Update tilt
@@ -491,12 +491,12 @@ const stats = {
   allIns: 0,
 }
 
-// Metatweak: rolling window of recent winners
-const METATWEAK_WINDOW = config.metatweak?.windowSize ?? 20
+// Table Flow: rolling window of recent winners
+const TABLE_FLOW_WINDOW = config.tableFlow?.windowSize ?? 20
 const recentWinners: number[] = [] // circular buffer of winner IDs
 
 function getTableDynamics(playerId: number) {
-  if (recentWinners.length < (config.metatweak?.minHands ?? 10)) return undefined
+  if (recentWinners.length < (config.tableFlow?.minHands ?? 10)) return undefined
   const winCounts = new Map<number, number>()
   for (const id of recentWinners) winCounts.set(id, (winCounts.get(id) ?? 0) + 1)
   const total = recentWinners.length

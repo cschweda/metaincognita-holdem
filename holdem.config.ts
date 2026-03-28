@@ -203,8 +203,8 @@ export default {
     deepStackThreshold: 150,             // BB — loosen up with speculative hands
   },
 
-  // ─── Metatweak (table dynamics) ───────────────────────────────
-  metatweak: {
+  // ─── Table Flow (table dynamics) ──────────────────────────────
+  tableFlow: {
     windowSize: 20,                      // track last N hands for dynamics
     dominanceThreshold: 0.28,            // win rate above this = "on a heater"
     coldThreshold: 0.10,                 // win rate below this = "running cold"

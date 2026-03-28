@@ -10,7 +10,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Street-aware decisions** -- c-betting, double-barreling, giving up with air, multiway pot adjustments
 - **Preflop escalation** -- full 3-bet/4-bet/5-bet logic with per-persona frequencies
 - **Hero adaptation** -- bots adjust to your play style over a rolling 10-hand window
-- **Metatweak dynamics** -- bots adjust when a player is dominating or running cold (20-hand rolling window)
+- **Table Flow** -- bots adjust when a player is dominating or running cold (20-hand rolling window)
 - **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
 - **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
 - **Monte Carlo equity engine** -- 500-800 adaptive iterations against opponent ranges
@@ -25,6 +25,20 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
 - **Hand replay** -- re-live any hand with different decisions, compare outcomes
 - **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth
+
+## Table of Contents
+
+- [Features](#features) -- poker table, hand analysis, ranges, HUD, betting, bot configurator, tilt, consistency, sessions, replay, stats
+- [How Bot Behavior Works](#how-bot-behavior-works) -- persona config fields, Chen+, board texture, table flow, hero adaptation, preflop/postflop decision flows
+- [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation for analysis and tuning
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Test Suites](#test-suites) -- 737 tests across 16 files
+- [Poker Glossary](#poker-glossary)
+- [Roadmap](#roadmap)
+- [Future Enhancements](#future-enhancements)
 
 ## Features
 
@@ -269,9 +283,9 @@ After the flop, every decision considers the **board texture** -- the pattern of
 
 **Range advantage** is computed per street: the preflop raiser's range (weighted toward big cards and premium pairs) has an advantage on ace-high and broadway boards. The preflop caller's range (weighted toward suited connectors, small pairs) has an advantage on low, connected boards. This multiplier adjusts c-bet frequency, barrel rate, and bluff sizing.
 
-### Metatweak (Table Dynamics)
+### Table Flow
 
-Real players adjust when someone is on a hot streak or when the table dynamic shifts. The metatweak system tracks a 20-hand rolling window of winners and adjusts bot profiles before each decision:
+Real players adjust when someone is on a hot streak or when the table dynamic shifts. The table flow system tracks a 20-hand rolling window of winners and adjusts bot profiles before each decision:
 
 | Situation | Detection | Bot adjustment | Real-world analogy |
 |-----------|-----------|---------------|-------------------|
@@ -299,7 +313,7 @@ When it's a bot's turn preflop, the decision proceeds in this order:
 
 2. **Hero adaptation**: If 10+ hands tracked, adjust the bot's profile based on hero tendencies.
 
-3. **Metatweak**: Adjust profile based on table dynamics (hot/cold/dominated).
+3. **Table Flow**: Adjust profile based on table dynamics (hot/cold/dominated).
 
 4. **Short-stack check**: If below 25 BB and facing a raise, switch to push/fold mode. Shove with top ~15-25% of hands (wider when desperate), fold everything else.
 
@@ -363,6 +377,97 @@ Four levels of verification, each more realistic than the last:
 | Deployment | Netlify (static) |
 | Testing | Vitest (737 tests) |
 
+## Bot Simulation Script
+
+The simulator includes a headless bot-vs-bot simulation script (`scripts/simulate.ts`) that runs thousands of hands without any UI. This is useful for validating bot behavior, tuning persona configs, and analyzing how bots perform against each other over statistically meaningful sample sizes.
+
+### Usage
+
+```bash
+# Basic: 1000 hands, 6 players (random mix of all personas)
+npx tsx scripts/simulate.ts 1000 6
+
+# Pro bots only
+npx tsx scripts/simulate.ts 1000 6 --pros
+
+# Fictional bots only
+npx tsx scripts/simulate.ts 500 6 --fictional
+
+# Quick smoke test
+npx tsx scripts/simulate.ts 100 4
+```
+
+**Arguments:**
+- First argument: number of hands (default 100)
+- Second argument: number of players (2--8, default 6)
+- `--pros`: only select from the 18 pro personas
+- `--fictional`: only select from the 7 fictional personas
+
+### What It Tracks
+
+**Per-bot behavioral stats** (compared against their config):
+
+| Stat | How it's measured | What a deviation means |
+|------|-------------------|----------------------|
+| **Observed VPIP** | (calls + raises preflop) / hands dealt | If much higher than config: Chen+ scoring or position bonuses may be too generous. If much lower: percentile mapping may be too tight. |
+| **Observed PFR** | preflop raises / hands dealt | If too low relative to VPIP: bots are flat-calling too much instead of raising. |
+| **Observed AF** | postflop bets / postflop calls | If much higher than config aggression: postflop bluff/barrel logic is too aggressive. If lower: bots are check-calling too much. |
+| **3-Bet %** | 3-bets / hands dealt | Per-bot 3-bet tracking. If 0% across all bots: stat collection bug (this was caught and fixed). |
+| **Flop %** | hands seeing a flop / hands dealt | If too low (<25%): preflop fold rate is too high. Modern poker targets ~40-55%. |
+| **Win %** | hands won / hands dealt | Expected ~16.7% for 6 players. Significant deviations suggest a skill edge (or a bug). |
+
+**Aggregate table stats:**
+
+| Stat | What it tells you |
+|------|-------------------|
+| **Avg pot size** | How much money flows per hand. $30-70 is typical for $1/$2. |
+| **Preflop fold-outs** | Hands that end preflop (everyone folds to a raise). 40-55% is healthy; 75%+ means bots play too tight. |
+| **Flops/Turns/Rivers seen** | How deep hands go. If very few reach the river, postflop logic may fold too aggressively. |
+| **Showdowns** | Hands reaching showdown with 2+ players. 10-20% is normal. |
+| **3-bet pots** | How often pots are 3-bet preflop. 4-7% is typical for a 6-max table. |
+| **All-in hands** | Frequency of all-in confrontations. 2-5% is normal. |
+
+**Per-bot financial results:**
+- Final chip count, net profit/loss, and number of rebuys
+- A bot that rebuys 30+ times in 1000 hands is likely running too loose or tilting too hard
+- A bot that never rebuys may be too tight or running well
+
+### Output
+
+Each run generates a PokerStars-format `.txt` file in `scripts/output/` (gitignored). These files are compatible with:
+- **PokerTracker 4** -- import directly for HUD stats and leak analysis
+- **Hold'em Manager 3** -- full hand history import
+- **Equilab** -- equity analysis on specific hands
+
+### Interpreting Results
+
+**Healthy simulation output looks like:**
+- VPIP within ~5 points of config for most bots
+- PFR within ~3 points of config
+- No `!` flags (which mark >15% VPIP deviation or >10% PFR deviation)
+- Preflop fold-outs around 45-55%
+- Win rates roughly evenly distributed (13-21% for 6 players)
+
+**Red flags to watch for:**
+- All bots showing VPIP at ~50% of config → chen percentile mapping is too tight
+- All bots showing VPIP at ~150% of config → position bonuses or flat-call ranges too wide
+- One bot winning 30%+ of hands consistently across runs → fundamental balance issue
+- 3-Bet % at 0% for all bots → stat tracking bug (not actually collecting 3-bet data)
+- 80%+ preflop fold-outs → bots are playing way too tight for modern poker
+
+### Multi-Run Analysis
+
+Running the simulation multiple times gives confidence in behavioral consistency. For example, to verify that Naniel Degreanu's VPIP reliably lands near his configured 32%:
+
+```bash
+# Run 8 times and compare the "Naniel Degreanu" VPIP line
+for i in {1..8}; do
+  npx tsx scripts/simulate.ts 1000 6 --pros 2>&1 | grep "Naniel Degreanu"
+done
+```
+
+If the observed VPIP bounces between 28% and 36% across runs, the config is working. If it's consistently at 15%, there's a systematic issue (as was the case before the chen percentile calibration fix).
+
 ## Getting Started
 
 ```bash
@@ -403,7 +508,7 @@ holdem-simulator/
 │   │   ├── StatsPanel.vue         # 4-tab panel: Live, Session, Ranges, Table
 │   │   └── SupabaseStatus.vue     # Auth status pill with sign-in/out dropdown
 │   ├── composables/
-│   │   ├── useGameEngine.ts       # Game loop, betting rounds, metatweak dynamics
+│   │   ├── useGameEngine.ts       # Game loop, betting rounds, table flow dynamics
 │   │   ├── useGameState.ts        # Reactive game state (players, pot, street, community)
 │   │   ├── useSessionStats.ts     # Session tracking, export, auto-save, Supabase sync
 │   │   └── useSupabase.ts         # Supabase client, GitHub/email/anonymous auth
@@ -416,7 +521,7 @@ holdem-simulator/
 │   │   ├── og-image.svg           # Open Graph social image (SVG source)
 │   │   └── og-image.png           # Open Graph social image (1200x630 PNG)
 │   └── utils/
-│       ├── botDecision.ts         # Bot decision engine, board texture, tilt, metatweak
+│       ├── botDecision.ts         # Bot decision engine, board texture, tilt, table flow
 │       ├── botDescriptions.ts     # Bot playstyle descriptions for UI
 │       ├── cards.ts               # Card types, suit symbols, pip layouts
 │       ├── chips.ts               # Chip denomination breakdowns by stake tier
@@ -448,7 +553,7 @@ All game parameters are centralized in `holdem.config.ts` (project root):
 - **Equity thresholds**: Value bet, thin value, drawing, give-up cutoffs
 - **Bet sizing**: Open raises, 3-bets, value bets, bluffs, protection bets, overbets
 - **Tilt mechanics**: Consecutive loss trigger, big loss threshold, mild/full severity, per-stat boost magnitudes, decay duration
-- **Metatweak**: Rolling window size, dominance/cold/hot thresholds, min hands before adjusting
+- **Table Flow**: Rolling window size, dominance/cold/hot thresholds, min hands before adjusting
 - **Session management**: Hero timeout (5 min), auto-save interval (60s), re-buy toggle
 - **Animation timing**: Deal stagger, bot thinking delay, showdown pause
 
@@ -568,7 +673,7 @@ Run all tests: `yarn test` (737 tests, 16 files, ~18 seconds)
 | **3** | Done | Game loop -- betting rounds, side pots, all-in auto-runout, blind rotation |
 | **4** | Done | Bot AI -- 25 personas (18 pro), per-persona tilt + consistency, 737 tests |
 | **5** | Done | Stats -- Supabase, session tracking, analytics, PokerStars/CSV/JSON export, replay |
-| **6** | Done | Advanced AI -- Chen+, board texture, metatweak, donk bets, hand analysis modal |
+| **6** | Done | Advanced AI -- Chen+, board texture, table flow, donk bets, hand analysis modal |
 | **7** | Planned | Polish -- dealing animations, chip movement, celebrations |
 
 ## Future Enhancements
