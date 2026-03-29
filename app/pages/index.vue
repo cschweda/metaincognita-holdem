@@ -18,6 +18,7 @@ import type { HeroProfile } from '~/utils/botDecision'
 import { displayCard } from '~/utils/cards'
 import { useGameState } from '~/composables/useGameState'
 import { useGameEngine } from '~/composables/useGameEngine'
+import { useCommentary } from '~/composables/useCommentary'
 import type { PlayerState } from '~/composables/useGameState'
 import { useHeroProfileStore } from '~/stores/heroProfile'
 import { isPro as isProBot } from '~/utils/botDescriptions'
@@ -200,6 +201,8 @@ const engine = useGameEngine({
   onEndHand: () => endHand(),
   onHeroActivity: () => onHeroActivity(),
 })
+
+const commentary = useCommentary(gs)
 
 // ─── Game Flow ─────────────────────────────────────────────────
 function handleStart(gameSettings: GameSettings) {
@@ -584,7 +587,17 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
       </div>
 
       <!-- Main layout -->
-      <div class="flex flex-col lg:flex-row gap-4 max-w-7xl mx-auto items-start">
+      <div class="flex flex-col xl:flex-row gap-4 max-w-[110rem] mx-auto items-start">
+        <!-- Commentary column (left) -->
+        <div class="hidden xl:block w-80 shrink-0 xl:sticky xl:top-4">
+          <CommentaryPanel
+            :lines="commentary.lines.value"
+            :enabled="commentary.enabled.value"
+            :mode="commentary.mode.value"
+            @update:enabled="commentary.enabled.value = $event"
+            @update:mode="commentary.mode.value = $event"
+          />
+        </div>
         <div class="flex-1 min-w-0 space-y-4">
           <PokerTable :player-count="settings?.playerCount || 6">
             <template #community>
@@ -615,7 +628,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
                 :chips="gs.playerStates.value[seatIndex].chips"
                 :position="positions[seatIndex] || ''"
                 :hole-cards="gs.playerStates.value[seatIndex].holeCards"
-                :show-cards="gs.playerStates.value[seatIndex].isHero || (gs.street.value === 'showdown' && !gs.playerStates.value[seatIndex].folded)"
+                :show-cards="gs.playerStates.value[seatIndex].isHero || (gs.street.value === 'showdown' && !gs.playerStates.value[seatIndex].folded) || (commentary.enabled.value && commentary.mode.value === 'tv')"
                 :is-hero="gs.playerStates.value[seatIndex].isHero"
                 :is-active="gs.activeSeat.value === seatIndex"
                 :folded="gs.playerStates.value[seatIndex].folded"
@@ -762,7 +775,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
         </div>
 
         <!-- Stats column -->
-        <div class="w-full lg:w-80 lg:sticky lg:top-4 space-y-3">
+        <div class="w-full xl:w-80 xl:sticky xl:top-4 shrink-0 space-y-3">
         <StatsPanel
           :hole-cards="gs.heroHoleCards.value as [import('~/utils/cards').Card, import('~/utils/cards').Card] | null"
           :community="gs.visibleCommunity.value"

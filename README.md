@@ -24,6 +24,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
 - **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
 - **Hand replay** -- re-live any hand with different decisions, compare outcomes
+- **Live commentary** -- two modes: Hero POV (first-person, public info only) and TV Broadcast (Norman Chad & Lon McEachern dual-voice with all cards face-up, bluff callouts, foreshadowing, and 150+ unique quips)
 - **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth
 
 ## Table of Contents
@@ -225,6 +226,43 @@ The app has three persistence tiers depending on configuration:
 - Bots re-run their AI (probabilistic -- may vary slightly each replay)
 - **Comparison panel** at showdown: Original result vs Replay result with profit difference
 - **"Replay Again"** button to try the same hand multiple times
+
+### Live Commentary
+
+A scrolling left-column panel that provides real-time poker commentary for every hand. Two modes run simultaneously — switching is instant with no lost lines.
+
+**Hero POV** (default):
+- First-person perspective — "We pick up A♠ K♦. Strong hand."
+- Only sees hero's cards and public information (bets, board, opponent actions)
+- Comments on every action: blind posts, folds, calls, raises, checks, all-ins
+- Opponent cards stay face-down on the table
+- Reads like an internal monologue of a player at the table
+
+**TV Broadcast** (Norman Chad & Lon McEachern style):
+- Dual-voice commentary: **Lon** (blue, play-by-play) calls the action straight, **Norman** (amber, color) adds humor
+- All bot cards shown face-up on the table (like watching WSOP on TV)
+- **Omniscient perspective** — sees all hole cards, calls out bluffs ("Pure bluff! Betting on hope and a prayer. Mostly hope."), identifies slow-plays, detects draws
+- **Foreshadowing** — peeks at pre-dealt turn/river cards: "Spoiler alert: the deck has a surprise in store."
+- **150+ unique Norman Chad quips** across 15 categorized pools: folds, big folds, bluffs, raises, calls, checks, all-ins, junk all-ins, showdown wins/losses, coolers, foreshadowing, street hits/misses, generic wisdom
+- **No-repeat system** — UniquePool class tracks used lines per game, only repeats after the full pool is exhausted
+- **Persona-specific commentary** — Norman has custom quips for each of the 18 pro bots:
+  - Hill Phellmuth: tilt/tantrum references ("If this doesn't go his way, expect fireworks. And by fireworks I mean a tantrum.")
+  - Kabe Gaplan: Welcome Back, Kotter / Sweathogs / Barbarino / Horseshack references
+  - Dom Twan: "durrrr" challenge lore
+  - Boyle Drunson: Super/System, Godfather of Poker
+  - Ihil Pvey: human calculator, machine-like precision
+  - Bean-Robert Jellande: fearless gambler reputation
+  - Mike the Mouth: solid-until-tilt personality
+  - And 11 more pro-specific quip sets
+- **Constant stream** — every action gets commentary. No random skipping. Starts from the first blind post.
+- **Cooler/bad beat detection** at showdown with dramatic reactions
+
+**Technical details:**
+- `useCommentary.ts` composable maintains two independent line arrays (`heroLines`, `tvLines`) that both generate on every game event
+- `CommentaryPanel.vue` displays whichever array matches the selected mode
+- Auto-scrolls to new lines; pauses auto-scroll if user scrolls up
+- Toggle (on/off) and mode (Hero/TV) persisted in localStorage
+- Three-column desktop layout at `xl` breakpoint (1280px+): Commentary | Table | Stats
 
 ### Stats Page (`/stats`)
 - **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position, recent hands (last 20, reverse chronological -- click to expand details with Replay/Analyze/Export)

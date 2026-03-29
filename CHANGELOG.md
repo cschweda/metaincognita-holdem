@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-03-28
+
+### Added
+- **Live Commentary System** — New left-column commentary panel with two simultaneous modes that run in real time:
+  - **Hero POV** (default) — First-person perspective. Only sees hero's cards and public info (bets, board, actions). "We pick up A♠ K♦. Strong hand." Commentary on every action: folds, calls, raises, checks, blinds, all-ins.
+  - **TV Broadcast** — Dual-voice Norman Chad & Lon McEachern style commentary. Lon calls the play-by-play, Norman provides color commentary with goofy puns, self-deprecating humor, ex-wife jokes, and poker wisdom. Sees all hole cards, calls out bluffs, identifies slow-plays, foreshadows future cards.
+  - **All cards face-up in TV mode** — When TV Broadcast is selected, all bot hole cards are shown face-up on the table (like watching WSOP on TV). Switch back to Hero POV and cards flip back down.
+  - **No-repeat quip system** — 150+ unique Norman Chad lines across 15 categorized pools (folds, bluffs, raises, calls, checks, all-ins, showdowns, coolers, foreshadowing, street hits/misses, generic). UniquePool class tracks recently used lines to prevent repeats within a game.
+  - **Persona-specific commentary** — Norman has custom quips for each of the 18 pro bots: Phellmuth's tantrums, Gaplan's Sweathogs/Barbarino references, Twan's "durrrr" challenge, Drunson's Super/System, Pvey's machine-like precision, etc. ~40% chance to fire on any pro bot action.
+  - **Constant stream** — Every player action gets commentary in both streams: blind posts, folds, calls, raises, checks, all-ins. No random skipping. Commentary starts from the first blind post.
+  - **Toggle and mode persisted** — On/off toggle and Hero/TV mode saved in localStorage.
+  - **Three-column layout** — Commentary (left, w-80) | Table (center, flex) | Stats (right, w-80) at xl breakpoint. Commentary hidden on smaller screens.
+- **Stats panel overflow fix** — `overflow-clip` on root, fixed height at all breakpoints, pinned section overflow-hidden to prevent tooltip reflow.
+- **Detailed Chen vs Chen+ documentation** — README expanded with full scoring rules, where Chen works/breaks down, Chen+ adjustments table, empirical percentile mapping, concrete A♠T♦ position example.
+
 ## [0.12.2] - 2026-03-28
 
 ### Added
