@@ -349,6 +349,22 @@ The sliders let you dial in your preferred experience: crank Norman to max for c
 
 Every decision a bot makes passes through a layered pipeline in `app/utils/botDecision.ts`. The bot doesn't pick randomly -- it evaluates its actual hole cards against the board, adjusts for position and playstyle, considers who's been winning, remembers what the hero tends to do, and then decides based on the combination of all those factors. Each layer is described below.
 
+### Poker Realism (v0.13.1 audit)
+
+The bot decision engine was reviewed from a professional poker perspective and nine realism fixes were applied:
+
+- **3-bet sizing**: Position-aware -- 3.5x out of position, 3.0x in position (was flat 3.0x everywhere)
+- **Check-raises**: Bots now check strong/monster hands with intent to raise when bet into (~20% boost). Previously bots only bet or checked, never check-raised.
+- **C-bet frequency**: Scaled by board texture (80% dry, 55% wet) and opponent count (3-tier: HU/3-way/4+). Previously flat 80% regardless.
+- **Kicker differentiation**: Top pair ace kicker (0.48) plays very differently from top pair deuce kicker (0.38). Affects bet/call/fold decisions.
+- **Short-stack push/fold**: Position-aware -- BTN/CO shove top 25-35%, EP stays tight at 18-28%. Previously flat 15-18%.
+- **Blocker-adjusted draws**: Draw equity reduced ~12% for dead card estimation. Prevents overvaluing flush/straight draws.
+- **Overcard equity**: Two overcards (AK on low board) score 0.22-0.25, suited get a bonus. Previously flat 0.20.
+- **Turn/river barreling**: Turn card analysis (high cards = barrel more, flush-completing = slow down significantly). River considers scare cards before bluffing.
+- **Donk bets**: Fictional bots lead into the raiser at their configured frequency; pro bots use texture-based leading. Fully operational.
+
+These fixes were verified across 500+ simulated hands with 6 and 8 player tables. VPIP/PFR/aggression stats track config within expected variance. All 765 unit tests pass.
+
 ### Persona Config Fields
 
 Each of the 25 bot personas is defined by a set of numerical stats in `holdem.config.ts`. These stats control every aspect of how the bot plays:

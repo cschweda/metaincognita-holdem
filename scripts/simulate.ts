@@ -254,6 +254,7 @@ function simulateHand(
           community: community,
           wasPreflopRaiser: p.id === preflopRaiserId,
           preflopCallers: preflopCallerCount,
+          checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
           streetHistory: playerStreetActions.get(p.id) as any,
           tableDynamics: getTableDynamics(p.id),
         },

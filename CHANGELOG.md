@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-03-29
+
+### Fixed (Poker Realism Audit)
+Nine fixes to make bot decision-making more realistic, based on review from a professional poker perspective. All 765 tests pass; simulation scripts verified over 500 hands.
+
+- **3-bet sizing now position-aware** — Out of position 3-bets size to 3.5x (was flat 3.0x). In position stays at 3.0x. Aggression scaling reduced from 0.5 to 0.3 to prevent oversizing.
+- **Check-raise logic implemented** — Bots can now check with intent to raise when bet into. Monsters get +20% raise frequency after checking, strong hands get a balanced check-raise line. New `checkedThisStreet` field in DecisionContext tracks whether the bot checked earlier on the current street.
+- **C-bet frequency reduced and texture-aware** — Strong hands c-bet 80% on dry boards but only 55% on wet boards (was flat 80%). Weak made hands drop from 40% to 25% on wet boards. Air c-bet base reduced. Three-tier multiway discount (HU 100%, 3-way 65%, 4+ way 40%) replaces binary flag.
+- **Kicker-aware hand strength** — Top pair now scores 0.38 (deuce kicker) to 0.48 (ace kicker) instead of flat 0.40-0.45. Second/third pair scores 0.28-0.35 by kicker. Overpair bonus added (AA overpair ~0.53). This means top pair bad kicker plays more cautiously while top pair good kicker bets for value.
+- **Short-stack push/fold widened by position** — Late position (BTN/CO) now shoves top 25% at 15-25BB and top 35% below 10BB (was 18% and 25% regardless of position). Early position stays tight.
+- **Blocker-adjusted draw equity** — Draw strength scores reduced by ~12% to account for dead cards that opponents may hold. Flush draw strength 0.35 → ~0.31, OESD 0.30 → ~0.27.
+- **Overcard equity improved** — Two overcards (e.g., AK on a low board) now score 0.22-0.25 (was 0.20). Suited overcards get a bonus for backdoor flush potential.
+- **Turn/river barrel logic improved** — Turn barrel now considers whether the turn card helped the raiser's range (high cards = barrel more, low cards = slow down, flush-completing = significantly slow down). River barrel considers scare cards (flush-completing, straight-completing) and reduces bluff frequency accordingly.
+- **Donk-bet logic already implemented** — Confirmed working: fictional bots donk-bet at their configured frequency, pro bots use texture-based leading. Donk bluffs, semi-bluff leads, and weak-made-hand probes all operational.
+
 ## [0.13.0] - 2026-03-28
 
 ### Added

@@ -176,6 +176,7 @@ export interface DecisionContext {
   // Street awareness — what this bot did on earlier streets
   wasPreflopRaiser?: boolean  // was this bot the last preflop aggressor?
   preflopCallers?: number     // how many players called preflop (multiway pot?)
+  checkedThisStreet?: boolean // did this bot already check this street? (for check-raise detection)
   streetHistory?: {           // this bot's action on each prior street
     flop?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
     turn?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
@@ -366,28 +367,56 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[]): numbe
     case 8: strength = 1.00; break  // straight flush
   }
 
-  // High card with overcards to the board — worth more than random high card
+  // High card with overcards to the board — two overcards are much stronger than one
+  // (Fix 7: AK on a low board has ~6 outs to top pair = ~24% equity, not just 12%)
   if (result.rank === 0) {
     const boardMax = Math.max(...community.map(c => c.rank))
     const overcards = holeCards.filter(c => c.rank > boardMax).length
-    if (overcards >= 1) strength = 0.15  // at least one overcard
-    if (overcards >= 2) strength = 0.20  // two overcards (e.g., AK on low board)
+    if (overcards === 1) strength = 0.15
+    if (overcards === 2) {
+      // Two overcards with suited/connected have more equity (pair + backdoors)
+      const suited = holeCards[0].suit === holeCards[1].suit
+      strength = suited ? 0.25 : 0.22
+    }
   }
 
-  // Boost for top pair with decent kicker
+  // Kicker-aware pair strength (Fix 4: top pair ace kicker vs top pair deuce kicker)
   if (result.rank === 1) {
-    const boardMax = Math.max(...community.map(c => c.rank))
+    const boardRanks = community.map(c => c.rank)
+    const boardMax = Math.max(...boardRanks)
     const pairRank = result.score[1]
-    if (pairRank >= boardMax) strength = 0.40 // top pair
-    if (pairRank >= 12) strength = 0.45       // top pair, face card
+    const holeRanks = holeCards.map(c => c.rank).sort((a, b) => b - a)
+
+    // Determine kicker: the hole card that didn't make the pair
+    let kickerRank = holeRanks[0]
+    if (holeRanks[0] === pairRank && holeRanks[1] !== pairRank) kickerRank = holeRanks[1]
+    else if (holeRanks[1] === pairRank && holeRanks[0] !== pairRank) kickerRank = holeRanks[0]
+
+    if (pairRank >= boardMax) {
+      // Top pair: 0.38 (deuce kicker) to 0.48 (ace kicker)
+      const kickerBonus = (kickerRank - 2) / 12 * 0.10
+      strength = 0.38 + kickerBonus
+    } else if (pairRank >= boardMax - 2) {
+      // Second/third pair: 0.28 to 0.35
+      strength = 0.28 + (kickerRank - 2) / 12 * 0.07
+    }
+    // Otherwise stays at base one-pair = 0.30
+
+    // Overpair bonus (pocket pair higher than all board cards)
+    if (holeRanks[0] === holeRanks[1] && holeRanks[0] > boardMax) {
+      strength = Math.max(strength, 0.48 + (holeRanks[0] - 10) / 4 * 0.05) // AA overpair ~0.53
+    }
   }
 
-  // Add draw equity
+  // Add draw equity (Fix 6: account for blocker effects)
   const draws = detectDraws(holeCards, community)
+  const knownCards = new Set([...holeCards, ...community].map(c => `${c.rank}-${c.suit}`))
   for (const draw of draws) {
-    if (draw.type.includes('Flush draw')) strength = Math.max(strength, 0.35)
-    if (draw.type.includes('Open-ended')) strength = Math.max(strength, 0.30)
-    if (draw.type.includes('Gutshot')) strength = Math.max(strength, 0.20)
+    // Reduce outs by estimated blocker percentage (~10-15% of outs may be dead)
+    const blockerDiscount = 0.88
+    if (draw.type.includes('Flush draw')) strength = Math.max(strength, 0.33 * blockerDiscount + 0.02)
+    if (draw.type.includes('Open-ended')) strength = Math.max(strength, 0.28 * blockerDiscount + 0.02)
+    if (draw.type.includes('Gutshot')) strength = Math.max(strength, 0.18 * blockerDiscount + 0.02)
   }
 
   return strength
@@ -399,11 +428,15 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   const stackBB = chips / bb
 
   // ─── Short-stack push/fold mode (<25BB) ────────────────
+  // Fix 5: Position-aware push/fold — late position shoves wider
   if (stackBB < 25 && toCall > 0 && ctx.holeCards) {
     const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression })
     const handPct = chenToPercentile(chenMax)
-    // Shove with top ~15% of hands, fold everything else
-    const shoveThreshold = stackBB < 10 ? 0.25 : 0.18 // wider when desperate
+    const latePos = ['BTN', 'D', 'D/BTN', 'CO', 'D/SB'].includes(ctx.position ?? '')
+    // Late position shoves wider; desperate stacks (<10BB) shove widest
+    const shoveThreshold = stackBB < 10
+      ? (latePos ? 0.35 : 0.28) // desperate: wide in LP, moderate in EP
+      : (latePos ? 0.25 : 0.18) // short: standard LP vs EP thresholds
     if (handPct < shoveThreshold) {
       return { type: 'raise', amount: chips + playerBet } // all-in
     }
@@ -464,14 +497,17 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     const inPosition = ipPositions.includes(ctx.position ?? '')
     const flatCallFreq = effectiveVpip * (inPosition ? 0.85 : 0.75)
 
+    // Fix 1: Position-based 3-bet sizing — IP 3.0x, OOP 3.5x (matches real poker sizing)
+    const threeBetMult = inPosition ? 3.0 : 3.5
+
     // Value 3-bet with premium hands
     if (handPct < valueFreq && chips > currentBet * 3) {
-      const raiseSize = Math.round(currentBet * (3.0 + (profile.aggression - 1) * 0.5))
+      const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // Bluff 3-bet — persona-driven random, needs a playable hand
     if (handPct < effectiveVpip && Math.random() < bluffRate && chips > currentBet * 3) {
-      const raiseSize = Math.round(currentBet * (3.0 + (profile.aggression - 1) * 0.5))
+      const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     if (handPct < flatCallFreq) {
@@ -681,13 +717,17 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board.isLow ? 0.90 : 1.0)         // low boards = less raiser range advantage
           * rangeAdv
         : 1.0
-      const cbetRate = (hasStrongHand ? 0.80
-        : hasDraw ? 0.55 + profile.aggression * 0.10
-        : hasWeakMade ? 0.40
-        : 0.20 + profile.bluffFreq * 0.6) * textureMod  // air c-bet scales with texture
-      // Reduce in multiway pots
-      const multiDiscount = isMultiway ? 0.65 : 1.0
-      if (Math.random() < cbetRate * multiDiscount) {
+      // Fix 3: Scale c-bet by board texture AND opponent count
+      // Dry boards: bet more. Wet boards: check more. Multiway: much less.
+      const opponentCount = Math.max(numActivePlayers - 1, 1)
+      const multiDiscount = opponentCount <= 1 ? 1.0
+        : opponentCount === 2 ? 0.65
+        : 0.40
+      const cbetRate = (hasStrongHand ? (board?.isDry ? 0.80 : board?.isWet ? 0.55 : 0.65)
+        : hasDraw ? 0.50 + profile.aggression * 0.10
+        : hasWeakMade ? (board?.isDry ? 0.40 : 0.25)
+        : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount
+      if (Math.random() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
         const betSize = Math.round(pot * (sizeMult + profile.aggression * 0.12 + Math.random() * 0.12))
@@ -696,20 +736,36 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' }
     }
 
-    // Second barrel (turn): if bet the flop, consider barreling
-    // Board texture: barrel more on dry boards and scare cards, less on draw-completing cards
+    // Fix 8: Improved turn barrel — considers whether turn card helped/hurt raiser's range
     if (betOnFlop && ctx.street === 'turn') {
+      // Turn card analysis: did the 4th card help the raiser or the caller?
+      const turnCard = ctx.community && ctx.community.length >= 4 ? ctx.community[3] : null
+      let turnCardHelpsRaiser = 1.0
+      if (turnCard && board) {
+        // High cards (A, K, Q) help the raiser's range (they have more big cards)
+        if (turnCard.rank >= 12) turnCardHelpsRaiser = 1.15
+        // Low cards help the caller's range (sets, two pairs from speculative hands)
+        else if (turnCard.rank <= 7) turnCardHelpsRaiser = 0.85
+        // Flush-completing cards = slow down (opponent might have hit)
+        if (board.hasTwoTone || board.isMonotone) {
+          const turnSuit = turnCard.suit
+          const flushCount = ctx.community!.filter(c => c.suit === turnSuit).length
+          if (flushCount >= 3) turnCardHelpsRaiser *= 0.60 // flush likely completed
+        }
+      }
       const turnTexture = board
         ? (board.isDry ? 1.10 : 1.0)
           * (board.isAceHigh ? 1.10 : 1.0)
-          * (board.isMonotone ? 0.70 : 1.0)  // flush possible = slow down
-          * rangeAdv
+          * (board.isMonotone ? 0.70 : 1.0)
+          * rangeAdv * turnCardHelpsRaiser
         : 1.0
-      const barrelRate = (hasStrongHand ? 0.75
-        : hasMonster ? 0.90
+      // Multiway discount on turn too
+      const turnMulti = isMultiway ? 0.70 : 1.0
+      const barrelRate = (hasMonster ? 0.90
+        : hasStrongHand ? 0.70
         : hasDraw ? 0.45 + profile.aggression * 0.10
-        : hasNothing ? profile.bluffFreq * 0.6 * profile.aggression  // bluff barrel with air
-        : 0.30) * turnTexture
+        : hasNothing ? profile.bluffFreq * 0.5 * profile.aggression
+        : 0.25) * turnTexture * turnMulti
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.50 + profile.aggression * 0.15 + Math.random() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
@@ -717,21 +773,30 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' }
     }
 
-    // Third barrel (river): strong hands for value, board-texture-aware bluffs
-    // Key insight: on ace-high dry boards, river bluffs work because opponent
-    // rarely has an ace (would have raised earlier). On wet boards that bricked,
-    // bluffs represent the missed draw.
+    // Fix 8: Improved river barrel — considers whether river completed draws
     if (betOnTurn && ctx.street === 'river') {
+      const riverCard = ctx.community && ctx.community.length >= 5 ? ctx.community[4] : null
+      let riverScareCard = 1.0
+      if (riverCard && board) {
+        // Flush-completing river = scary (slow down unless we have it)
+        const riverSuit = riverCard.suit
+        const flushCount = ctx.community!.filter(c => c.suit === riverSuit).length
+        if (flushCount >= 3 && !hasMonster) riverScareCard *= 0.55
+        // Straight-completing river (connected card near the board)
+        const boardRanks = ctx.community!.slice(0, 4).map(c => c.rank)
+        const minGap = Math.min(...boardRanks.map(r => Math.abs(r - riverCard.rank)))
+        if (minGap <= 2 && !hasMonster) riverScareCard *= 0.75
+      }
       const riverBluffBoost = board
-        ? (board.isAceHigh && board.isDry ? 1.5 : 1.0) // ace-high dry = great bluff spot
-          * (board.isWet ? 1.3 : 1.0)                    // wet board that bricked = "missed draw" bluff
-          * (board.isPaired ? 0.7 : 1.0)                  // paired boards = opponent may have trips
-          * rangeAdv
+        ? (board.isAceHigh && board.isDry ? 1.5 : 1.0)
+          * (board.isWet ? 1.3 : 1.0) // wet board that bricked = "missed draw" bluff
+          * (board.isPaired ? 0.7 : 1.0)
+          * rangeAdv * riverScareCard
         : 1.0
       const barrelRate = hasMonster ? 0.85
-        : hasStrongHand ? 0.60
-        : hasNothing ? profile.bluffFreq * 0.4 * profile.aggression * riverBluffBoost
-        : 0.20
+        : hasStrongHand ? 0.55
+        : hasNothing ? profile.bluffFreq * 0.35 * profile.aggression * riverBluffBoost
+        : 0.18
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
@@ -805,14 +870,22 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // Carl (agg 0.60): boost 1.24x — calls down more. Twan (agg 1.50): boost 0.80x — folds or raises.
   const streetFactor = baseStreetFactor * passiveBoost
 
-  // Monster hands — raise for value
-  if (hasMonster && Math.random() < 0.15 + profile.aggression * 0.25 && chips > currentBet * 2) {
+  // Fix 2: Check-raise — if we checked this street, boost raise frequency significantly
+  const checkRaiseBoost = ctx.checkedThisStreet ? 0.20 : 0
+
+  // Monster hands — raise for value (much more likely if check-raising)
+  if (hasMonster && Math.random() < 0.15 + profile.aggression * 0.25 + checkRaiseBoost && chips > currentBet * 2) {
     const raiseSize = Math.round(currentBet * (2.2 + Math.random() * 0.8))
     return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
   }
 
-  // Strong hands — usually call, sometimes raise, but fold to huge bets on river
+  // Strong hands — check-raise for balance, or call/raise normally
   if (hasStrongHand) {
+    // Check-raise with strong hands occasionally for balance
+    if (ctx.checkedThisStreet && Math.random() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
+      const raiseSize = Math.round(currentBet * (2.5 + Math.random() * 0.5))
+      return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
+    }
     if (Math.random() < profile.aggression * 0.12 && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * (2.0 + profile.aggression * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }

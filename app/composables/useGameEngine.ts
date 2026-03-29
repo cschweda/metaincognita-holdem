@@ -236,9 +236,13 @@ export function useGameEngine(options: GameEngineOptions) {
       gs.botThinkingInsight.value = null
 
       const currentRaiseLevel = gs.street.value === 'preflop' ? preflopRaiseLevel : 0
+      const currentStreet = gs.street.value as 'flop' | 'turn' | 'river'
+      const playerActions = playerStreetActions.get(p.id)
+      const checkedThisStreet = playerActions?.[currentStreet] === 'check'
       const action = makeBotDecision(p, currentRaiseLevel, {
         wasPreflopRaiser: p.id === preflopRaiserId,
         preflopCallers: preflopCallerCount,
+        checkedThisStreet,
         streetHistory: playerStreetActions.get(p.id),
         opponentReads: handsForMemory >= 5 ? {
           avgAggression: recentTableBets / Math.max(recentTableBets + recentTableChecks, 1) * 2,
