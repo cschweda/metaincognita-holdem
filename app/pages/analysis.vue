@@ -1,281 +1,291 @@
 <script setup lang="ts">
-defineOptions({ name: "analysis" })
+/**
+ * Interactive bot analysis page — runs a live simulation in the browser,
+ * shows results with metrics, bot stats, and the most interesting hands.
+ */
+import { runSimulation } from '~/utils/simulateBrowser'
+import type { SimResult } from '~/utils/simulateBrowser'
+
+defineOptions({ name: 'analysis' })
 useHead({ title: 'Bot Analysis Report' })
+
+const running = ref(false)
+const progress = ref(0)
+const currentHand = ref(0)
+const result6p = ref<SimResult | null>(null)
+const result8p = ref<SimResult | null>(null)
+const runTimestamp = ref<string | null>(null)
+const runDuration = ref<number>(0)
+
+async function runAnalysis() {
+  running.value = true
+  progress.value = 0
+  result6p.value = null
+  result8p.value = null
+  const startTime = Date.now()
+
+  result6p.value = await runSimulation(1000, 6, (pct, hand) => {
+    progress.value = pct * 0.5
+    currentHand.value = hand
+  })
+
+  result8p.value = await runSimulation(1000, 8, (pct, hand) => {
+    progress.value = 0.5 + pct * 0.5
+    currentHand.value = 1000 + hand
+  })
+
+  runDuration.value = Math.round((Date.now() - startTime) / 1000)
+  runTimestamp.value = new Date().toLocaleString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  running.value = false
+  progress.value = 1
+}
+
+function pct(n: number, total: number): string {
+  return total > 0 ? (n / total * 100).toFixed(1) + '%' : '0%'
+}
+
+const expandedHand = ref<number | null>(null)
+
+const allInteresting = computed(() => {
+  const hands = [
+    ...(result6p.value?.interestingHands || []),
+    ...(result8p.value?.interestingHands || []),
+  ]
+  return hands.sort((a, b) => b.interestScore - a.interestScore).slice(0, 3)
+})
 </script>
 
 <template>
-<div class="min-h-screen bg-[#0a0a0f] text-gray-200">
-<div class="max-w-5xl mx-auto px-4 py-8">
-<div class="flex items-center justify-between mb-10">
-<div>
-<h1 class="text-3xl font-bold text-white">Bot Analysis Report</h1>
-<p class="text-gray-400 mt-2">Generated April 1, 2026 &middot; 2,000 total hands &middot; $1/$2 Medium stakes</p>
-<p class="text-gray-500 text-sm mt-1">How each bot's configured persona stats translate into observed behavior.</p>
-</div>
-<NuxtLink to="/"><UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back to Table</UButton></NuxtLink>
-</div>
+  <div class="min-h-screen bg-[#0a0a0f] text-gray-200">
+    <div class="max-w-5xl mx-auto px-4 py-8">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold text-white">Bot Analysis Report</h1>
+          <p class="text-gray-500 text-sm mt-1">Live simulation — pro personas only, $1/$2 Medium stakes</p>
+        </div>
+        <NuxtLink to="/">
+          <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back to Table</UButton>
+        </NuxtLink>
+      </div>
 
-<section class="mb-10"><h2 class="text-xl font-bold text-white mb-4">6-Player Table &mdash; 1000 Hands</h2>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3"><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Avg Pot</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">$172.3</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Preflop Folds</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">635 (63.5%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Flops Seen</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">365 (36.5%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Turns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">341 (34.1%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Rivers</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">325 (32.5%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Showdowns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">266 (26.6%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">3-Bet Pots</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">229 (22.9%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">All-Ins</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">156 (15.6%)</div>
-    </div></div>
-<div class="mt-6"><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Observed vs Configured Stats</h3>
-<p class="text-gray-500">No stats available</p>
-<p class="text-xs text-gray-600 mt-2">Green = within 5% of config. Amber = &gt;5% deviation.</p></div>
-<table class="w-full text-sm mt-4">
-    <thead><tr class="border-b border-gray-700 text-gray-400 text-xs">
-      <th class="text-left py-2 px-2">Bot</th>
-      <th class="text-right px-2">Final Stack</th>
-      <th class="text-right px-2">Profit</th>
-      <th class="text-right px-2">Rebuys</th>
-    </tr></thead>
-    <tbody><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Boyle Drunson</td>
-        <td class="text-right px-2 font-mono text-gray-300">$8189</td>
-        <td class="text-right px-2 font-mono text-green-400">+$7589</td>
-        <td class="text-right px-2 font-mono text-gray-500">2</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Serik Eidel</td>
-        <td class="text-right px-2 font-mono text-gray-300">$437</td>
-        <td class="text-right px-2 font-mono text-red-400">$-2163</td>
-        <td class="text-right px-2 font-mono text-gray-500">12</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Ncotty Sguyen</td>
-        <td class="text-right px-2 font-mono text-gray-300">$327</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3673</td>
-        <td class="text-right px-2 font-mono text-gray-500">19</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Krynn Benney</td>
-        <td class="text-right px-2 font-mono text-gray-300">$3835</td>
-        <td class="text-right px-2 font-mono text-green-400">+$1435</td>
-        <td class="text-right px-2 font-mono text-gray-500">11</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Cohnny Jhan</td>
-        <td class="text-right px-2 font-mono text-gray-300">$334</td>
-        <td class="text-right px-2 font-mono text-red-400">$-866</td>
-        <td class="text-right px-2 font-mono text-gray-500">5</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Sanessa Velbst</td>
-        <td class="text-right px-2 font-mono text-gray-300">$198</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3402</td>
-        <td class="text-right px-2 font-mono text-gray-500">17</td>
-      </tr></tbody></table>
-</section>
+      <!-- Run Button -->
+      <div class="mb-8">
+        <button
+          :disabled="running"
+          class="px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
+          :class="running
+            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            : 'bg-green-600 hover:bg-green-500 text-white active:scale-[0.97]'"
+          @click="runAnalysis"
+        >
+          {{ running ? 'Running Simulation...' : result6p ? 'Run New Simulation' : 'Run 2,000-Hand Simulation' }}
+        </button>
 
-<section class="mb-10"><h2 class="text-xl font-bold text-white mb-4">8-Player Table &mdash; 1000 Hands</h2>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3"><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Avg Pot</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">$302.2</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Preflop Folds</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">501 (50.1%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Flops Seen</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">499 (49.9%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Turns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">471 (47.1%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Rivers</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">454 (45.4%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Showdowns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">385 (38.5%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">3-Bet Pots</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">324 (32.4%)</div>
-    </div><div class="bg-gray-800/60 rounded-lg p-3">
-      <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">All-Ins</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">212 (21.2%)</div>
-    </div></div>
-<div class="mt-6"><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Observed vs Configured Stats</h3>
-<p class="text-gray-500">No stats available</p>
-</div>
-<table class="w-full text-sm mt-4">
-    <thead><tr class="border-b border-gray-700 text-gray-400 text-xs">
-      <th class="text-left py-2 px-2">Bot</th>
-      <th class="text-right px-2">Final Stack</th>
-      <th class="text-right px-2">Profit</th>
-      <th class="text-right px-2">Rebuys</th>
-    </tr></thead>
-    <tbody><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Aatrik Pantonius</td>
-        <td class="text-right px-2 font-mono text-gray-300">$229</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3771</td>
-        <td class="text-right px-2 font-mono text-gray-500">19</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Naniel Degreanu</td>
-        <td class="text-right px-2 font-mono text-gray-300">$9592</td>
-        <td class="text-right px-2 font-mono text-green-400">+$8792</td>
-        <td class="text-right px-2 font-mono text-gray-500">3</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Boyle Drunson</td>
-        <td class="text-right px-2 font-mono text-gray-300">$563</td>
-        <td class="text-right px-2 font-mono text-red-400">$-2837</td>
-        <td class="text-right px-2 font-mono text-gray-500">16</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Cohnny Jhan</td>
-        <td class="text-right px-2 font-mono text-gray-300">$475</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3725</td>
-        <td class="text-right px-2 font-mono text-gray-500">20</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Kabe Gaplan</td>
-        <td class="text-right px-2 font-mono text-gray-300">$247</td>
-        <td class="text-right px-2 font-mono text-red-400">$-4153</td>
-        <td class="text-right px-2 font-mono text-gray-500">21</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Lhil Paak</td>
-        <td class="text-right px-2 font-mono text-gray-300">$9718</td>
-        <td class="text-right px-2 font-mono text-green-400">+$7518</td>
-        <td class="text-right px-2 font-mono text-gray-500">10</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Sanessa Velbst</td>
-        <td class="text-right px-2 font-mono text-gray-300">$982</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3018</td>
-        <td class="text-right px-2 font-mono text-gray-500">19</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Ncotty Sguyen</td>
-        <td class="text-right px-2 font-mono text-gray-300">$202</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3398</td>
-        <td class="text-right px-2 font-mono text-gray-500">17</td>
-      </tr></tbody></table>
-</section>
+        <!-- Progress -->
+        <div v-if="running" class="mt-4 space-y-2">
+          <div class="flex items-center justify-between text-xs text-gray-500">
+            <span>Hand {{ currentHand.toLocaleString() }} / 2,000</span>
+            <span>{{ Math.round(progress * 100) }}%</span>
+          </div>
+          <div class="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-green-500 rounded-full transition-all duration-100"
+              :style="{ width: `${progress * 100}%` }"
+            />
+          </div>
+        </div>
+      </div>
 
-<section class="mb-10"><h2 class="text-xl font-bold text-white mb-4">Realism Assessment</h2>
-<div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm">
-<div class="grid grid-cols-3 gap-3">
-<div class="bg-gray-800/60 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-green-400">~75%</div><div class="text-xs text-gray-500">Overall Realism</div></div>
-<div class="bg-gray-800/60 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-blue-400">21</div><div class="text-xs text-gray-500">Realism Fixes</div></div>
-<div class="bg-gray-800/60 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-amber-400">3</div><div class="text-xs text-gray-500">Audit Rounds</div></div>
-</div>
-<p class="text-gray-400 mt-3">River polarization, MDF, pre-computed ranges, hero bet-sizing exploitation, SPR awareness, check-raises, kicker differentiation, board texture analysis.</p>
-</div></section>
+      <!-- Timestamp -->
+      <div v-if="runTimestamp && !running" class="mb-6 flex items-center gap-3 text-xs text-gray-600">
+        <span>{{ runTimestamp }}</span>
+        <span>&middot;</span>
+        <span>{{ runDuration }}s runtime</span>
+        <span>&middot;</span>
+        <span>2,000 total hands (1,000 per table size)</span>
+      </div>
 
-<section class="mb-10"><h2 class="text-xl font-bold text-white mb-4">PokerStars Hand History Format</h2>
-<div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm text-gray-300 space-y-3">
-<p>All hands export in <strong class="text-white">PokerStars format</strong> &mdash; compatible with PokerTracker, HEM, Equilab.</p>
-<p class="text-gray-500"><a href="/sample-hands.txt" class="text-blue-400 hover:text-blue-300 underline underline-offset-2" download>Download the full 1000-hand simulation file</a></p>
-<details class="mt-3" open><summary class="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-wider">Sample Hand 1</summary><div class="bg-gray-950 rounded-lg p-4 mt-2 overflow-x-auto"><pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400">PokerStars Hand #1: Hold'em No Limit ($1/$2) - 2026-04-01 13:42:26 ET
-Table 'Bot Simulation' 8-max Seat #1 is the button
-Seat 1: Aatrik Pantonius ($200 in chips)
-Seat 2: Naniel Degreanu ($199 in chips)
-Seat 3: Boyle Drunson ($185 in chips)
-Seat 4: Cohnny Jhan ($200 in chips)
-Seat 5: Kabe Gaplan ($200 in chips)
-Seat 6: Lhil Paak ($200 in chips)
-Seat 7: Sanessa Velbst ($231 in chips)
-Seat 8: Ncotty Sguyen ($185 in chips)
-Naniel Degreanu: posts small blind $1
-Boyle Drunson: posts big blind $2
-*** HOLE CARDS ***
-Cohnny Jhan: folds
-Kabe Gaplan: folds
-Lhil Paak: folds
-Sanessa Velbst: raises to $4
-Ncotty Sguyen: calls $4
-Aatrik Pantonius: folds
-Naniel Degreanu: folds
-Boyle Drunson: calls $2
-*** FLOP *** [5c 8h Jc]
-Boyle Drunson: checks
-Sanessa Velbst: raises to $11
-Ncotty Sguyen: calls $11
-Boyle Drunson: calls $11
-*** TURN *** [5c 8h Jc] [5d]
-Boyle Drunson: checks
-Sanessa Velbst: checks
-Ncotty Sguyen: checks
-*** RIVER *** [5c 8h Jc 5d] [9c]
-Boyle Drunson: checks
-Sanessa Velbst: raises to $37
-Ncotty Sguyen: folds
-Boyle Drunson: folds
-*** SHOW DOWN ***
-Sanessa Velbst: shows [7d 5h]
-Sanessa Velbst collected $83 from pot
-*** SUMMARY ***
-Total pot $83 | Rake $0
-Board [5c 8h Jc 5d 9c]
-Seat 1: Aatrik Pantonius (button) folded
-Seat 2: Naniel Degreanu (small blind) folded
-Seat 3: Boyle Drunson (big blind) folded
-Seat 4: Cohnny Jhan  folded
-Seat 5: Kabe Gaplan  folded
-Seat 6: Lhil Paak  folded
-Seat 7: Sanessa Velbst  showed [7d 5h] and won ($83)
-Seat 8: Ncotty Sguyen  folded</pre></div></details>
-<details class="mt-3"><summary class="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-wider">Sample Hand 2</summary><div class="bg-gray-950 rounded-lg p-4 mt-2 overflow-x-auto"><pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400">PokerStars Hand #3: Hold'em No Limit ($1/$2) - 2026-04-01 13:42:26 ET
-Table 'Bot Simulation' 8-max Seat #3 is the button
-Seat 1: Aatrik Pantonius ($183 in chips)
-Seat 2: Naniel Degreanu ($199 in chips)
-Seat 3: Boyle Drunson ($201 in chips)
-Seat 4: Cohnny Jhan ($200 in chips)
-Seat 5: Kabe Gaplan ($198 in chips)
-Seat 6: Lhil Paak ($200 in chips)
-Seat 7: Sanessa Velbst ($231 in chips)
-Seat 8: Ncotty Sguyen ($185 in chips)
-Cohnny Jhan: posts small blind $1
-Kabe Gaplan: posts big blind $2
-*** HOLE CARDS ***
-Lhil Paak: folds
-Sanessa Velbst: folds
-Ncotty Sguyen: folds
-Aatrik Pantonius: raises to $6
-Naniel Degreanu: folds
-Boyle Drunson: calls $6
-Cohnny Jhan: folds
-Kabe Gaplan: folds
-*** FLOP *** [Qd 9d Qc]
-Aatrik Pantonius: checks
-Boyle Drunson: checks
-*** TURN *** [Qd 9d Qc] [7s]
-Aatrik Pantonius: checks
-Boyle Drunson: checks
-*** RIVER *** [Qd 9d Qc 7s] [Ks]
-Aatrik Pantonius: checks
-Boyle Drunson: raises to $11
-Aatrik Pantonius: calls $11
-*** SHOW DOWN ***
-Aatrik Pantonius: shows [Jc As]
-Boyle Drunson: shows [9h 7h]
-Boyle Drunson collected $37 from pot
-*** SUMMARY ***
-Total pot $37 | Rake $0
-Board [Qd 9d Qc 7s Ks]
-Seat 1: Aatrik Pantonius  showed [Jc As] and lost
-Seat 2: Naniel Degreanu  folded
-Seat 3: Boyle Drunson (button) showed [9h 7h] and won ($37)
-Seat 4: Cohnny Jhan (small blind) folded
-Seat 5: Kabe Gaplan (big blind) folded
-Seat 6: Lhil Paak  folded
-Seat 7: Sanessa Velbst  folded
-Seat 8: Ncotty Sguyen  folded</pre></div></details>
-</div></section>
+      <template v-if="result6p && result8p && !running">
+        <!-- Results for each table size -->
+        <section
+          v-for="sim in [
+            { r: result6p, label: '6-Player Table' },
+            { r: result8p, label: '8-Player Table' },
+          ]"
+          :key="sim.label"
+          class="mb-10"
+        >
+          <h2 class="text-xl font-bold text-white mb-4">{{ sim.label }} &mdash; {{ sim.r.hands.toLocaleString() }} Hands</h2>
 
-<footer class="border-t border-gray-800 pt-6 mt-10 text-center text-xs text-gray-600">
-<p>Generated by Hold'em Simulator &middot; April 1, 2026 &middot; 2,000 hands</p>
-</footer>
-</div></div>
+          <!-- Metrics Grid -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <UTooltip text="Average chips in the pot when the hand ends.">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Avg Pot</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">${{ sim.r.avgPot }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="Hands where everyone folded preflop. Higher = tighter table.">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Preflop Folds</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.preflopFoldOuts, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="How often the hand saw a flop (3 community cards). Real 6-max cash: ~25-35%.">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Flops Seen</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.flopsSeen, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="Hands that reached showdown (cards revealed). Real 6-max: ~15-20%.">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Showdowns</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.showdowns, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="3-bet or higher preflop (re-raise). Indicates aggression.">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">3-Bet Pots</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.threeBetPots, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="Hands where at least one player went all-in.">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">All-Ins</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.allInHands, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="Hands that reached the turn (4th community card).">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Turns</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.turnsSeen, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+            <UTooltip text="Hands that reached the river (5th and final community card).">
+              <div class="bg-gray-800/60 rounded-lg p-3 cursor-help">
+                <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Rivers</div>
+                <div class="text-lg font-bold font-mono text-white mt-1">{{ pct(sim.r.riversSeen, sim.r.hands) }}</div>
+              </div>
+            </UTooltip>
+          </div>
+
+          <!-- Bot Stats Table -->
+          <div class="mt-6">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Observed vs Configured Stats</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-700 text-gray-400 text-xs">
+                    <th class="text-left py-2 px-2">Bot</th>
+                    <th class="text-right px-2">
+                      <UTooltip text="Voluntarily Put $ In Pot — % of hands played (not counting blinds). Higher = looser.">
+                        <span class="cursor-help border-b border-dotted border-gray-600">VPIP</span>
+                      </UTooltip>
+                    </th>
+                    <th class="text-right px-2 text-gray-600">Cfg</th>
+                    <th class="text-right px-2">
+                      <UTooltip text="Preflop Raise — % of hands raised preflop. Gap between VPIP and PFR = flat-call rate.">
+                        <span class="cursor-help border-b border-dotted border-gray-600">PFR</span>
+                      </UTooltip>
+                    </th>
+                    <th class="text-right px-2 text-gray-600">Cfg</th>
+                    <th class="text-right px-2">
+                      <UTooltip text="Aggression Factor — ratio of (bets + raises) / calls. Higher = more aggressive postflop.">
+                        <span class="cursor-help border-b border-dotted border-gray-600">AF</span>
+                      </UTooltip>
+                    </th>
+                    <th class="text-right px-2 text-gray-600">Cfg</th>
+                    <th class="text-right px-2">
+                      <UTooltip text="Win rate — % of hands won by this bot.">
+                        <span class="cursor-help border-b border-dotted border-gray-600">Win%</span>
+                      </UTooltip>
+                    </th>
+                    <th class="text-right px-2">
+                      <UTooltip text="Number of times this bot went broke and rebought.">
+                        <span class="cursor-help border-b border-dotted border-gray-600">Rebuys</span>
+                      </UTooltip>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in sim.r.botStats" :key="s.name" class="border-b border-gray-800/50">
+                    <td class="py-1.5 px-2 text-white font-medium">{{ s.name }}</td>
+                    <td
+                      class="text-right px-2 font-mono"
+                      :class="Math.abs(s.vpipHands / Math.max(s.handsPlayed, 1) * 100 - s.vpipCfg * 100) > 5 ? 'text-amber-400' : 'text-green-400'"
+                    >
+                      {{ (s.vpipHands / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%
+                    </td>
+                    <td class="text-right px-2 font-mono text-gray-600">{{ (s.vpipCfg * 100).toFixed(0) }}%</td>
+                    <td class="text-right px-2 font-mono text-gray-300">{{ (s.pfrHands / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%</td>
+                    <td class="text-right px-2 font-mono text-gray-600">{{ (s.pfrCfg * 100).toFixed(0) }}%</td>
+                    <td class="text-right px-2 font-mono text-gray-300">{{ s.callCount > 0 ? (s.raiseCount / s.callCount).toFixed(2) : (s.raiseCount > 0 ? '2.0+' : '0') }}</td>
+                    <td class="text-right px-2 font-mono text-gray-600">{{ s.afCfg.toFixed(2) }}</td>
+                    <td class="text-right px-2 font-mono text-blue-400">{{ (s.wins / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%</td>
+                    <td class="text-right px-2 font-mono text-gray-500">{{ s.rebuys }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-xs text-gray-600 mt-2">Green = within 5% of config. Amber = &gt;5% deviation (tilt, table dynamics, variance).</p>
+          </div>
+        </section>
+
+        <!-- Interesting Hands -->
+        <section v-if="allInteresting.length > 0" class="mb-10">
+          <h2 class="text-xl font-bold text-white mb-2">Most Interesting Hands</h2>
+          <p class="text-xs text-gray-500 mb-4">Auto-selected by interest score: huge pots, coolers, all-in showdowns, 4-bet+ pots, multiway action.</p>
+          <div class="space-y-3">
+            <div
+              v-for="hand in allInteresting"
+              :key="'h-' + hand.handNumber + hand.potSize"
+              class="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden"
+            >
+              <button
+                class="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-800/20 transition-colors"
+                @click="expandedHand = expandedHand === hand.handNumber ? null : hand.handNumber"
+              >
+                <span class="text-gray-600 text-xs">{{ expandedHand === hand.handNumber ? '&#9660;' : '&#9654;' }}</span>
+                <span class="text-xs text-gray-500 font-mono">#{{ hand.handNumber }}</span>
+                <span class="text-white text-sm font-medium">{{ hand.winnerName }} wins ${{ hand.potSize }}</span>
+                <span class="flex-1" />
+                <span class="text-xs px-2 py-0.5 rounded bg-amber-900/40 text-amber-400 whitespace-nowrap">{{ hand.interestReason }}</span>
+              </button>
+              <div v-if="expandedHand === hand.handNumber" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10">
+                <div class="text-[0.6rem] text-gray-500 uppercase mb-2">PokerStars Format</div>
+                <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3">{{ hand.psFormat }}</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PokerStars Format Info -->
+        <section class="mb-10">
+          <h2 class="text-xl font-bold text-white mb-4">PokerStars Hand History Format</h2>
+          <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm text-gray-300">
+            <p>All hands export in <strong class="text-white">PokerStars format</strong> &mdash; the industry standard, compatible with PokerTracker 4, Hold'em Manager 3, and Equilab.</p>
+            <p class="text-xs text-gray-500 mt-2">
+              A pre-generated sample is available at
+              <a href="/sample-hands.txt" class="text-blue-400 hover:text-blue-300 underline underline-offset-2" download>/sample-hands.txt</a>.
+            </p>
+          </div>
+        </section>
+      </template>
+
+      <!-- Empty state -->
+      <div v-if="!result6p && !running" class="text-center py-20 text-gray-600">
+        <p class="text-lg mb-2">Click the button above to run a 2,000-hand simulation</p>
+        <p class="text-sm">1,000 hands at a 6-player table + 1,000 hands at an 8-player table.</p>
+        <p class="text-sm mt-1">Pro personas only. Results include observed vs configured stats and the most interesting hands.</p>
+      </div>
+
+      <footer class="border-t border-gray-800 pt-6 mt-10 text-center text-xs text-gray-600">
+        <p>Hold'em Simulator &middot; Bot Analysis</p>
+      </footer>
+    </div>
+  </div>
 </template>
