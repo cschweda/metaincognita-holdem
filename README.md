@@ -229,38 +229,66 @@ The app has three persistence tiers depending on configuration:
 
 ### Live Commentary
 
-A scrolling left-column panel that provides real-time poker commentary for every hand. Two modes run simultaneously — switching is instant with no lost lines.
+If you've ever watched the World Series of Poker on ESPN, you know the magic of Lon McEachern and Norman Chad calling the action. Lon delivers the smooth play-by-play -- who raised, who folded, what hit the board. Norman provides the color commentary -- the jokes, the self-deprecating humor, the ex-wife references, the absurd analogies. Together they turned poker broadcasts into appointment television. This feature is a love letter to that experience.
 
-**Hero POV** (default):
-- First-person perspective — "We pick up A♠ K♦. Strong hand."
-- Only sees hero's cards and public information (bets, board, opponent actions)
-- Comments on every action: blind posts, folds, calls, raises, checks, all-ins
-- Opponent cards stay face-down on the table
-- Reads like an internal monologue of a player at the table
+The commentary panel sits to the left of the table and provides a constant stream of real-time reactions to every action in every hand. Two modes run simultaneously in the background, so switching between them is instant -- you never miss a line.
 
-**TV Broadcast** (Norman Chad & Lon McEachern style):
-- Dual-voice commentary: **Lon** (blue, play-by-play) calls the action straight, **Norman** (amber, color) adds humor
-- All bot cards shown face-up on the table (like watching WSOP on TV)
-- **Omniscient perspective** — sees all hole cards, calls out bluffs ("Pure bluff! Betting on hope and a prayer. Mostly hope."), identifies slow-plays, detects draws
-- **Foreshadowing** — peeks at pre-dealt turn/river cards: "Spoiler alert: the deck has a surprise in store."
-- **150+ unique Norman Chad quips** across 15 categorized pools: folds, big folds, bluffs, raises, calls, checks, all-ins, junk all-ins, showdown wins/losses, coolers, foreshadowing, street hits/misses, generic wisdom
-- **No-repeat system** — UniquePool class tracks used lines per game, only repeats after the full pool is exhausted
-- **Persona-specific commentary** — Norman has custom quips for each of the 18 pro bots:
-  - Hill Phellmuth: tilt/tantrum references ("If this doesn't go his way, expect fireworks. And by fireworks I mean a tantrum.")
-  - Kabe Gaplan: Welcome Back, Kotter / Sweathogs / Barbarino / Horseshack references
-  - Dom Twan: "durrrr" challenge lore
-  - Boyle Drunson: Super/System, Godfather of Poker
-  - Ihil Pvey: human calculator, machine-like precision
-  - Bean-Robert Jellande: fearless gambler reputation
-  - Mike the Mouth: solid-until-tilt personality
-  - And 11 more pro-specific quip sets
-- **Constant stream** — every action gets commentary. No random skipping. Starts from the first blind post.
-- **Cooler/bad beat detection** at showdown with dramatic reactions
+#### Hero POV (default)
+
+The Hero POV mode reads like the internal monologue of a player sitting at the table. It only knows what you know: your hole cards, the community board, bet sizes, and opponent actions. It never reveals opponent cards or hidden information.
+
+- First-person voice: *"We pick up A♠ K♦. Strong hand."*, *"We fold. On to the next one."*
+- Reacts to every action at the table: blind posts, folds, calls, raises, checks, all-ins
+- Evaluates your hand against the board: *"We flopped Two Pair!"*, *"Missed the flop completely."*, *"Big draw -- 9 outs."*
+- Notes opponent tendencies from their persona profile: *"Tight player raising -- respect it."*
+- Opponent cards stay face-down on the table (normal play mode)
+- Useful for immersion -- it feels like having a poker coach whispering in your ear
+
+#### TV Broadcast (Norman Chad & Lon McEachern)
+
+Switch to TV Broadcast mode and the entire experience transforms. All bot hole cards flip face-up on the table, just like watching the WSOP on television where the camera shows every player's cards while you watch from the couch. Hero still has full agency -- you make all your own decisions -- but now you're playing inside a televised poker broadcast, complete with the commentary team.
+
+**Lon McEachern** (blue label) calls the action straight: who bet what, who has which hand, what hit the board. Professional, clear, informative. The steady voice that grounds the broadcast.
+
+**Norman Chad** (amber label) is... Norman Chad. The goofy puns. The self-deprecating humor. The ex-wife jokes. The absurd analogies. The running commentary that has nothing to do with poker and everything to do with making you laugh while someone shoves all-in with seven-deuce.
+
+Sample lines:
+- *"Pure bluff! Betting on hope and a prayer. Mostly hope."*
+- *"ALL-IN with THAT?! I've made better decisions at 3 AM at a Waffle House."*
+- *"That hand should come with an apology note."*
+- *"Smooth call with the best hand. That's how I play... and also how I lose."*
+- *"I've seen the future, and someone's going to like it."*
+- *"That's poker. The cruelest game ever invented by someone who hated happiness."*
+- *"Winner winner, chicken dinner. I never understood that expression. Why chicken? Why not steak?"*
+
+**Persona-specific commentary:** Norman has custom quips for each of the 18 pro-inspired bots, referencing their real-world counterparts' reputations and quirks:
+
+| Bot | Norman's Take |
+|-----|---------------|
+| Hill Phellmuth | Tilt, tantrums, the Poker Brat -- *"If this doesn't go his way, expect fireworks. And by fireworks I mean a tantrum."* |
+| Kabe Gaplan | Welcome Back, Kotter -- Sweathogs, Barbarino, Horseshack -- *"Up your nose with a rubber hose -- that's what he's saying to their chip stacks."* |
+| Dom Twan | The "durrrr" challenge, online legend lore -- *"He bets like he's allergic to folding."* |
+| Boyle Drunson | Super/System, the Godfather of Poker -- *"He wrote the book on it. Literally."* |
+| Ihil Pvey | Machine-like precision -- *"I've never seen him blink. Literally never."* |
+| Bean-Robert Jellande | Fearless gambler -- *"He'd bluff his own grandmother. And probably has."* |
+| Mike the Mouth | Solid until tilt -- *"If he loses this one, clear the blast radius."* |
+| Rhip Ceese | Legend, near-zero leaks -- *"Playing against him is like playing against a wall. A very expensive wall."* |
+| Utu Sngar | Genius reads -- *"Fearless and brilliant. A terrifying combination at a poker table."* |
+| Serik Eidel | The Quiet Assassin -- *"You won't hear him coming. You'll just hear your chips leaving."* |
+| Entonio Asfandiari | The Magician -- *"He makes your chips disappear. Get it? Magician?"* |
+| Kabe Gaplan | *"Horseshack would be raising here too. 'Ooh ooh ooh, Mr. Kotter!'"* |
+
+...and custom lines for Tennifer Jilly, Sanessa Velbst, Aatrik Pantonius, Ncotty Sguyen, Mhris Coneymaker, Cohnny Jhan, Krynn Benney, Naniel Degreanu, and Lhil Paak.
+
+**Why this exists:** I built this because I genuinely enjoy Norman and Lon's commentary. The WSOP broadcasts are as much about the commentary booth as they are about the cards. Norman Chad's humor -- the terrible puns, the running gags, the complete inability to take anything seriously while analyzing serious poker -- is a huge part of what makes watching poker fun. This feature tries to capture a fraction of that energy. It's not meant to replace the real thing (nothing could), but if you've ever smiled at "My ex-wife..." or groaned at one of Norman's puns, this mode is for you.
 
 **Technical details:**
-- `useCommentary.ts` composable maintains two independent line arrays (`heroLines`, `tvLines`) that both generate on every game event
-- `CommentaryPanel.vue` displays whichever array matches the selected mode
-- Auto-scrolls to new lines; pauses auto-scroll if user scrolls up
+- Both streams generate simultaneously on every game event -- switching modes displays the other stream's full history instantly
+- 150+ unique Norman quips across 15 categorized no-repeat pools (folds, big folds, bluffs, raises, calls, checks, all-ins, junk all-ins, showdown wins/losses, coolers, foreshadowing, street hits/misses, generic)
+- `UniquePool` class tracks used indices per pool -- never repeats within a game, resets each new hand
+- Persona quips fire ~40% of the time when a pro bot acts, falling back to generic pool otherwise
+- Foreshadowing peeks at pre-dealt turn/river cards (~35-40% of applicable situations)
+- Auto-scrolls to new lines; pauses auto-scroll if user scrolls up manually
 - Toggle (on/off) and mode (Hero/TV) persisted in localStorage
 - Three-column desktop layout at `xl` breakpoint (1280px+): Commentary | Table | Stats
 
