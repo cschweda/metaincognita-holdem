@@ -467,6 +467,120 @@ const normanPersonaQuips: Record<string, string[]> = {
   ],
 }
 
+// ─── Hand-situation-specific Norman quips ─────────────────────────
+// These are selected based on the actual cards/situation, not randomly
+
+const normanPocketPairQuips: Record<string, string[]> = {
+  aces: [
+    `Pocket aces! The best hand in poker. Also the hand that breaks the most hearts when it loses.`,
+    `Rockets! American Airlines! Pocket aces! The hand that launched a thousand bad beat stories.`,
+    `Aces! You know what they say: "Look down at aces, try not to drool."`,
+    `Pocket aces. The only hand in poker where you're supposed to be happy and terrified at the same time.`,
+  ],
+  kings: [
+    `Pocket kings. The second best hand in poker. The first best hand at losing to an ace on the flop.`,
+    `Cowboys! Pocket kings! Beautiful hand. Unless an ace comes. Which it always does. ALWAYS.`,
+    `Kings! The hand that makes you feel invincible until that inevitable ace hits the board.`,
+  ],
+  queens: [
+    `Pocket queens. The pretty ladies. They look good until they run into kings or aces. Story of my life, actually.`,
+    `Ladies! Pocket queens. Strong hand. Unless you're against aces, kings, or anyone who hit a set. So... conditional.`,
+    `Queens! My second favorite pair. My first favorite pair is a pair of tickets to anywhere but a poker table.`,
+  ],
+  jacks: [
+    `Pocket jacks. The most controversial hand in poker. Half the players love them, half hate them. I'm in the hate camp.`,
+    `Fish hooks! Pocket jacks. The hand that starts fights. With yourself, mostly.`,
+    `Jacks. The hand that looks amazing until you realize there are three overcards that can come.`,
+  ],
+}
+
+const normanBoardQuips = {
+  allOneSuit: [
+    `Three of one suit on the flop. If you don't have a flush draw, it's time to panic. Quietly. With dignity.`,
+    `Monotone board. Someone has a flush or a flush draw. Maybe both. The drama!`,
+    `All one suit. This is either very good news for somebody or very bad news for everybody.`,
+  ],
+  paired: [
+    `Paired board. Full house territory. That's either exciting or terrifying, depending on which side you're on.`,
+    `The board paired. Somebody just got very happy or very worried. In poker, those two feelings are neighbors.`,
+  ],
+  allBroadway: [
+    `All broadway cards. This board favors the raiser's range. That's fancy talk for "the aggressive player is happy."`,
+    `Broadway board. Kings, queens, jacks everywhere. It's like a royal convention. Without the corgis.`,
+  ],
+  allLow: [
+    `All small cards. This is the caller's dream board. The raiser? Not so much.`,
+    `Low board. Sets and two pairs are everywhere. This is where the small ball players shine. And where I lose.`,
+  ],
+  ace: [
+    `Ace on the flop. The most feared card in poker. If you raised preflop and have an ace, you're smiling. If you don't, you're pretending to smile.`,
+    `There's the ace. The great equalizer. Or the great un-equalizer, depending on your hand.`,
+  ],
+}
+
+const normanDrawQuips = [
+  `A draw! The most hopeful hand in poker. It's like buying a lottery ticket, except you paid $50 for it.`,
+  `Drawing hand. In poker, hope is a draw. In life, hope is also a draw. I'm always drawing.`,
+  `Chasing the draw. Some people chase dreams. Poker players chase flushes. Both end in disappointment about 65% of the time.`,
+  `Lots of outs. That's good. Outs are like friends — the more you have, the better your chances. I have neither.`,
+  `A big draw. The math says call. The heart says call. The wallet says "please stop."`,
+]
+
+const normanRiverQuips = [
+  `The river. The final card. The moment of truth. The thing that ruins everything 40% of the time.`,
+  `River card coming. This is it. The last chance for redemption. Or the last chance for heartbreak.`,
+  `The river. Where dreams come true and nightmares are born. Often simultaneously at the same table.`,
+  `Final card. In poker, the river is where heroes are made. And where my bankroll goes to die.`,
+]
+
+const normanPotSizeQuips = [
+  `That pot is getting big. Like, embarrassingly big. Like "I shouldn't be watching this" big.`,
+  `Look at the size of that pot. I've had apartments smaller than that pot.`,
+  `Monster pot building here. This is the kind of pot that makes poker worth watching. And worth losing sleep over.`,
+  `The pot just keeps growing. It's like a snowball rolling downhill. A very expensive snowball.`,
+]
+
+const normanHeadsUpQuips = [
+  `Heads up now. One on one. Mano a mano. Bot a... boto? This is where it gets personal.`,
+  `Just two players left. It's a duel. A showdown. A... whatever you call it when two people fight over chips.`,
+  `Heads up! The purest form of poker. Just you, your opponent, and a pile of chips that belongs to one of you.`,
+]
+
+// ─── Self-aware quips (Norman knows it's a simulation) ───────────
+const normanSelfAwareQuips = [
+  `You know, these bots are pretty good. Better than half the players at my home game. All of the players at my home game, actually.`,
+  `I gotta say, commentating a simulation is easier than the real WSOP. No bathroom breaks, no catering issues, no Phil screaming.`,
+  `These bot names... they seem familiar. I can't quite place the faces though. Probably for legal reasons.`,
+  `Is it just me, or do some of these bots play suspiciously like real poker pros? I'm not saying anything. I'm just saying.`,
+  `You know what I love about this? No commercials. No bathroom breaks. Just pure poker. And my commentary. Sorry about that second part.`,
+  `I've been doing this a while now and I think the bots are starting to judge me. Fair enough.`,
+  `Playing poker against bots. In a simulation. On a computer. This is the future my guidance counselor warned me about.`,
+  `These bots don't tilt. They don't complain. They don't order expensive drinks. They're better than 90% of the people I've played with.`,
+  `You know, in a simulation, every hand is a lesson. In real life, every hand is a lesson too. The lesson is usually "you should have folded."`,
+  `I wonder if the bots know they're bots. Existential poker questions, brought to you by Norman Chad.`,
+  `Commentating a poker simulation. My career has reached new and unprecedented lows. And I'm loving every second of it.`,
+  `The nice thing about bot poker? Nobody's going to write a mean tweet about my commentary. I think. I hope.`,
+  `Some of these bot names ring a bell. Phellmuth... Degreanu... Pvey... nah, can't place them. Must be a coincidence.`,
+  `This is simulation poker. No money on the line. No real emotions. Just pure, uncut strategy. And my bad jokes.`,
+]
+
+// ─── Slider reaction quips ───────────────────────────────────────
+const normanSliderUpQuips = [
+  `Oh, you want MORE of me? That's the nicest thing anyone's done since my second wife said "I do." And we know how THAT turned out.`,
+  `Turning me up! Finally, someone who appreciates quality commentary. Or at least commentary.`,
+  `More Norman? You got it. I've been holding back anyway. That was the RESTRAINED version.`,
+  `Volume up on Norman Chad! I knew this day would come. I've been rehearsing in the mirror.`,
+  `Cranking up the Norman dial. My therapist said people would eventually appreciate me. I'm framing this moment.`,
+]
+
+const normanSliderDownQuips = [
+  `Oh, I'm being turned down. This feels very familiar. Like every date I've ever been on.`,
+  `Less Norman? I understand. Quality over quantity. Although I'd argue I provide neither.`,
+  `Turning me down. That's fine. I'll just be over here. Quietly. With my thoughts. And my loneliness.`,
+  `The Norman dial goes down. My ex-wife turned me down too. Then she turned me out. Then she turned me into a podcast topic.`,
+  `Dialed back. I get it. Not everyone can handle this much personality. I barely can myself.`,
+]
+
 function normanPersonaQuip(name: string): string | null {
   const quips = normanPersonaQuips[name]
   if (!quips || quips.length === 0) return null
@@ -524,7 +638,19 @@ export function useCommentary(gs: GS) {
 
   watch(enabled, v => { if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-enabled', String(v)) })
   watch(mode, v => { if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-mode', v) })
-  watch(normanSilence, v => { _normanSilence = v; if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-norman-silence', String(v)) }, { immediate: true })
+  let prevSilence = -1
+  watch(normanSilence, v => {
+    const wasHigher = prevSilence >= 0 && v > prevSilence
+    const wasLower = prevSilence >= 0 && v < prevSilence
+    _normanSilence = v
+    if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-norman-silence', String(v))
+    // Norman reacts to being adjusted (only during a game, not on init)
+    if (prevSilence >= 0 && enabled.value && mode.value === 'tv' && Math.abs(v - prevSilence) >= 10) {
+      if (wasHigher) addTV(pick(normanSliderDownQuips), 'aside', 'norman')
+      else if (wasLower) addTV(pick(normanSliderUpQuips), 'aside', 'norman')
+    }
+    prevSilence = v
+  }, { immediate: true })
   watch(lonAnalysis, v => { _lonAnalysis = v; if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-lon-analysis', String(v)) }, { immediate: true })
 
   const lines = computed(() => mode.value === 'tv' ? tvLines.value : heroLines.value)
@@ -598,8 +724,13 @@ export function useCommentary(gs: GS) {
       `Fresh hand dealt. The tension builds.`,
     ]), 'deal', 'lon')
 
-    // Hero hand reaction
-    if (chen >= 10) {
+    // Hero hand reaction — with pocket pair specifics
+    if (isPair(h.holeCards) && h.holeCards[0].rank >= 11) {
+      const pName = pairName(h.holeCards[0].rank) as keyof typeof normanPocketPairQuips
+      const pairQuips = normanPocketPairQuips[pName]
+      addTV(`Hero looks down at pocket ${pairName(h.holeCards[0].rank)}.`, 'deal', 'lon')
+      addTV(pairQuips ? pick(pairQuips) : normanRaiseQuips.pick(), 'deal', 'norman')
+    } else if (chen >= 10) {
       addTV(pick([`Hero looks down at ${cards}. That's a premium hand.`, `${cards} for Hero. Very strong.`]), 'deal', 'lon')
       addTV(pick([`Finally a hand worth playing. My ex-wife never had that kind of luck.`, `Oh, Hero's got a real hand. Unlike my poker game last Tuesday.`, `That's the kind of hand that makes you sit up straight.`, `Now THAT'S a starting hand. I get excited just looking at it. Which is sad, if you think about it.`]), 'deal', 'norman')
     } else if (chen <= 4) {
@@ -607,6 +738,11 @@ export function useCommentary(gs: GS) {
       addTV(pick([`${cards}? I've gotten better hands from a vending machine.`, `That hand is so bad, even my mother-in-law would fold it.`, `Hero's going to need a miracle. Or several miracles.`, `That's the poker equivalent of getting socks for Christmas.`, `I wouldn't play that hand with someone else's chips.`]), 'deal', 'norman')
     } else {
       addTV(`${cards} for Hero.`, 'deal', 'lon')
+    }
+
+    // Occasional self-aware quip (knows this is a simulation)
+    if (Math.random() < 0.08) {
+      addTV(pick(normanSelfAwareQuips), 'aside', 'norman')
     }
 
     // Opponent hands
@@ -712,6 +848,14 @@ export function useCommentary(gs: GS) {
         }
       }
       return
+    }
+
+    // Occasional pot size or heads-up quip
+    const activeCount = activePl().length
+    if (activeCount === 2 && Math.random() < 0.15) {
+      addTV(pick(normanHeadsUpQuips), 'aside', 'norman')
+    } else if (gs.pot.value > 200 && Math.random() < 0.1) {
+      addTV(pick(normanPotSizeQuips), 'aside', 'norman')
     }
 
     // ── ALL-IN ──
@@ -841,6 +985,23 @@ export function useCommentary(gs: GS) {
 
       // TV stream
       addTV(`Flop comes ${boardStr}.`, 'street', 'lon')
+
+      // Board texture quip from Norman
+      const flopCards = community.slice(0, 3)
+      const suits = flopCards.map(c => c.suit)
+      const ranks = flopCards.map(c => c.rank)
+      if (suits[0] === suits[1] && suits[1] === suits[2]) {
+        addTV(pick(normanBoardQuips.allOneSuit), 'street', 'norman')
+      } else if (ranks[0] === ranks[1] || ranks[1] === ranks[2] || ranks[0] === ranks[2]) {
+        addTV(pick(normanBoardQuips.paired), 'street', 'norman')
+      } else if (ranks.every(r => r >= 11)) {
+        addTV(pick(normanBoardQuips.allBroadway), 'street', 'norman')
+      } else if (ranks.every(r => r <= 9)) {
+        addTV(pick(normanBoardQuips.allLow), 'street', 'norman')
+      } else if (ranks.includes(14)) {
+        if (normanFeelsLikeIt()) addTV(pick(normanBoardQuips.ace), 'street', 'norman')
+      }
+
       // Analyze all players
       const hits: string[] = []
       const misses: string[] = []
@@ -922,6 +1083,7 @@ export function useCommentary(gs: GS) {
       }
 
       addTV(`River: ${riverCard}.`, 'street', 'lon')
+      if (normanFeelsLikeIt()) addTV(pick(normanRiverQuips), 'street', 'norman')
       const hands = players.filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
       if (hands.length >= 2) {
         const best = hands[0]

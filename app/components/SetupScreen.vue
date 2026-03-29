@@ -56,6 +56,16 @@ const authSuccess = ref<string | null>(null)
 
 const passwordValidation = computed(() => validatePassword(passwordInput.value))
 
+// Commentary toggle — syncs with the same localStorage key the composable reads
+const commentaryEnabled = ref(
+  typeof localStorage !== 'undefined'
+    ? localStorage.getItem('holdem-commentary-enabled') !== 'false'
+    : true,
+)
+watch(commentaryEnabled, (v) => {
+  if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-enabled', String(v))
+})
+
 onMounted(async () => {
   isLoggedIn.value = await isGitHubUser()
   // Re-check after async auth attempt — credentials may have been invalidated
@@ -581,6 +591,34 @@ function handleStart() {
         <div v-if="isSignUp" class="text-[0.55rem] text-gray-600 text-center">
           Password must be at least 8 characters with uppercase, lowercase, and a number
         </div>
+      </div>
+    </div>
+
+    <!-- Commentary Toggle -->
+    <div class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-300 font-medium">Live Commentary</span>
+            <span class="text-[0.55rem] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 uppercase">Optional</span>
+          </div>
+          <div class="text-xs text-gray-500 mt-0.5">
+            {{ commentaryEnabled
+              ? 'Real-time play-by-play in the left column. Switch between Hero POV and WSOP-style TV Broadcast with Norman Chad & Lon McEachern commentary.'
+              : 'Commentary is off. The game plays without the commentary panel.'
+            }}
+          </div>
+        </div>
+        <button
+          class="relative w-10 h-5.5 rounded-full transition-colors shrink-0 ml-3"
+          :class="commentaryEnabled ? 'bg-green-600' : 'bg-gray-700'"
+          @click="commentaryEnabled = !commentaryEnabled"
+        >
+          <div
+            class="absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform"
+            :class="commentaryEnabled ? 'translate-x-[1.2rem]' : 'translate-x-0.5'"
+          />
+        </button>
       </div>
     </div>
 
