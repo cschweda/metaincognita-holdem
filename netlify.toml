@@ -2,6 +2,18 @@
   command = "yarn generate"
   publish = ".output/public"
 
+# Static files served directly (before SPA catch-all)
+[[redirects]]
+  from = "/analysis.html"
+  to = "/analysis.html"
+  status = 200
+
+[[redirects]]
+  from = "/sample-hands.txt"
+  to = "/sample-hands.txt"
+  status = 200
+
+# SPA catch-all (must be LAST)
 [[redirects]]
   from = "/*"
   to = "/index.html"
