@@ -295,11 +295,30 @@ Norman **always** reacts to: bluffs, all-in shoves with junk, big laydowns (fold
 
 The sliders let you dial in your preferred experience: crank Norman to max for comedy, dial him down for focus, turn Lon's analysis up to learn, or strip it to bare action calls for a clean broadcast feel.
 
+**Hand-specific commentary:** Norman's lines aren't just random -- they react to what's actually happening:
+- **Pocket pairs**: Specific quips for aces ("The hand that launched a thousand bad beat stories"), kings ("The first best hand at losing to an ace on the flop"), queens, jacks
+- **Board texture**: Monotone flops ("If you don't have a flush draw, it's time to panic"), paired boards, all-broadway, all-low, ace-high
+- **River drama**: "The final card. Where dreams come true and nightmares are born. Often simultaneously."
+- **Big pots**: "I've had apartments smaller than that pot."
+- **Heads-up**: "One on one. Mano a mano. Bot a... boto?"
+- **Draw chasing**: "Outs are like friends -- the more you have, the better. I have neither."
+
+**Self-aware moments:** Norman occasionally acknowledges he's commentating a simulation (~8% chance per hand):
+- *"These bot names... they seem familiar. I can't quite place the faces though. Probably for legal reasons."*
+- *"Playing poker against bots. In a simulation. On a computer. This is the future my guidance counselor warned me about."*
+- *"I wonder if the bots know they're bots. Existential poker questions, brought to you by Norman Chad."*
+
+**Slider reactions:** When you adjust Norman's quip slider mid-game, he reacts in real time:
+- Turned up: *"Oh, you want MORE of me? That's the nicest thing anyone's done since my second wife said 'I do.'"*
+- Turned down: *"Oh, I'm being turned down. This feels very familiar. Like every date I've ever been on."*
+
+**Setup screen:** Commentary can be toggled on/off from the setup screen before dealing (default: on). When off, the commentary column is completely hidden and no lines are generated. This is purely optional -- it doesn't affect the simulation in any way.
+
 **Technical details:**
 - Both streams generate simultaneously on every game event -- switching modes displays the other stream's full history instantly
-- 200+ unique Norman quips across 15 categorized no-repeat pools (folds, big folds, bluffs, raises, calls, checks, all-ins, junk all-ins, showdown wins/losses, coolers, foreshadowing, street hits/misses, generic)
+- 400+ unique Norman quips across 20+ categorized no-repeat pools (action, result, atmosphere, hand-specific, persona, self-aware, slider reactions)
 - `UniquePool` class tracks used indices per pool -- never repeats within a game, resets each new hand
-- Persona quips fire ~40% of the time when a pro bot acts, falling back to generic pool otherwise
+- 18 pro bots each have 4-5 persona-specific quips (~40% chance to fire on any pro action)
 - Foreshadowing peeks at pre-dealt turn/river cards (~35-40% of applicable situations)
 - Auto-scrolls to new lines; pauses auto-scroll if user scrolls up manually
 - Toggle (on/off), mode (Hero/TV), Lon analysis level, and Norman quip frequency all persisted in localStorage
