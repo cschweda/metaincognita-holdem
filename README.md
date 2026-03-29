@@ -2,30 +2,50 @@
 
 ![No Limit Hold'em Simulator](app/public/og-image.png)
 
-A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay.
+A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Professionally audited at ~73-76% realism vs commercial poker training software.
 
-- **Card-aware bot AI** -- bots evaluate actual hole cards and board texture, not just random probabilities
+### Bot AI (16 realism fixes from professional audit)
+- **Card-aware decisions** -- bots evaluate actual hole cards and board texture, not random probabilities
 - **Chen+ scoring** -- position- and style-adjusted hand strength (classic Chen also shown for reference)
 - **Board texture analysis** -- dry/wet, ace-high, paired, monotone — affects c-bet rates, barrel frequency, bluff sizing
-- **Street-aware decisions** -- c-betting, double-barreling, giving up with air, multiway pot adjustments
+- **Kicker-aware hand strength** -- top pair ace kicker plays aggressively (0.48); top pair deuce kicker plays cautiously (0.38)
+- **SPR awareness** -- shallow stacks commit faster, deep stacks play positionally
+- **Check-raises** -- bots trap with strong hands and raise when bet into, frequency varies by board texture
+- **Position-aware 3-betting** -- 3.5x OOP, 3.0x IP, with aggression scaling
+- **Street-aware barreling** -- turn card analysis (high cards = barrel, flush-completing = slow down), river scare card awareness
 - **Preflop escalation** -- full 3-bet/4-bet/5-bet logic with per-persona frequencies
+- **Short-stack push/fold** -- position-aware shove ranges (25-35% from BTN, 18-28% from EP)
+- **Blocker-adjusted draws** -- flush draws discounted 5%, OESD 10%, gutshot 18%
 - **Hero adaptation** -- bots adjust to your play style over a rolling 10-hand window
 - **Table Flow** -- bots adjust when a player is dominating or running cold (20-hand rolling window)
-- **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
-- **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
-- **Monte Carlo equity engine** -- 500-800 adaptive iterations against opponent ranges
-- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability
-- **Pot odds** with pass/fail verdict against your live equity
-- **Authentic 6-max ranges** -- 169 hands ranked by EV, position-aware from UTG (15%) to BTN (42%)
-- **25 bot personas** (7 fictional + 18 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles
 - **Per-persona tilt** -- Phellmuth tilts after 1 loss; Pvey needs 10+ consecutive losses
 - **Consistency system** -- bots occasionally misplay (1-12% depending on persona)
+- **25 bot personas** (7 fictional + 18 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles
+
+### Real-Time Analysis
+- **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
+- **Monte Carlo equity engine** -- 500-800 adaptive iterations against opponent ranges
+- **Pot odds** -- side-by-side percentage comparison (Your Equity vs Need), with pass/fail verdict
+- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability
+- **Authentic 6-max ranges** -- 169 hands ranked by EV, position-aware from UTG (15%) to BTN (42%)
 - **Opponent HUD** -- live VPIP, PFR, Aggression Factor, WTSD with strategic reads
+- **Action recommendation** -- FOLD/CHECK/CALL/RAISE pinned at top of stats panel, always visible
+
+### Live Text Commentary
+- **Two simultaneous modes** -- Hero POV (first-person, your cards only) and TV Broadcast (Norman Chad & Lon McEachern style dual-voice)
+- **TV mode shows all cards face-up** -- like watching WSOP on TV, hero still has full agency
+- **400+ unique Norman Chad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
+- **Self-aware moments** -- Norman knows he's commentating a simulation with bots
+- **Lon/Norman voice sliders** -- dial analysis depth and quip frequency independently
+- Text only, no audio
+
+### Tools & Export
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
+- **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
 - **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
 - **Hand replay** -- re-live any hand with different decisions, compare outcomes
-- **Live text commentary** -- two modes: Hero POV (first-person, public info only) and TV Broadcast (Norman Chad & Lon McEachern style dual-voice text with all cards face-up, bluff callouts, foreshadowing, and 400+ unique quips). Text only, no audio.
-- **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth
+- **Hand detail modal** -- click any hand for PokerStars history, copy to clipboard, replay, analyze
+- **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth (optional)
 
 ## Table of Contents
 
@@ -349,21 +369,38 @@ The sliders let you dial in your preferred experience: crank Norman to max for c
 
 Every decision a bot makes passes through a layered pipeline in `app/utils/botDecision.ts`. The bot doesn't pick randomly -- it evaluates its actual hole cards against the board, adjusts for position and playstyle, considers who's been winning, remembers what the hero tends to do, and then decides based on the combination of all those factors. Each layer is described below.
 
-### Poker Realism (v0.13.1 audit)
+### Poker Realism (v0.13.2 — two professional audits)
 
-The bot decision engine was reviewed from a professional poker perspective and nine realism fixes were applied:
+The bot decision engine was reviewed from a professional poker perspective across two audit rounds. Sixteen realism fixes were applied, bringing the engine to ~73-76% realism vs commercial poker training software.
 
-- **3-bet sizing**: Position-aware -- 3.5x out of position, 3.0x in position (was flat 3.0x everywhere)
-- **Check-raises**: Bots now check strong/monster hands with intent to raise when bet into (~20% boost). Previously bots only bet or checked, never check-raised.
-- **C-bet frequency**: Scaled by board texture (80% dry, 55% wet) and opponent count (3-tier: HU/3-way/4+). Previously flat 80% regardless.
-- **Kicker differentiation**: Top pair ace kicker (0.48) plays very differently from top pair deuce kicker (0.38). Affects bet/call/fold decisions.
-- **Short-stack push/fold**: Position-aware -- BTN/CO shove top 25-35%, EP stays tight at 18-28%. Previously flat 15-18%.
-- **Blocker-adjusted draws**: Draw equity reduced ~12% for dead card estimation. Prevents overvaluing flush/straight draws.
-- **Overcard equity**: Two overcards (AK on low board) score 0.22-0.25, suited get a bonus. Previously flat 0.20.
-- **Turn/river barreling**: Turn card analysis (high cards = barrel more, flush-completing = slow down significantly). River considers scare cards before bluffing.
-- **Donk bets**: Fictional bots lead into the raiser at their configured frequency; pro bots use texture-based leading. Fully operational.
+**Round 1 — core mechanics (9 fixes):**
+- **3-bet sizing**: Position-aware — 3.5x OOP, 3.0x IP (was flat 3.0x)
+- **Check-raises**: Bots check strong/monster hands with intent to raise when bet into
+- **C-bet frequency**: Scaled by board texture (85% dry, 55% wet) and opponent count (HU/3-way/4+)
+- **Kicker differentiation**: Top pair ace kicker (0.48) plays very differently from top pair deuce kicker (0.38)
+- **Short-stack push/fold**: Position-aware — BTN/CO shove top 25-35%, EP stays tight at 18-28%
+- **Blocker-adjusted draws**: Draw equity discounted per draw type (flush 5%, OESD 10%, gutshot 18%)
+- **Overcard equity**: Two overcards (AK on low board) score 0.22-0.25, suited get a bonus
+- **Turn/river barreling**: Turn card analysis (high cards = barrel, flush-completing = slow down). River considers scare cards.
+- **Donk bets**: Fictional bots lead into the raiser; pro bots use texture-based leading
 
-These fixes were verified across 500+ simulated hands with 6 and 8 player tables. VPIP/PFR/aggression stats track config within expected variance. All 765 unit tests pass.
+**Round 2 — advanced dynamics (7 fixes):**
+- **SPR awareness**: Shallow SPR (<4) = commit with strong hands, auto-shove monsters. Deep SPR (>12) = cautious, positional play. Affects c-bet, commitment, and raise decisions.
+- **Paired board c-betting**: Trips+ bet 1.2x more on paired boards (protect). Overcards/air check 50% more (opponent has trips when continuing).
+- **Check-raise texture**: Dry boards 1.4x boost (safe to trap), wet 0.6x (too many draws), paired 1.3x (trap with sets).
+- **River fold equity**: Passive opponents' river bets treated as real (0.3x bluff multiplier). Probe bluffs on river vs passive reduced to 0.5x.
+- **Strong-hand threshold**: Lowered from 0.40 to 0.35 — all top pairs are "strong" regardless of kicker.
+- **Multiway inverse discount**: Monsters discount 20% less in multiway (still profitable). Bluffs discount 15% more (no fold equity).
+
+**Verified** across 800+ simulated hands with 6 and 8 player tables. All 765 unit tests pass.
+
+**Remaining gaps** (would require solver-level integration to fix):
+- No per-opponent range tracking (uses table-wide reads)
+- Static draw equity (doesn't adjust to opponent's likely holdings)
+- No explicit GTO balance checking
+- No bet-sizing tells
+
+These gaps are shared by most commercial poker training software outside of dedicated solver tools (PioSOLVER, GTO+, MonkerSolver).
 
 ### Persona Config Fields
 

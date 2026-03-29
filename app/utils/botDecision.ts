@@ -408,15 +408,15 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[]): numbe
     }
   }
 
-  // Add draw equity (Fix 6: account for blocker effects)
+  // Add draw equity with draw-type-specific blocker discounts
+  // Flush draws: 9 outs, ~5% blocked on average → 0.95 discount
+  // OESD: 8 outs, ~10% blocked → 0.90 discount
+  // Gutshot: 4 outs, ~15-20% blocked → 0.82 discount (fewer outs = blockers matter more)
   const draws = detectDraws(holeCards, community)
-  const knownCards = new Set([...holeCards, ...community].map(c => `${c.rank}-${c.suit}`))
   for (const draw of draws) {
-    // Reduce outs by estimated blocker percentage (~10-15% of outs may be dead)
-    const blockerDiscount = 0.88
-    if (draw.type.includes('Flush draw')) strength = Math.max(strength, 0.33 * blockerDiscount + 0.02)
-    if (draw.type.includes('Open-ended')) strength = Math.max(strength, 0.28 * blockerDiscount + 0.02)
-    if (draw.type.includes('Gutshot')) strength = Math.max(strength, 0.18 * blockerDiscount + 0.02)
+    if (draw.type.includes('Flush draw')) strength = Math.max(strength, 0.33 * 0.95)
+    if (draw.type.includes('Open-ended')) strength = Math.max(strength, 0.28 * 0.90)
+    if (draw.type.includes('Gutshot')) strength = Math.max(strength, 0.18 * 0.82)
   }
 
   return strength
@@ -685,9 +685,16 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   // ─── Card-aware postflop logic with street awareness ──
 
-  const hasStrongHand = strength >= 0.40
+  // SPR (stack-to-pot ratio) — affects commitment decisions
+  const effectiveStack = chips + playerBet
+  const spr = pot > 0 ? effectiveStack / pot : 10
+  const isShallowSPR = spr < 4   // committed — play straightforward, bet/fold
+  const isDeepSPR = spr > 12     // deep — be cautious committing, more positional play
+
+  // Fix 6b: Lower strong-hand threshold to 0.35 so all top pairs are "strong"
+  const hasStrongHand = strength >= 0.35
   const hasMonster = strength >= 0.55
-  const hasDraw = strength >= 0.20 && strength < 0.40
+  const hasDraw = strength >= 0.20 && strength < 0.35
   const hasWeakMade = strength >= 0.10 && strength < 0.20
   const hasNothing = strength < 0.10
 
@@ -717,16 +724,27 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board.isLow ? 0.90 : 1.0)         // low boards = less raiser range advantage
           * rangeAdv
         : 1.0
-      // Fix 3: Scale c-bet by board texture AND opponent count
-      // Dry boards: bet more. Wet boards: check more. Multiway: much less.
+      // Scale c-bet by board texture, opponent count, and SPR
       const opponentCount = Math.max(numActivePlayers - 1, 1)
-      const multiDiscount = opponentCount <= 1 ? 1.0
-        : opponentCount === 2 ? 0.65
-        : 0.40
-      const cbetRate = (hasStrongHand ? (board?.isDry ? 0.80 : board?.isWet ? 0.55 : 0.65)
+      // Multiway discount: inverse to hand strength (monsters discount less, bluffs discount more)
+      const baseMultiDiscount = opponentCount <= 1 ? 1.0 : opponentCount === 2 ? 0.65 : 0.40
+      const multiDiscount = hasMonster ? Math.min(baseMultiDiscount + 0.20, 1.0)
+        : hasStrongHand ? baseMultiDiscount
+        : hasNothing ? Math.max(baseMultiDiscount - 0.15, 0.15) // bluff less multiway
+        : baseMultiDiscount
+
+      // Paired board adjustment: check more with overcards/air, bet more with trips+
+      const pairedMod = board?.isPaired
+        ? (hasMonster ? 1.20 : hasStrongHand ? 0.90 : 0.50) // big hands bet more, air checks
+        : 1.0
+
+      // SPR adjustment: shallow = bet more (committed), deep = be cautious
+      const sprMod = isShallowSPR ? 1.15 : isDeepSPR ? 0.85 : 1.0
+
+      const cbetRate = (hasStrongHand ? (board?.isDry ? 0.85 : board?.isWet ? 0.55 : 0.65)
         : hasDraw ? 0.50 + profile.aggression * 0.10
         : hasWeakMade ? (board?.isDry ? 0.40 : 0.25)
-        : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount
+        : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod
       if (Math.random() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
@@ -840,7 +858,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board?.isAceHigh ? 1.5 : 1.0)   // represent the ace
           * (board?.isDry ? 1.4 : 1.0)        // dry = more fold equity
           * (board?.isLow ? 1.2 : 1.0)        // low boards with overcards = represent overpair
-          * (oppPassive ? 1.3 : 1.0)           // passive table = more fold equity
+          // Passive table: more fold equity on flop/turn, but DON'T bluff river
+          * (oppPassive ? (ctx.street === 'river' ? 0.5 : 1.3) : 1.0)
       if (hasNothing && Math.random() < probeRate) {
         const bluffSize = Math.round(pot * (0.33 + Math.random() * 0.22))
         return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
@@ -870,18 +889,29 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // Carl (agg 0.60): boost 1.24x — calls down more. Twan (agg 1.50): boost 0.80x — folds or raises.
   const streetFactor = baseStreetFactor * passiveBoost
 
-  // Fix 2: Check-raise — if we checked this street, boost raise frequency significantly
-  const checkRaiseBoost = ctx.checkedThisStreet ? 0.20 : 0
+  // Check-raise: board-texture aware — dry boards = check-raise more, wet = less
+  // Monsters on dry boards should almost always check-raise for value
+  const crTextureMod = board
+    ? (board.isDry ? 1.4 : 1.0) * (board.isWet ? 0.6 : 1.0) * (board.isPaired ? 1.3 : 1.0)
+    : 1.0
+  const checkRaiseBoost = ctx.checkedThisStreet ? 0.25 * crTextureMod : 0
 
-  // Monster hands — raise for value (much more likely if check-raising)
-  if (hasMonster && Math.random() < 0.15 + profile.aggression * 0.25 + checkRaiseBoost && chips > currentBet * 2) {
-    const raiseSize = Math.round(currentBet * (2.2 + Math.random() * 0.8))
-    return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
+  // Monster hands — raise for value (very likely if check-raising on dry board)
+  if (hasMonster) {
+    const monsterRaiseRate = 0.15 + profile.aggression * 0.25 + checkRaiseBoost
+    // Shallow SPR: just shove with monsters
+    if (isShallowSPR && chips <= pot * 1.5) {
+      return { type: 'raise', amount: chips + playerBet }
+    }
+    if (Math.random() < monsterRaiseRate && chips > currentBet * 2) {
+      const raiseSize = Math.round(currentBet * (2.2 + Math.random() * 0.8))
+      return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
+    }
   }
 
   // Strong hands — check-raise for balance, or call/raise normally
   if (hasStrongHand) {
-    // Check-raise with strong hands occasionally for balance
+    // Check-raise with strong hands — texture-aware frequency
     if (ctx.checkedThisStreet && Math.random() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * (2.5 + Math.random() * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
@@ -917,12 +947,14 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   }
 
   // Nothing — mostly fold. Rare bluff raise, very rare float.
-  if (Math.random() < profile.bluffFreq * 0.15 * profile.aggression && chips > currentBet * 2) {
+  // River bluff fix: DON'T bluff into passive opponents on the river — their river bets are real
+  const riverBluffPenalty = (ctx.street === 'river' && oppPassive) ? 0.3 : 1.0
+  if (Math.random() < profile.bluffFreq * 0.15 * profile.aggression * riverBluffPenalty && chips > currentBet * 2) {
     const raiseSize = Math.round(currentBet * (2.5 + Math.random()))
     return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
   }
 
-  // Float only tiny bets on the flop
+  // Float only tiny bets on the flop (not on river — river floats are -EV)
   if (ctx.street === 'flop' && betToPotRatio < 0.3 && Math.random() < profile.vpip * 0.25) {
     return { type: 'call' }
   }

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.2] - 2026-03-29
+
+### Fixed (Poker Realism Audit — Round 2)
+Seven additional fixes based on second professional audit. All 765 tests pass; simulation verified over 300 hands.
+
+- **SPR awareness** — Bots now compute stack-to-pot ratio and adjust: shallow SPR (<4) plays straightforward bet/fold with auto-shove on monsters; deep SPR (>12) plays cautiously. Affects c-bet decisions, commitment, and raise sizing.
+- **Paired board c-betting** — C-bet logic now uses `board.isPaired`: monsters bet 1.2x more on paired boards (protect equity), overcards/air check 50% more (opponent likely has trips when continuing). Previously paired boards were ignored.
+- **Check-raise board texture** — Check-raise frequency now varies by texture: dry boards 1.4x boost (fewer draws, safe to trap), wet boards 0.6x (too many draws to trap with), paired boards 1.3x. Previously flat +20% regardless.
+- **River fold equity fix** — Passive opponents' river bets are now treated as real: bluff multiplier reduced to 0.3x for raises and 0.5x for probe bets on river vs passive tables. Previously passive opponents got 1.3x MORE bluffs — backwards.
+- **Draw-type blocker discounts** — Flush draws discounted 5% (9 outs, few blockers), OESD 10% (8 outs), gutshot 18% (4 outs, blockers matter most). Previously flat 12% for all draw types.
+- **Strong-hand threshold lowered** — From 0.40 to 0.35 so all top pairs (including bad kickers) are classified as "strong hands." Previously top pair with deuce kicker fell into "draw" category.
+- **Multiway discount inverse to hand strength** — Monsters discount 20% less in multiway pots (still profitable against many opponents), bluffs discount 15% more (no fold equity multiway). Previously flat discount for all hand types.
+
 ## [0.13.1] - 2026-03-29
 
 ### Fixed (Poker Realism Audit)
