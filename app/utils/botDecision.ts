@@ -14,6 +14,7 @@
  */
 import type { Card } from './cards'
 import { chenScore, chenPlusScore, bestHand, detectDraws } from './handAnalysis'
+import { handRankIndex, ALL_HANDS } from './ranges'
 
 export interface BotProfile {
   vpip: number        // 0.10–0.50 — probability of voluntarily entering a pot
@@ -35,6 +36,12 @@ export interface HeroProfile {
   foldToCbet: number     // how often hero folds to c-bets (0–1)
   aggression: number     // hero's observed aggression factor
   handsTracked: number   // total hands in the tracking window
+  betSizingTell?: {      // detected bet-sizing pattern (after 8+ showdown hands)
+    hasTell: boolean
+    bigWithValue: boolean  // true = hero bets big with strong, small with bluffs
+    strongAvgSizing: number
+    weakAvgSizing: number
+  }
 }
 
 // ─── Tilt System ───────────────────────────────────────────────
@@ -236,7 +243,7 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
   }
 
   // ─── Postflop ──────────────────────────────────────────────
-  return decidePostflopAction(adaptedProfile, ctx, rand)
+  return decidePostflopAction(adaptedProfile, ctx, rand, heroProfile)
 }
 
 /**
@@ -450,13 +457,28 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   const effectivePfr = profile.pfr
 
   // ─── Card-aware hand strength (uses Chen+ for position/style context) ──
+  // Pre-computed range lookup: convert hole cards to percentile via the ranked 169-hand list
+  // Position adjustment shifts the percentile (late position = hands rank higher)
   let handPct = rand
   if (ctx.holeCards) {
-    const style = { vpip: profile.vpip, aggression: profile.aggression, creativeFreq: profile.creativeFreq }
-    const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', style)
-    handPct = chenToPercentile(chenMax)
-    const jitterScale = chenMax >= 10 ? 0.02 : chenMax >= 7 ? 0.06 : 0.10
-    handPct = Math.max(0, Math.min(1, handPct + (Math.random() - 0.5) * jitterScale))
+    const idx = handRankIndex(ctx.holeCards)
+    if (idx >= 0) {
+      handPct = idx / ALL_HANDS.length
+      // Position shift: late position makes hands more playable
+      const POS_SHIFT: Record<string, number> = {
+        'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.04,
+        'CO': -0.05, 'SB': 0, 'BB': -0.03,
+        'MP': 0, 'MP+1': 0, 'UTG': 0.03, 'UTG+1': 0.02,
+      }
+      handPct = Math.max(0, Math.min(1, handPct + (POS_SHIFT[ctx.position ?? ''] ?? 0)))
+      // Small jitter for variety (premium hands jitter less)
+      const jitter = handPct < 0.10 ? 0.01 : handPct < 0.25 ? 0.03 : 0.05
+      handPct = Math.max(0, Math.min(1, handPct + (Math.random() - 0.5) * jitter))
+    } else {
+      // Fallback to Chen+ for any edge case
+      const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression })
+      handPct = chenToPercentile(chenMax)
+    }
   }
 
   if (toCall === 0) {
@@ -642,7 +664,7 @@ function rangeAdvantage(board: BoardTexture, isPreflopRaiser: boolean): number {
   return advantage
 }
 
-function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: number): BotAction {
+function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: number, heroProfile?: HeroProfile): BotAction {
   const { toCall, pot, chips, bb, currentBet, playerBet, numActivePlayers } = ctx
 
   // ─── Card-aware hand strength ──────────────────────────
@@ -811,10 +833,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board.isPaired ? 0.7 : 1.0)
           * rangeAdv * riverScareCard
         : 1.0
+      // River polarization: only bet monsters (value) and air (bluffs).
+      // Medium-strength hands check to avoid value-owning themselves.
       const barrelRate = hasMonster ? 0.85
-        : hasStrongHand ? 0.55
-        : hasNothing ? profile.bluffFreq * 0.35 * profile.aggression * riverBluffBoost
-        : 0.18
+        : hasNothing ? profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost
+        : 0  // strong hands and weak made hands CHECK the river (polarization)
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
@@ -822,10 +845,22 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' }
     }
 
+    // River polarization for non-raiser: only bet monsters (value) or bluffs
+    if (ctx.street === 'river') {
+      if (hasMonster) {
+        const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
+        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+      }
+      if (hasNothing && Math.random() < profile.bluffFreq * 0.35 * profile.aggression) {
+        const bluffSize = Math.round(pot * (0.55 + Math.random() * 0.20))
+        return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
+      }
+      return { type: 'check' } // medium hands check the river
+    }
+
     // Not the preflop raiser — lead (donk bet) on boards where we have range advantage
-    // or where the board texture favors our range (low, connected boards)
     const callerRangeAdv = board ? rangeAdvantage(board, false) : 1.0
-    const donkFreq = profile.donkBetFreq ?? 0 // fictional bots donk-bet; pros don't
+    const donkFreq = profile.donkBetFreq ?? 0
 
     // Donk bet with strong hands — non-pro players lead into the raiser frequently
     if (hasStrongHand) {
@@ -878,6 +913,13 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const potOdds = toCall / (pot + toCall)
   const betToPotRatio = toCall / Math.max(pot, 1)
 
+  // Minimum Defense Frequency: prevents exploitable over-folding to big bets
+  // MDF = 1 - (bet / (pot + bet)) — the % of range we must defend
+  const mdf = 1 - potOdds
+  // Estimate hand's position in range: strength 0.55+ = top ~20%, 0.35+ = top ~40%, etc.
+  const handRangePos = 1 - Math.min(strength / 0.70, 1.0)
+  const isWithinMDF = handRangePos <= mdf
+
   // Street pressure: later streets require stronger hands to continue
   // Flop = 1.0, Turn = 0.75, River = 0.55 (much harder to call river bets)
   // Passive players (low aggression) call MORE — that's their identity.
@@ -887,7 +929,23 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     : 1.0
   const passiveBoost = Math.max(0.8, 1.6 - profile.aggression * 0.6)
   // Carl (agg 0.60): boost 1.24x — calls down more. Twan (agg 1.50): boost 0.80x — folds or raises.
-  const streetFactor = baseStreetFactor * passiveBoost
+  // Hero bet-sizing exploitation: if hero has a sizing tell, adjust call/raise willingness
+  let sizingExploit = 1.0
+  if (heroProfile?.betSizingTell?.hasTell) {
+    const currentSizing = toCall / Math.max(pot, 1)
+    const tell = heroProfile.betSizingTell
+    if (tell.bigWithValue) {
+      // Hero bets big = value → fold more; small = bluff → call more
+      if (currentSizing > tell.strongAvgSizing * 0.9) sizingExploit = 0.70
+      else if (currentSizing < tell.weakAvgSizing * 1.1) sizingExploit = 1.40
+    } else {
+      // Reverse tell: small = value, big = bluff
+      if (currentSizing < tell.strongAvgSizing * 1.1) sizingExploit = 0.70
+      else if (currentSizing > tell.weakAvgSizing * 0.9) sizingExploit = 1.40
+    }
+  }
+
+  const streetFactor = baseStreetFactor * passiveBoost * sizingExploit
 
   // Check-raise: board-texture aware — dry boards = check-raise more, wet = less
   // Monsters on dry boards should almost always check-raise for value
@@ -935,6 +993,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     }
     // Need decent pot odds to call a draw
     if (betToPotRatio < 0.4) return { type: 'call' }
+    if (isWithinMDF) return { type: 'call' } // MDF: must defend this hand
     if (Math.random() < profile.vpip * 0.5 * streetFactor) return { type: 'call' }
     return { type: 'fold' }
   }
@@ -942,6 +1001,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // Weak made hands — call small bets on flop, tighten on later streets
   if (hasWeakMade) {
     if (betToPotRatio < 0.4 && Math.random() < profile.vpip * 0.7 * streetFactor) return { type: 'call' }
+    if (isWithinMDF && Math.random() < 0.80) return { type: 'call' } // MDF defense (some mixing)
     if (Math.random() < profile.vpip * 0.2 * streetFactor) return { type: 'call' }
     return { type: 'fold' }
   }
@@ -956,6 +1016,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   // Float only tiny bets on the flop (not on river — river floats are -EV)
   if (ctx.street === 'flop' && betToPotRatio < 0.3 && Math.random() < profile.vpip * 0.25) {
+    return { type: 'call' }
+  }
+
+  // MDF defense even with air — sometimes must defend to stay unexploitable
+  if (isWithinMDF && ctx.street !== 'river' && Math.random() < 0.25) {
     return { type: 'call' }
   }
 

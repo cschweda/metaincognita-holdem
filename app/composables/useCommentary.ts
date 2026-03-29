@@ -1,7 +1,7 @@
 /**
  * Live commentary composable — runs TWO simultaneous streams:
  *   'hero'  — Hero's perspective. Only hero's cards + public info.
- *   'tv'    — Norman Chad & Lon McEachern style dual-voice TV broadcast.
+ *   'tv'    — Chorman Nad & Mon LeEachern style dual-voice TV broadcast.
  *             Sees all hole cards, dramatic irony, witty banter.
  * Both streams generate in real time; switching modes is instant.
  */
@@ -557,7 +557,7 @@ const normanSelfAwareQuips = [
   `Playing poker against bots. In a simulation. On a computer. This is the future my guidance counselor warned me about.`,
   `These bots don't tilt. They don't complain. They don't order expensive drinks. They're better than 90% of the people I've played with.`,
   `You know, in a simulation, every hand is a lesson. In real life, every hand is a lesson too. The lesson is usually "you should have folded."`,
-  `I wonder if the bots know they're bots. Existential poker questions, brought to you by Norman Chad.`,
+  `I wonder if the bots know they're bots. Existential poker questions, brought to you by Chorman Nad.`,
   `Commentating a poker simulation. My career has reached new and unprecedented lows. And I'm loving every second of it.`,
   `The nice thing about bot poker? Nobody's going to write a mean tweet about my commentary. I think. I hope.`,
   `Some of these bot names ring a bell. Phellmuth... Degreanu... Pvey... nah, can't place them. Must be a coincidence.`,
@@ -569,7 +569,7 @@ const normanSliderUpQuips = [
   `Oh, you want MORE of me? That's the nicest thing anyone's done since my second wife said "I do." And we know how THAT turned out.`,
   `Turning me up! Finally, someone who appreciates quality commentary. Or at least commentary.`,
   `More Norman? You got it. I've been holding back anyway. That was the RESTRAINED version.`,
-  `Volume up on Norman Chad! I knew this day would come. I've been rehearsing in the mirror.`,
+  `Volume up on Chorman Nad! I knew this day would come. I've been rehearsing in the mirror.`,
   `Cranking up the Norman dial. My therapist said people would eventually appreciate me. I'm framing this moment.`,
 ]
 

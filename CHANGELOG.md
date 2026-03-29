@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-03-29
+
+### Added (Solver-Adjacent Improvements)
+Five improvements that push bot decision-making toward solver-level play while keeping the game fun and responsive. All 765 tests pass; simulation verified.
+
+- **River polarization** — On the river, bots now only bet with monsters (value) and air (bluffs). Medium-strength hands (top pair, second pair, weak two pair) check to avoid value-owning themselves. This is a fundamental GTO concept — previously bots bet strong hands 55% on the river, which is exploitable.
+- **Pre-computed opening ranges** — Preflop decisions now use the actual 169-hand EV-ranked list instead of Chen+ → percentile approximation. Position shifts (-8% BTN to +3% UTG) adjust which hands are playable. Falls back to Chen+ only for edge cases. More accurate than the continuous heuristic.
+- **Minimum Defense Frequency (MDF)** — When facing a bet, bots compute MDF = 1 - (bet / (pot + bet)) and defend if their hand is within that threshold. Prevents exploitable over-folding to large bets. Applied to draws, weak made hands, and even air (25% of the time on flop/turn).
+- **Hero bet-sizing exploitation** — Bots detect if hero bets big with value and small with bluffs (or vice versa). When a tell is detected, bots adjust: call big "value" bets less (0.7x), call small "bluff" bets more (1.4x). Requires 8+ showdown hands with bet-sizing data.
+- **Commentator name swap** — Lon McEachern → Mon LeEachern, Norman Chad → Chorman Nad. Same initial-swap pattern as the pro player bots. Real names remain in the README homage section.
+
 ## [0.13.2] - 2026-03-29
 
 ### Fixed (Poker Realism Audit — Round 2)

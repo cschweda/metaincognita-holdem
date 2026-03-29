@@ -2,7 +2,7 @@
 
 ![No Limit Hold'em Simulator](app/public/og-image.png)
 
-A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Professionally audited at ~73-76% realism vs commercial poker training software.
+A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits with 21 realism fixes. River polarization, MDF defense, pre-computed ranges, hero bet-sizing exploitation.
 
 ### Bot AI (16 realism fixes from professional audit)
 - **Card-aware decisions** -- bots evaluate actual hole cards and board texture, not random probabilities
@@ -18,6 +18,10 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Blocker-adjusted draws** -- flush draws discounted 5%, OESD 10%, gutshot 18%
 - **Hero adaptation** -- bots adjust to your play style over a rolling 10-hand window
 - **Table Flow** -- bots adjust when a player is dominating or running cold (20-hand rolling window)
+- **River polarization** -- bots only bet monsters (value) and air (bluffs) on the river. Medium hands check. Core GTO concept.
+- **Pre-computed opening ranges** -- uses the ranked 169-hand EV list with position shifts, not just Chen+ approximation
+- **Minimum Defense Frequency (MDF)** -- bots defend enough of their range to prevent exploitable over-folding to large bets
+- **Hero bet-sizing exploitation** -- bots detect if you bet big with value and small with bluffs (or vice versa), then adjust
 - **Per-persona tilt** -- Phellmuth tilts after 1 loss; Pvey needs 10+ consecutive losses
 - **Consistency system** -- bots occasionally misplay (1-12% depending on persona)
 - **25 bot personas** (7 fictional + 18 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles
@@ -32,11 +36,11 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Action recommendation** -- FOLD/CHECK/CALL/RAISE pinned at top of stats panel, always visible
 
 ### Live Text Commentary
-- **Two simultaneous modes** -- Hero POV (first-person, your cards only) and TV Broadcast (Norman Chad & Lon McEachern style dual-voice)
+- **Two simultaneous modes** -- Hero POV (first-person, your cards only) and TV Broadcast (Chorman Nad & Mon LeEachern style dual-voice — homage to the real Norman Chad & Lon McEachern)
 - **TV mode shows all cards face-up** -- like watching WSOP on TV, hero still has full agency
-- **400+ unique Norman Chad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
-- **Self-aware moments** -- Norman knows he's commentating a simulation with bots
-- **Lon/Norman voice sliders** -- dial analysis depth and quip frequency independently
+- **400+ unique Chorman Nad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
+- **Self-aware moments** -- Chorman knows he's commentating a simulation with bots
+- **Mon/Chorman voice sliders** -- dial analysis depth and quip frequency independently
 - Text only, no audio
 
 ### Tools & Export
@@ -383,6 +387,13 @@ The bot decision engine was reviewed from a professional poker perspective acros
 - **Overcard equity**: Two overcards (AK on low board) score 0.22-0.25, suited get a bonus
 - **Turn/river barreling**: Turn card analysis (high cards = barrel, flush-completing = slow down). River considers scare cards.
 - **Donk bets**: Fictional bots lead into the raiser; pro bots use texture-based leading
+
+**Round 3 — solver-adjacent (5 improvements):**
+- **River polarization**: Bots only bet monsters (value) and air (bluffs) on the river. Medium hands check. Fundamental GTO concept.
+- **Pre-computed opening ranges**: Uses the ranked 169-hand EV list with position shifts instead of Chen+ approximation.
+- **Minimum Defense Frequency (MDF)**: Bots compute MDF when facing a bet and defend enough of their range to prevent exploitable over-folding.
+- **Hero bet-sizing exploitation**: Bots detect if hero bets big with value and small with bluffs (or vice versa) after 8+ showdown hands, then adjust calling frequency accordingly.
+- **Commentator name swap**: Mon LeEachern & Chorman Nad (same initial-swap pattern as the pro player bots)
 
 **Round 2 — advanced dynamics (7 fixes):**
 - **SPR awareness**: Shallow SPR (<4) = commit with strong hands, auto-shove monsters. Deep SPR (>12) = cautious, positional play. Affects c-bet, commitment, and raise decisions.

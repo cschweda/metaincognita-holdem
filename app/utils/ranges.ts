@@ -48,6 +48,34 @@ const ALL_HANDS = [
   '32o', '72o',
 ]
 
+export { ALL_HANDS }
+
+import type { Card } from './cards'
+
+const RANK_CHARS: Record<number, string> = {
+  14: 'A', 13: 'K', 12: 'Q', 11: 'J', 10: 'T',
+  9: '9', 8: '8', 7: '7', 6: '6', 5: '5', 4: '4', 3: '3', 2: '2',
+}
+
+/**
+ * Convert [Card, Card] hole cards to 169-hand notation (e.g., "AKs", "77", "T9o").
+ */
+export function holeCardsToNotation(hole: [Card, Card]): string {
+  const [a, b] = [...hole].sort((x, y) => y.rank - x.rank)
+  const high = RANK_CHARS[a.rank]
+  const low = RANK_CHARS[b.rank]
+  if (a.rank === b.rank) return `${high}${low}`
+  return `${high}${low}${a.suit === b.suit ? 's' : 'o'}`
+}
+
+/**
+ * Get the hand's rank index in ALL_HANDS (0 = best, 168 = worst).
+ * Returns -1 if not found (shouldn't happen with a standard deck).
+ */
+export function handRankIndex(hole: [Card, Card]): number {
+  return ALL_HANDS.indexOf(holeCardsToNotation(hole))
+}
+
 export interface RangeInfo {
   position: string
   action: string

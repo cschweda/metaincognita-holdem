@@ -83,7 +83,7 @@ const typeStyles: Record<string, string> = {
       <div v-if="enabled && mode === 'tv'" class="space-y-1.5">
         <div class="space-y-0.5">
           <div class="flex items-center justify-between">
-            <span class="text-[0.55rem] text-blue-400/70">Lon Analysis</span>
+            <span class="text-[0.55rem] text-blue-400/70">Mon Analysis</span>
             <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ lonAnalysis >= 95 ? 'Max' : lonAnalysis <= 5 ? 'Actions only' : `${lonAnalysis}%` }}</span>
           </div>
           <input
@@ -101,7 +101,7 @@ const typeStyles: Record<string, string> = {
         </div>
         <div class="space-y-0.5">
           <div class="flex items-center justify-between">
-            <span class="text-[0.55rem] text-amber-400/70">Norman Quips</span>
+            <span class="text-[0.55rem] text-amber-400/70">Chorman Quips</span>
             <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSilence === 0 ? 'Max quips' : normanSilence >= 95 ? 'Silent' : `${100 - normanSilence}%` }}</span>
           </div>
           <input
@@ -137,7 +137,7 @@ const typeStyles: Record<string, string> = {
         :class="typeStyles[line.type] || 'text-gray-400'"
       >
         <template v-if="mode === 'tv' && line.voice">
-          <span class="font-semibold mr-1" :class="line.voice === 'lon' ? 'text-blue-400/70' : 'text-amber-400/70'">{{ line.voice === 'lon' ? 'Lon:' : 'Norman:' }}</span>
+          <span class="font-semibold mr-1" :class="line.voice === 'lon' ? 'text-blue-400/70' : 'text-amber-400/70'">{{ line.voice === 'lon' ? 'Mon:' : 'Chorman:' }}</span>
         </template>
         <span v-else class="text-gray-700 mr-1">&#9679;</span>{{ line.text }}
       </div>
