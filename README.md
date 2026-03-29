@@ -282,14 +282,27 @@ Sample lines:
 
 **Why this exists:** I built this because I genuinely enjoy Norman and Lon's commentary. The WSOP broadcasts are as much about the commentary booth as they are about the cards. Norman Chad's humor -- the terrible puns, the running gags, the complete inability to take anything seriously while analyzing serious poker -- is a huge part of what makes watching poker fun. This feature tries to capture a fraction of that energy. It's not meant to replace the real thing (nothing could), but if you've ever smiled at "My ex-wife..." or groaned at one of Norman's puns, this mode is for you.
 
+**Voice controls (TV Broadcast mode):**
+
+In TV Broadcast mode, two sliders appear below the mode selector to fine-tune the commentary experience:
+
+| Slider | What it controls | Default | Range |
+|--------|------------------|---------|-------|
+| **Lon Analysis** | Depth of Lon's card/hand/draw analysis. At 0%, Lon only announces bare actions ("${name} raises to $20"). At 100%, every line includes hand strength, draw callouts, board texture. | 60% | 0--100% |
+| **Norman Quips** | How often Norman chimes in on routine actions (folds, calls, checks, standard raises). Norman always speaks on big moments regardless of this setting. | 60% (silence=40) | 5--100% |
+
+Norman **always** reacts to: bluffs, all-in shoves with junk, big laydowns (folding premium hands or made hands), slow-plays, showdown results, coolers/bad beats, and foreshadowing. The slider only affects routine actions where his commentary is entertaining but optional.
+
+The sliders let you dial in your preferred experience: crank Norman to max for comedy, dial him down for focus, turn Lon's analysis up to learn, or strip it to bare action calls for a clean broadcast feel.
+
 **Technical details:**
 - Both streams generate simultaneously on every game event -- switching modes displays the other stream's full history instantly
-- 150+ unique Norman quips across 15 categorized no-repeat pools (folds, big folds, bluffs, raises, calls, checks, all-ins, junk all-ins, showdown wins/losses, coolers, foreshadowing, street hits/misses, generic)
+- 200+ unique Norman quips across 15 categorized no-repeat pools (folds, big folds, bluffs, raises, calls, checks, all-ins, junk all-ins, showdown wins/losses, coolers, foreshadowing, street hits/misses, generic)
 - `UniquePool` class tracks used indices per pool -- never repeats within a game, resets each new hand
 - Persona quips fire ~40% of the time when a pro bot acts, falling back to generic pool otherwise
 - Foreshadowing peeks at pre-dealt turn/river cards (~35-40% of applicable situations)
 - Auto-scrolls to new lines; pauses auto-scroll if user scrolls up manually
-- Toggle (on/off) and mode (Hero/TV) persisted in localStorage
+- Toggle (on/off), mode (Hero/TV), Lon analysis level, and Norman quip frequency all persisted in localStorage
 - Three-column desktop layout at `xl` breakpoint (1280px+): Commentary | Table | Stats
 
 ### Stats Page (`/stats`)
