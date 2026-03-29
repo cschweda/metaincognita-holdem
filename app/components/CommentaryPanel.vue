@@ -102,19 +102,19 @@ const typeStyles: Record<string, string> = {
         <div class="space-y-0.5">
           <div class="flex items-center justify-between">
             <span class="text-[0.55rem] text-amber-400/70">Chorman Quips</span>
-            <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSilence === 0 ? 'Max quips' : normanSilence >= 95 ? 'Silent' : `${100 - normanSilence}%` }}</span>
+            <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSilence >= 100 ? 'Off' : normanSilence >= 90 ? 'Rare' : normanSilence === 0 ? 'Max' : `${100 - normanSilence}%` }}</span>
           </div>
           <input
             type="range"
-            :value="normanSilence"
+            :value="100 - normanSilence"
             min="0"
-            max="95"
+            max="100"
             step="5"
             class="w-full h-1 appearance-none rounded-full bg-gray-700 cursor-pointer
                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
                    [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500
                    [&::-webkit-slider-thumb]:cursor-pointer"
-            @input="emit('update:normanSilence', parseInt(($event.target as HTMLInputElement).value))"
+            @input="emit('update:normanSilence', 100 - parseInt(($event.target as HTMLInputElement).value))"
           />
         </div>
       </div>

@@ -343,7 +343,10 @@ const normanStreetMissQuips = new UniquePool([
 
 // Norman silence level — 0 = talks all the time, 100 = never talks on routine actions
 let _normanSilence = 40
-function normanFeelsLikeIt(): boolean { return Math.random() * 100 >= _normanSilence }
+function normanFeelsLikeIt(): boolean {
+  if (_normanSilence >= 100) return false // fully off
+  return Math.random() * 100 >= _normanSilence
+}
 
 // Lon analysis depth — 0 = just announces actions, 100 = deep analysis on every play
 let _lonAnalysis = 60
@@ -568,16 +571,16 @@ const normanSelfAwareQuips = [
 const normanSliderUpQuips = [
   `Oh, you want MORE of me? That's the nicest thing anyone's done since my second wife said "I do." And we know how THAT turned out.`,
   `Turning me up! Finally, someone who appreciates quality commentary. Or at least commentary.`,
-  `More Norman? You got it. I've been holding back anyway. That was the RESTRAINED version.`,
+  `More Chorman? You got it. I've been holding back anyway. That was the RESTRAINED version.`,
   `Volume up on Chorman Nad! I knew this day would come. I've been rehearsing in the mirror.`,
-  `Cranking up the Norman dial. My therapist said people would eventually appreciate me. I'm framing this moment.`,
+  `Cranking up the Chorman dial. My therapist said people would eventually appreciate me. I'm framing this moment.`,
 ]
 
 const normanSliderDownQuips = [
   `Oh, I'm being turned down. This feels very familiar. Like every date I've ever been on.`,
-  `Less Norman? I understand. Quality over quantity. Although I'd argue I provide neither.`,
+  `Less Chorman? I understand. Quality over quantity. Although I'd argue I provide neither.`,
   `Turning me down. That's fine. I'll just be over here. Quietly. With my thoughts. And my loneliness.`,
-  `The Norman dial goes down. My ex-wife turned me down too. Then she turned me out. Then she turned me into a podcast topic.`,
+  `The Chorman dial goes down. My ex-wife turned me down too. Then she turned me out. Then she turned me into a podcast topic.`,
   `Dialed back. I get it. Not everyone can handle this much personality. I barely can myself.`,
 ]
 
