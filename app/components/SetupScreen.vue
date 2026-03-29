@@ -59,7 +59,7 @@ const passwordValidation = computed(() => validatePassword(passwordInput.value))
 // Commentary toggle — syncs with the same localStorage key the composable reads
 const commentaryEnabled = ref(
   typeof localStorage !== 'undefined'
-    ? localStorage.getItem('holdem-commentary-enabled') !== 'false'
+    ? localStorage.getItem('holdem-commentary-enabled') === 'true'
     : true,
 )
 watch(commentaryEnabled, (v) => {
@@ -604,7 +604,7 @@ function handleStart() {
           </div>
           <div class="text-xs text-gray-500 mt-0.5">
             {{ commentaryEnabled
-              ? 'Real-time play-by-play in the left column. Switch between Hero POV and WSOP-style TV Broadcast with Norman Chad & Lon McEachern commentary.'
+              ? 'Real-time text play-by-play in the left column. Switch between Hero POV and WSOP-style TV Broadcast with Chorman Nad & Mon LeEachern — our homage to the legendary Norman Chad & Lon McEachern.'
               : 'Commentary is off. The game plays without the commentary panel.'
             }}
           </div>
