@@ -577,7 +577,6 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
               Stats
             </UButton>
           </NuxtLink>
-          <UColorModeButton />
         </div>
       </div>
 
