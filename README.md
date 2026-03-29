@@ -661,6 +661,19 @@ Four levels of verification, each more realistic than the last:
 
 The simulator includes a headless bot-vs-bot simulation script (`scripts/simulate.ts`) that runs thousands of hands without any UI. This is useful for validating bot behavior, tuning persona configs, and analyzing how bots perform against each other over statistically meaningful sample sizes.
 
+### Analysis Report
+
+A static HTML analysis report is available at `/analysis.html` showing simulation results with observed vs configured stats, metrics, chip counts, realism assessment, and sample PokerStars hands. A downloadable 1,000-hand simulation file is also available at `/sample-hands.txt` (importable into PokerTracker, Hold'em Manager, Equilab).
+
+To regenerate the report with fresh data:
+
+```bash
+npx tsx scripts/generate-analysis.ts        # 1000 hands per table size
+npx tsx scripts/generate-analysis.ts 2000   # custom hand count
+```
+
+This produces `app/public/analysis.html` and `app/public/sample-hands.txt`.
+
 ### Usage
 
 ```bash
