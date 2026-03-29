@@ -1005,9 +1005,14 @@ export function useCommentary(gs: GS) {
 
   // ─── Watchers ───────────────────────────────────────────
 
-  watch(() => gs.handActionLog.value, () => {
+  // Detect new hand: the handActionLog ref is reassigned to a new array each deal
+  let prevLogRef: string[] | null = null
+  watch(() => gs.handActionLog.value, (newLog) => {
+    if (newLog === prevLogRef) return // same array, just mutated
+    prevLogRef = newLog
     if (!enabled.value || !gs.dealt.value) return
-    if (gs.handActionLog.value.length <= 1 && gs.street.value === 'preflop') { clear(); onDeal() }
+    clear()
+    onDeal()
   })
 
   watch(() => gs.street.value, (s, old) => {
