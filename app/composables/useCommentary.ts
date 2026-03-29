@@ -60,6 +60,14 @@ const normanFoldQuips = new UniquePool([
   `Another fold. This table is tighter than my ex-wife's grip on the remote control.`,
   `Muck it. Save those chips for a rainy day. Or a sunny day. Any day, really.`,
   `Out of the hand. Sometimes the best hand you play is the one you don't.`,
+  `Fold city. Population: growing.`,
+  `And just like that, they're gone. Like my youth.`,
+  `Smart. Save those chips. They don't grow on trees. I checked.`,
+  `Fold. The poker equivalent of ghosting someone.`,
+  `Another one out. This hand is getting heads-up real fast.`,
+  `Gone faster than my paycheck on a Friday night.`,
+  `That fold was easier than my divorce. And quicker.`,
+  `Out. See ya. Wouldn't wanna be ya. Actually, I wouldn't wanna be any of us.`,
 ])
 
 const normanBigFoldQuips = new UniquePool([
@@ -69,6 +77,12 @@ const normanBigFoldQuips = new UniquePool([
   `I wouldn't have the discipline to fold that. Then again, discipline isn't my strong suit. Just ask my three ex-wives.`,
   `A laydown like that takes guts. Guts I don't have. I once called an all-in with jack-four suited.`,
   `That fold physically hurt me and I'm just watching.`,
+  `Folding that is like returning a winning lottery ticket. Nobody does that. NOBODY.`,
+  `I'm going to need a moment. That fold was... I can't even talk about it.`,
+  `That's the kind of fold that haunts you at 3 AM. Trust me, I know.`,
+  `If I folded that hand, I'd want a receipt. For emotional damages.`,
+  `My jaw just hit the floor. And it's a long way down from this commentary booth.`,
+  `That fold is going to be on their deathbed highlight reel. "Remember when I folded those aces?"`,
 ])
 
 const normanBluffQuips = new UniquePool([
@@ -80,6 +94,14 @@ const normanBluffQuips = new UniquePool([
   `Bluffing with nothing. That takes either courage or a complete lack of self-awareness. Both are useful in poker.`,
   `They're betting with air. Hot air, specifically. Like a politician at a fundraiser.`,
   `That's a stone-cold bluff. Colder than my apartment after my wife changed the Netflix password AND the thermostat.`,
+  `Bluffing with napkins. Absolute napkins. I've had better hands in a game of War.`,
+  `That's not a bet, that's a lie with chips. A very expensive lie.`,
+  `I admire the commitment. Wrong, but committed. That's my dating life in a nutshell.`,
+  `They say fake it 'til you make it. This is the "fake it" part.`,
+  `Betting with nothing. The audacity. The chutzpah. The... stupidity? No, let's go with "bravery."`,
+  `Complete air. I've seen more substance in a soap bubble.`,
+  `That bluff is so bold it should have its own Netflix special.`,
+  `Nothing. Nada. Zilch. Zero. But hey, nice bet sizing.`,
 ])
 
 const normanRaiseQuips = new UniquePool([
@@ -91,6 +113,14 @@ const normanRaiseQuips = new UniquePool([
   `Putting the pressure on. I wish I could raise at my job review like that.`,
   `That bet says "I have a hand." Of course, sometimes the bet lies. Bets are like dating profiles that way.`,
   `Raising it up. The poker equivalent of "let me speak to your manager."`,
+  `A nice raise there. Making everyone pay for the privilege of seeing more cards.`,
+  `That's a bet that means business. Monkey business, but business nonetheless.`,
+  `Chips in the middle. That's where they belong. Not in your stack collecting dust.`,
+  `Raise! The most beautiful word in poker. The second most beautiful word? "Double."`,
+  `Pumping it up. I love aggression at the poker table. In traffic, not so much.`,
+  `That's a statement bet. The statement is: "I'm better than you." We'll see about that.`,
+  `A raise. In poker, if you're not raising, you're just renting your seat.`,
+  `Chips flying into the pot. Music to a poker player's ears. Nails on a chalkboard to a poker player's wallet.`,
 ])
 
 const normanCallQuips = new UniquePool([
@@ -102,6 +132,14 @@ const normanCallQuips = new UniquePool([
   `Just a call. Sometimes you gotta take the scenic route.`,
   `Calling station? Or genius slow-play? History will decide. Probably calling station.`,
   `Flat call there. Keeping it cool. Cooler than the other side of the pillow.`,
+  `A call. The poker equivalent of "I'm not mad, I'm just disappointed."`,
+  `Flat call. Playing it close to the vest. My vest, incidentally, is from 1997.`,
+  `Calling. The safe choice. Like ordering vanilla. Nothing wrong with vanilla.`,
+  `Just a call. Keeping their options open, like my Tinder profile.`,
+  `Smooth as butter. A nice flat call there.`,
+  `Calling. Not folding, not raising. The Goldilocks of poker decisions.`,
+  `A call. Sometimes you just want to see what happens next. Like watching a car accident. In slow motion. With chips.`,
+  `Flat call. They want to dance, but they don't want to lead.`,
 ])
 
 const normanCheckQuips = new UniquePool([
@@ -113,6 +151,13 @@ const normanCheckQuips = new UniquePool([
   `Checking. The safest play in poker. Also the most boring, but we don't judge here.`,
   `Check. No bet. In poker, sometimes doing nothing is the right play. Try telling that to my therapist.`,
   `Checking it down. The poker equivalent of taking a nap. Aggressive napping.`,
+  `Check. The universal sign for "I've got nothing but I'm not ready to admit it."`,
+  `Tap tap tap. That's either a check or a nervous twitch. In poker, it's both.`,
+  `A check. Bold move, doing nothing. I do nothing professionally and it hasn't worked out great.`,
+  `Checking. The poker equivalent of hitting the snooze button.`,
+  `Check. Free card. The best price in poker. I love free things. Free cards, free buffets, free advice that I ignore.`,
+  `No bet. Just vibes. Poker vibes.`,
+  `Check. They're either trapping or they have absolutely nothing. In my experience, it's usually nothing.`,
 ])
 
 const normanAllinQuips = new UniquePool([
@@ -124,6 +169,12 @@ const normanAllinQuips = new UniquePool([
   `All-in! My heart rate just went up. And I'm a commentator.`,
   `Shove! That's the kind of move that makes or breaks a tournament. And a spirit.`,
   `All the marbles! I haven't been this excited since I found a twenty in my coat pocket.`,
+  `All-in! That's the nuclear option. The poker equivalent of flipping the table, except you're technically still playing.`,
+  `Shove! All of it! Everything! I need a moment.`,
+  `All-in. The two most beautiful and terrifying words in the English language. Right after "audit notice."`,
+  `They've pushed it all in. This is the moment we've been waiting for. Well, I've been waiting for lunch, but this is good too.`,
+  `ALL-IN! Buckle up, buttercup. Things are about to get real.`,
+  `Everything in the middle. That pot is bigger than my car payment. Both of them.`,
 ])
 
 const normanAllinJunkQuips = new UniquePool([
@@ -133,6 +184,12 @@ const normanAllinJunkQuips = new UniquePool([
   `All-in with nothing. That's not poker, that's a cry for help.`,
   `They just shoved with junk. The poker gods are going to have something to say about this.`,
   `Going all-in with that hand is like bringing a pool noodle to a sword fight.`,
+  `ALL-IN with that?! That hand couldn't beat a ham sandwich. And the sandwich isn't even playing.`,
+  `Shoved with rags. I've seen better hands on a clock.`,
+  `All-in with garbage. You know what, I kind of respect it. It's wrong, but I respect it.`,
+  `That's the kind of all-in that makes your grandmother weep. And she doesn't even play poker.`,
+  `Shoving with that hand is like skydiving without a parachute. Thrilling for about three seconds.`,
+  `ALL-IN with junk. In their defense, it IS fun to say "all-in." It's less fun to lose.`,
 ])
 
 const normanShowdownWinQuips = new UniquePool([
@@ -142,6 +199,12 @@ const normanShowdownWinQuips = new UniquePool([
   `Hero wins! Even a blind squirrel finds a nut sometimes. Not that Hero is a blind squirrel.`,
   `Winner winner, chicken dinner. I never understood that expression. Why chicken? Why not steak?`,
   `Hero rakes it in. That's the good stuff right there.`,
+  `Hero wins! I'm not crying, you're crying. OK, I'm crying a little.`,
+  `And the pot slides over to Hero. Like a beautiful, beautiful pile of money.`,
+  `Hero takes it down! That's what we in the business call "good poker." We in my family call it "a miracle."`,
+  `Nicely done, Hero. Textbook. If the textbook was written by someone who's actually good at poker. Unlike my textbook.`,
+  `Hero wins! The poker gods smile upon the worthy. And occasionally the unworthy. I'm living proof.`,
+  `And that's how it's done. Take notes, kids. Actually, don't take notes from me. Take notes from Hero.`,
 ])
 
 const normanShowdownLoseQuips = new UniquePool([
@@ -151,6 +214,12 @@ const normanShowdownLoseQuips = new UniquePool([
   `Tough beat. I've been there. I live there, actually. I've set up a tent.`,
   `Hero takes the L. It happens. It happens to me a lot, but it happens.`,
   `That one stings. Like a bee. A poker bee. The worst kind of bee.`,
+  `Hero loses. The only thing worse than losing at poker is losing at poker while someone commentates on it. Sorry, Hero.`,
+  `Tough break. But remember, it's not about the destination, it's about the chips you lost along the way.`,
+  `Hero comes up short. Poker: the game where you can do everything right and still watch your chips walk away.`,
+  `And Hero loses. Welcome to the club. We have meetings on Tuesdays. And Wednesdays. And every other day.`,
+  `That's a loss. But in poker, every loss is a learning experience. I've learned SO MUCH over the years. So, so much.`,
+  `Hero loses the pot. Somewhere, a poker coach is saying "that's variance." It doesn't help, but they say it.`,
 ])
 
 const normanCoolerQuips = new UniquePool([
@@ -159,6 +228,10 @@ const normanCoolerQuips = new UniquePool([
   `That's a cooler, folks. The only thing cooler is my alimony payments.`,
   `Two monster hands collide. Poker is a beautiful, terrible game.`,
   `Cooler city. Population: one very sad poker player.`,
+  `That's a cooler. Nobody's fault. Except the deck's. I blame the deck. I always blame the deck.`,
+  `Both players had monsters. The poker gods just chose violence today.`,
+  `A cooler! That's the kind of hand that makes you question every life decision that led you to a poker table.`,
+  `Brutal cooler. In a fair world, both players would win. This is not a fair world. I have the tax returns to prove it.`,
 ])
 
 const normanForeshadowQuips = new UniquePool([
@@ -168,6 +241,10 @@ const normanForeshadowQuips = new UniquePool([
   `The poker gods are setting something up here. I can feel it in my bones. And my bones are usually wrong, but not today.`,
   `Something's brewing. I can feel it. Like when you know the pizza delivery guy is close.`,
   `The next card is going to change everything. And I do mean everything.`,
+  `If I were a betting man — and I am, that's literally why I'm here — I'd say something dramatic is about to happen.`,
+  `Don't go anywhere. What's coming next is worth the price of admission. Which, in this case, is free. You're welcome.`,
+  `I know something you don't know. Well, you'll know in a second. But for this one glorious second, I know more than you.`,
+  `The deck has plans. Big plans. Better plans than I've ever had, honestly.`,
 ])
 
 const normanStreetHitQuips = new UniquePool([
@@ -176,6 +253,13 @@ const normanStreetHitQuips = new UniquePool([
   `Bingo. That card changed the whole complexion of this hand.`,
   `Oh my. Things just got very interesting.`,
   `That card! You can almost hear the chips rattling.`,
+  `Ka-boom! That card just detonated this hand.`,
+  `Well well well. How the turntables. Wait, that's not right. How the tables have turned. There we go.`,
+  `That card changed EVERYTHING. I love it when poker does that.`,
+  `Jackpot! Not literally. But emotionally. Which is better. Actually, no, literally would be better.`,
+  `The deck delivers! Unlike my pizza guy, who is perpetually 45 minutes late.`,
+  `That's a card that makes poker players believe in destiny. And poker.`,
+  `Oh! That's the card! THAT'S the card! I need to sit down. I am sitting down. I need to sit down MORE.`,
 ])
 
 const normanStreetMissQuips = new UniquePool([
@@ -183,7 +267,20 @@ const normanStreetMissQuips = new UniquePool([
   `Absolutely nothing. Like my bank account after Vegas.`,
   `Missed by a mile. That's a bad feeling. I know that feeling well.`,
   `Nothing there. The board said "not today, friend."`,
+  `A brick. The most disappointing thing in poker. Well, second most disappointing. The most disappointing is my poker career.`,
+  `Missed. Like my dating life in college. And after college. And currently.`,
+  `Nothing. The board is not cooperating. Story of my life with boards. And floors. And ceilings.`,
+  `Complete miss. The deck has spoken, and it said "nah."`,
+  `Brick city. Population: one very nervous poker player.`,
 ])
+
+// Norman silence level — 0 = talks all the time, 100 = never talks on routine actions
+let _normanSilence = 40
+function normanFeelsLikeIt(): boolean { return Math.random() * 100 >= _normanSilence }
+
+// Lon analysis depth — 0 = just announces actions, 100 = deep analysis on every play
+let _lonAnalysis = 60
+function lonWantsToAnalyze(): boolean { return Math.random() * 100 < _lonAnalysis }
 
 // ─── Persona-specific Norman quips ───────────────────────────────
 const normanPersonaQuips: Record<string, string[]> = {
@@ -316,8 +413,21 @@ export function useCommentary(gs: GS) {
   const enabled = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-enabled') !== 'false' : true)
   const mode = ref<CommentaryMode>((typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-mode') as CommentaryMode : null) || 'hero')
 
+  const normanSilence = ref(
+    typeof localStorage !== 'undefined'
+      ? parseInt(localStorage.getItem('holdem-norman-silence') || '40', 10)
+      : 40,
+  )
+  const lonAnalysis = ref(
+    typeof localStorage !== 'undefined'
+      ? parseInt(localStorage.getItem('holdem-lon-analysis') || '60', 10)
+      : 60,
+  )
+
   watch(enabled, v => { if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-enabled', String(v)) })
   watch(mode, v => { if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-mode', v) })
+  watch(normanSilence, v => { _normanSilence = v; if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-norman-silence', String(v)) }, { immediate: true })
+  watch(lonAnalysis, v => { _lonAnalysis = v; if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-lon-analysis', String(v)) }, { immediate: true })
 
   const lines = computed(() => mode.value === 'tv' ? tvLines.value : heroLines.value)
 
@@ -496,11 +606,11 @@ export function useCommentary(gs: GS) {
             addTV(normanBigFoldQuips.pick(), 'action', 'norman')
           } else {
             addTV(`${name} folds.`, 'action', 'lon')
-            addTV(normanFoldQuips.pick(), 'action', 'norman')
+            if (normanFeelsLikeIt()) addTV(normanFoldQuips.pick(), 'action', 'norman')
           }
         } else {
           addTV(`${name} folds ${cardStr(pl.holeCards)}.`, 'action', 'lon')
-          addTV(normanFoldQuips.pick(), 'action', 'norman')
+          if (normanFeelsLikeIt()) addTV(normanFoldQuips.pick(), 'action', 'norman')
         }
       }
       return
@@ -558,14 +668,12 @@ export function useCommentary(gs: GS) {
           addTV(normanBluffQuips.pick(), 'action', 'norman')
         } else {
           const hand = community.length >= 3 ? handStr(pl, community) : null
-          addTV(`${name} ${raiseM ? 'raises to' : 'bets'} $${amount}${hand ? ` with ${hand}` : ''}.`, 'action', 'lon')
-          const pq = Math.random() < 0.4 ? normanPersonaQuip(name) : null
-          addTV(pq || normanRaiseQuips.pick(), 'action', 'norman')
+          addTV(`${name} ${raiseM ? 'raises to' : 'bets'} $${amount}${hand && lonWantsToAnalyze() ? ` with ${hand}` : ''}.`, 'action', 'lon')
+          if (normanFeelsLikeIt()) { const pq = Math.random() < 0.4 ? normanPersonaQuip(name) : null; addTV(pq || normanRaiseQuips.pick(), 'action', 'norman') }
         }
       } else {
         addTV(`${name} makes it $${amount}.`, 'action', 'lon')
-        const pq = Math.random() < 0.4 ? normanPersonaQuip(name) : null
-        addTV(pq || normanRaiseQuips.pick(), 'action', 'norman')
+        if (normanFeelsLikeIt()) { const pq = Math.random() < 0.4 ? normanPersonaQuip(name) : null; addTV(pq || normanRaiseQuips.pick(), 'action', 'norman') }
       }
       return
     }
@@ -584,21 +692,21 @@ export function useCommentary(gs: GS) {
           const hands = activePl().filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
           if (hands.length > 0 && hands[0].player.name === name) {
             addTV(`${name} just calls with the best hand.`, 'action', 'lon')
-            addTV(normanCallQuips.pick(), 'action', 'norman')
+            addTV(normanCallQuips.pick(), 'action', 'norman') // always comment on slow-plays
             return
           }
           const draws = detectDraws(Array.from(pl.holeCards!), community)
           if (draws.length > 0) {
-            addTV(`${name} calls $${amount}, chasing the ${draws[0].type.toLowerCase()}.`, 'action', 'lon')
-            addTV(normanCallQuips.pick(), 'action', 'norman')
+            addTV(lonWantsToAnalyze() ? `${name} calls $${amount}, chasing the ${draws[0].type.toLowerCase()}.` : `${name} calls $${amount}.`, 'action', 'lon')
+            if (normanFeelsLikeIt()) addTV(normanCallQuips.pick(), 'action', 'norman')
             return
           }
         }
-        addTV(`${name} calls $${amount} with ${cardStr(pl.holeCards)}.`, 'action', 'lon')
-        addTV(normanCallQuips.pick(), 'action', 'norman')
+        addTV(lonWantsToAnalyze() ? `${name} calls $${amount} with ${cardStr(pl.holeCards)}.` : `${name} calls $${amount}.`, 'action', 'lon')
+        if (normanFeelsLikeIt()) addTV(normanCallQuips.pick(), 'action', 'norman')
       } else {
         addTV(`${name} calls $${amount}.`, 'action', 'lon')
-        addTV(normanCallQuips.pick(), 'action', 'norman')
+        if (normanFeelsLikeIt()) addTV(normanCallQuips.pick(), 'action', 'norman')
       }
       return
     }
@@ -608,7 +716,7 @@ export function useCommentary(gs: GS) {
       const name = checkM[1]
       addHero(pick([`${name} checks.`, `Check from ${name}.`, `${name} taps the table.`]), 'action')
       addTV(`${name} checks.`, 'action', 'lon')
-      addTV(normanCheckQuips.pick(), 'action', 'norman')
+      if (normanFeelsLikeIt()) addTV(normanCheckQuips.pick(), 'action', 'norman')
     }
   }
 
@@ -824,5 +932,5 @@ export function useCommentary(gs: GS) {
     onHeroTurn()
   })
 
-  return { lines: readonly(lines), enabled, mode, clear }
+  return { lines: readonly(lines), enabled, mode, normanSilence, lonAnalysis, clear }
 }

@@ -9,11 +9,15 @@ const props = defineProps<{
   lines: readonly CommentaryLine[]
   enabled: boolean
   mode: CommentaryMode
+  normanSilence: number
+  lonAnalysis: number
 }>()
 
 const emit = defineEmits<{
   'update:enabled': [value: boolean]
   'update:mode': [value: CommentaryMode]
+  'update:normanSilence': [value: number]
+  'update:lonAnalysis': [value: number]
 }>()
 
 const scrollContainer = ref<HTMLElement | null>(null)
@@ -74,6 +78,45 @@ const typeStyles: Record<string, string> = {
         >
           TV Broadcast
         </button>
+      </div>
+      <!-- Voice sliders (TV mode only) -->
+      <div v-if="enabled && mode === 'tv'" class="space-y-1.5">
+        <div class="space-y-0.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[0.55rem] text-blue-400/70">Lon Analysis</span>
+            <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ lonAnalysis >= 95 ? 'Max' : lonAnalysis <= 5 ? 'Actions only' : `${lonAnalysis}%` }}</span>
+          </div>
+          <input
+            type="range"
+            :value="lonAnalysis"
+            min="0"
+            max="100"
+            step="5"
+            class="w-full h-1 appearance-none rounded-full bg-gray-700 cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500
+                   [&::-webkit-slider-thumb]:cursor-pointer"
+            @input="emit('update:lonAnalysis', parseInt(($event.target as HTMLInputElement).value))"
+          />
+        </div>
+        <div class="space-y-0.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[0.55rem] text-amber-400/70">Norman Quips</span>
+            <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSilence === 0 ? 'Max quips' : normanSilence >= 95 ? 'Silent' : `${100 - normanSilence}%` }}</span>
+          </div>
+          <input
+            type="range"
+            :value="normanSilence"
+            min="0"
+            max="95"
+            step="5"
+            class="w-full h-1 appearance-none rounded-full bg-gray-700 cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500
+                   [&::-webkit-slider-thumb]:cursor-pointer"
+            @input="emit('update:normanSilence', parseInt(($event.target as HTMLInputElement).value))"
+          />
+        </div>
       </div>
     </div>
 

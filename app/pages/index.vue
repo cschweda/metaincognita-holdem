@@ -594,8 +594,12 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             :lines="commentary.lines.value"
             :enabled="commentary.enabled.value"
             :mode="commentary.mode.value"
+            :norman-silence="commentary.normanSilence.value"
+            :lon-analysis="commentary.lonAnalysis.value"
             @update:enabled="commentary.enabled.value = $event"
             @update:mode="commentary.mode.value = $event"
+            @update:norman-silence="commentary.normanSilence.value = $event"
+            @update:lon-analysis="commentary.lonAnalysis.value = $event"
           />
         </div>
         <div class="flex-1 min-w-0 space-y-4">
