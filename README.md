@@ -37,6 +37,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Configuration](#configuration)
 - [Test Suites](#test-suites) -- 737 tests across 16 files
 - [Poker Glossary](#poker-glossary)
+- [Security](#security) -- audit results, defense-in-depth, CSP headers, credential validation
 - [Roadmap](#roadmap)
 - [Future Enhancements](#future-enhancements)
 
@@ -754,6 +755,86 @@ Run all tests: `yarn test` (753 tests, 17 files, ~18 seconds)
 | **Semi-Bluff** | A bet with a drawing hand that has equity if called but could also win immediately if opponent folds. |
 | **Walk** | When everyone folds to the big blind preflop -- BB wins without playing. |
 | **Position** | Where you sit relative to the dealer. Late position (BTN, CO) is best -- you act last and have the most information. |
+
+## Security
+
+The codebase has been through a red/blue team adversarial security audit. This section documents the findings, remediations, and accepted risks.
+
+### Architecture
+
+The app is a **static SPA** deployed to Netlify with an optional Supabase backend. There is no server-side code beyond Supabase's managed infrastructure. All game logic runs client-side. The security surface is:
+
+- **Client-side code** — Vue/Nuxt SPA, no server rendering
+- **Supabase** (optional) — PostgreSQL with Row-Level Security (RLS) for data isolation
+- **localStorage** — fallback when Supabase is not configured
+- **Netlify** — static hosting with security headers
+
+### Audit Results
+
+| # | Severity | Finding | Status |
+|---|----------|---------|--------|
+| 1 | Critical | SELECT queries had no `user_id` filter — all users could see all data | **Fixed** — `.eq('user_id')` added to all queries (defense-in-depth alongside RLS) |
+| 2 | Critical | DELETE operations missing ownership check — any user could delete any session/hand | **Fixed** — `.eq('user_id')` added to all delete operations |
+| 3 | High | sendBeacon on tab close sent no auth — Supabase could reject writes | **Fixed** — apikey passed as query parameter |
+| 4 | High | No security headers on Netlify deployment | **Fixed** — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP |
+| 5 | Medium | localStorage stores hand history unencrypted | **Accepted** — Training tool with fake money. No real-world sensitive data. |
+| 6 | Low | Supabase anon key in public runtime config | **By design** — Supabase publishable keys are intended for client-side use. RLS enforces access control. |
+| 7 | Info | `.env` never committed to git | **Confirmed safe** — `.gitignore` excludes `.env` |
+| 8 | Info | No XSS vectors | **Confirmed safe** — No `v-html`, `innerHTML`, `eval`, or `document.write` anywhere |
+| 9 | Info | No SQL injection vectors | **Confirmed safe** — Supabase JS client uses parameterized queries throughout |
+| 10 | Info | Query params in replay.vue | **Confirmed safe** — String cast, array index bounds check, parameterized Supabase query |
+
+### Defense-in-Depth Strategy
+
+Data isolation uses **two layers** — both must fail for a breach:
+
+1. **Client-side filtering**: Every Supabase query includes `.eq('user_id', userId.value)` so the client never requests data it shouldn't see, even if RLS were misconfigured.
+
+2. **Server-side RLS**: Supabase Row-Level Security policies enforce `auth.uid() = user_id` on all operations. Even if the client code is tampered with (browser devtools, modified JS), the database rejects unauthorized access.
+
+```sql
+-- Required RLS policies (see Supabase Setup section):
+create policy "Users can manage own sessions" on sessions
+  for all using (auth.uid() = user_id);
+create policy "Users can manage own hands" on hands
+  for all using (auth.uid() = user_id);
+```
+
+### Security Headers
+
+Deployed via `netlify.toml`:
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Frame-Options` | `DENY` | Prevents clickjacking (no iframe embedding) |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing attacks |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referrer leakage to third parties |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disables unnecessary browser APIs |
+| `Content-Security-Policy` | See below | Restricts script/style/connect sources |
+
+**CSP breakdown:**
+- `default-src 'self'` — only load resources from same origin
+- `script-src 'self' 'unsafe-inline' 'unsafe-eval'` — required by Nuxt/Vue runtime (nonce-based CSP would require SSR)
+- `connect-src 'self' https://*.supabase.co wss://*.supabase.co` — API calls limited to Supabase domains
+- `frame-ancestors 'none'` — prevents embedding in any frame
+
+### Credential Validation
+
+`useSupabase()` validates credentials before creating a client:
+
+- Both `SUPABASE_URL` and `SUPABASE_KEY` must be present and non-whitespace
+- URL must match `https://*.supabase.co` format
+- Key must be 20+ characters (real Supabase keys are 30+)
+- If `ensureSession()` gets an auth error (bad key, wrong project), it sets `connectionFailed`, nulls the client, and the entire app falls back to localStorage
+- UI shows red "Connection Failed" indicator with diagnostic message
+
+### Accepted Risks
+
+| Risk | Justification |
+|------|---------------|
+| localStorage unencrypted | Data is poker hands with fake money — no financial, personal, or health data. Encrypting adds complexity without meaningful security benefit. |
+| `unsafe-inline` / `unsafe-eval` in CSP | Required by Vue/Nuxt client-side rendering. Moving to nonce-based CSP would require SSR mode, which is a fundamental architecture change not warranted for this app. |
+| Supabase anon key client-visible | This is the intended Supabase architecture. The anon key grants only the permissions defined by RLS policies. It is functionally equivalent to a public API endpoint. |
 
 ## Roadmap
 

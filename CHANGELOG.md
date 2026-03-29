@@ -9,14 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Bot thinking insight** — The "X is thinking..." indicator now shows real-time calculation details: Chen/Chen+ scores preflop, made hand + draws + board texture postflop, pot odds needed to call. Displayed as monospaced reasoning lines during the 0.8-2s thinking delay.
-- **Supabase graceful fallback** — When Supabase is not configured (no `.env` or empty credentials), the setup screen shows "Local Storage Only" with a gray indicator and hides all login UI (GitHub/email). The SupabaseStatus pill shows "Local Only" instead of "Offline". No errors thrown.
+- **Supabase graceful fallback** — When Supabase is not configured (no `.env` or empty credentials), the setup screen shows "Local Storage Only" with a gray indicator and hides all login UI (GitHub/email). Invalid credentials (bad URL, short key, auth failure) show red "Connection Failed" with diagnostic message and fall back to localStorage.
+- **Supabase credential validation** — URL must be `https://*.supabase.co`, key must be 20+ chars. Partial credentials (one present, one missing) and whitespace-only values handled. `ensureSession()` catches auth errors and disables the Supabase layer gracefully.
+- **Dual-indicator status pill** — Redesigned SupabaseStatus.vue with two side-by-side dots: database status (green Supabase / red Failed / gray Local Only) and auth method (green GitHub / blue Email / yellow Anonymous).
 - **Supabase setup documentation** — Full SQL schema, RLS policies, env var setup, and 3-tier persistence explanation in README.
-- **16 Supabase fallback tests** — Verifies every auth function (`ensureSession`, `signInWithGitHub`, `signUpWithEmail`, etc.) returns safe defaults when Supabase client is null. Password validation tested independently.
+- **28 Supabase fallback tests** — Covers empty, partial, whitespace-only, invalid URL, short key, all auth functions with null client, password validation.
+
+### Fixed (Security Audit)
+- **User_id scoping on all Supabase queries** — SELECT queries in stats.vue now filter by `user_id` (defense-in-depth alongside RLS). Previously relied solely on server-side RLS, meaning a misconfigured policy could expose all users' data.
+- **User_id scoping on all DELETE operations** — Session and hand deletes now include `.eq('user_id')` to prevent cross-user deletion.
+- **sendBeacon authentication** — Tab-close session save now includes apikey query parameter so Supabase can authenticate the request.
+- **Security headers** — Added to `netlify.toml`: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and `Content-Security-Policy` restricting connect-src to `*.supabase.co`.
+- **Security audit documentation** — Full audit results, defense-in-depth strategy, CSP breakdown, credential validation, and accepted risks documented in README.
 
 ### Changed
 - **Renamed metatweak to Table Flow** — All references (code, config key, comments, README, changelog) renamed from `metatweak` to `tableFlow` for clarity.
-- **Mike Matusow renamed to Mike the Mouth** — Avoids using the real name while keeping the initial-swap pattern. Updated across config, tests, README, and changelog.
-- **README expanded** — Detailed bot behavior section (12 config fields, Chen+, board texture, table flow, hero adaptation, full preflop/postflop decision flows), simulation script documentation, table of contents.
+- **Mike the Mouth** (was Mike Matusow) — Avoids using the real name while keeping the initial-swap pattern. Updated across config, tests, README, and changelog.
+- **README expanded** — Detailed bot behavior section (12 config fields, Chen+, board texture, table flow, hero adaptation, full preflop/postflop decision flows), simulation script documentation, table of contents, security section.
 
 ## [0.12.0] - 2026-03-28
 
