@@ -268,23 +268,85 @@ Each of the 25 bot personas is defined by a set of numerical stats in `holdem.co
 | **Consistency** | 0.88--0.99 | The probability of making the "correct" decision each hand. On a consistency miss, the bot makes a random off-strategy play (fold when it should call, raise with nothing, etc.). | Ihil Pvey (99%) almost never misplays. Wild Wendy (88%) makes a random play ~12% of the time. |
 | **Leak** | text | A natural-language description of the bot's primary weakness, shown in the hand analysis modal and bot gallery. | "Folds too much to 3-bets; won't bluff rivers" (Tight Tony) |
 
-### Chen+ Hand Evaluation
+### Chen Score — Classic Preflop Hand Strength
 
-Classic Chen scoring rates starting hands 0--20 based on card rank, pairs, suitedness, and connectedness. It doesn't account for position or playstyle -- pocket aces score 20 whether you're UTG or on the Button.
+The [Chen formula](https://en.wikipedia.org/wiki/Texas_hold_%27em_starting_hands#Chen_formula) is a well-known system for ranking preflop starting hands on a 0--20 scale. It was created by Bill Chen and published in _The Mathematics of Poker_. The scoring rules:
 
-**Chen+** extends this with context-aware adjustments:
+| Component | Rule | Examples |
+|-----------|------|---------|
+| **Highest card** | A=10, K=8, Q=7, J=6, others=rank/2 | K-high hand starts at 8 |
+| **Pair bonus** | Score = max(highest_card × 2, 5) | 22=5, 77=7, AA=20 |
+| **Suited bonus** | +2 | AKs scores 2 more than AKo |
+| **Gap penalty** | 1-gap: -1, 2-gap: -2, 3-gap: -4, 4+gap: -5 | T8s (-1 gap), T7s (-2 gap) |
+| **Straight potential** | +1 if connected/1-gap and both cards < Q | 87s gets +1, KQs does not |
+| **Final** | Round up, minimum 0 | |
 
-| Factor | Adjustment | Reasoning |
-|--------|------------|-----------|
-| **Button/Dealer** | +2 | You act last on every street. Information advantage makes marginal hands profitable. |
-| **Cutoff** | +1 | Second-best position. Nearly as good as the Button. |
-| **UTG / UTG+1** | -1 | You act first with 4--5 players behind. Need a stronger hand to enter. |
-| **Big Blind** | +1 | Already invested 1 BB. Getting a discount to see the flop. |
-| **Suited connectors (loose player)** | +1 | Players with VPIP > 27% extract extra value from speculative hands because they play more pots and get paid off more. |
-| **Creative + suited gapper** | +1 | Players with creative freq > 8% profit from unusual holdings because opponents can't put them on a hand. |
-| **Big cards (tight-aggressive)** | +1 | Players with VPIP < 22% and aggression > 1.2 get more value from big-card hands because they play them aggressively and get action from worse hands. |
+**Where Chen works well:**
+- Quick mental math at the table -- you can compute it in your head in seconds
+- Correctly identifies the strongest hands (AA=20, KK=16, QQ=14)
+- Properly rewards suitedness and connectedness
+- Good for absolute hand ranking when you need a single number
 
-The Chen+ score is then mapped to a **percentile** -- the fraction of all 1,326 unique starting hands that are this strong or better. This percentile was calibrated empirically (not estimated). A bot with VPIP 0.30 plays any hand whose Chen+ percentile falls below 0.30. Because Chen+ is position-adjusted, the same ATo might qualify from the Button but not from UTG.
+**Where Chen breaks down:**
+- **No position awareness.** Chen gives ATo the same score whether you're UTG (first to act, 5 players behind) or on the Button (last to act, maximum information). In practice, ATo is a clear fold UTG but a standard open on the Button.
+- **No playstyle context.** A tight-aggressive player extracts different value from AQo than a loose-passive player does. Chen doesn't account for how a player's style affects which hands are profitable.
+- **Overvalues some hands, undervalues others.** Small suited connectors like 76s score low (6) but are among the most profitable hands from late position for loose players. Meanwhile, hands like K9o score decently but are trap hands that dominate poorly.
+- **No multiway awareness.** Suited hands go up in value at full tables (flush potential against more opponents) while big offsuit hands go down, but Chen treats both the same regardless of table size.
+- **Preflop only.** Chen scoring stops after the deal. It says nothing about postflop playability, implied odds, or how well a hand navigates multiple streets.
+
+### Chen+ — This App's Position- and Style-Adjusted Extension
+
+Chen+ starts with the classic Chen score and applies context-aware adjustments based on where you're sitting and how you play. This is the score bots actually use for preflop decisions.
+
+**Position adjustments:**
+
+| Position | Adjustment | Why |
+|----------|------------|-----|
+| **Button / Dealer** | +2 | You act last on every postflop street. This information advantage makes marginal hands profitable -- you see what everyone does before deciding. The Button is the most profitable seat in poker. |
+| **Cutoff** | +1 | Second-best position. Nearly as good as the Button, with only one player behind. |
+| **Big Blind** | +1 | You've already invested 1 BB. Getting a discount to see the flop means weaker hands become worth defending. |
+| **MP / MP+1** | 0 | Middle position -- no adjustment. Standard play. |
+| **UTG / UTG+1** | -1 | Worst positions. You act first with 4--5 players behind who could wake up with a monster. Need a stronger hand to enter. |
+| **Small Blind** | 0 | Discount is offset by worst postflop position (first to act every street). |
+
+**Playstyle adjustments** (applied when bot/hero profile is available):
+
+| Condition | Adjustment | Why |
+|-----------|------------|-----|
+| **Suited connectors + loose player** (VPIP > 27%) | +1 | Loose players see more flops, so they realize the implied odds of speculative hands more often. 76s is worth more to someone who plays 30% of hands than to a nit playing 15%. |
+| **Suited gapper + creative player** (creative freq > 8%) | +1 | Creative players profit from unusual holdings because opponents can't put them on a hand. When you limp-reraise with T8s, nobody sees it coming. |
+| **Big cards + tight-aggressive** (VPIP < 22%, aggression > 1.2) | +1 | TAGs get more value from big-card hands because they play them aggressively and get action from worse hands. When a tight player bets, loose opponents still call with dominated hands. |
+
+**How Chen+ drives bot decisions:**
+
+The Chen+ score is mapped to a **percentile** -- the fraction of all 1,326 unique starting hands that are this strong or better. This mapping was calibrated empirically by scoring all 1,326 hands (not estimated from a formula). The percentile thresholds:
+
+| Chen+ Score | Percentile | Hands at this level |
+|-------------|-----------|---------------------|
+| 20+ | 0.5% | AA |
+| 16+ | 0.9% | KK |
+| 14+ | 1.4% | QQ, AKs |
+| 12+ | 2.1% | JJ, AQs, AKo |
+| 10+ | 4.4% | TT, AJs+, KQs |
+| 8+ | 10.7% | 99, broadways |
+| 7+ | 17.8% | 88, suited connectors |
+| 6+ | 25.5% | 77, suited one-gappers |
+| 5+ | 37.0% | 66, most suited hands |
+| 4+ | 53.2% | Low suited, mid offsuit |
+| 3+ | 70.0% | Weak suited, offsuit broadways |
+| 2+ | 85.0% | Junk suited |
+| 0--1 | 100% | Pure trash |
+
+A bot with VPIP 0.30 plays any hand whose Chen+ percentile falls below 0.30. Because Chen+ is position-adjusted, the same ATo might qualify from the Button (Chen+ 10 → 4.4%) but not from UTG (Chen+ 8 → 10.7%). This is exactly how real players think: "I'd open this from the Button but fold it under the gun."
+
+**Concrete example -- A♠ T♦ at a 6-max table:**
+
+| Seat | Chen | Chen+ | Percentile | Action |
+|------|------|-------|------------|--------|
+| UTG | 8 | 7 (-1) | 17.8% | Fold for a 15% VPIP player |
+| MP | 8 | 8 (±0) | 10.7% | Borderline -- plays for 11%+ VPIP |
+| CO | 8 | 9 (+1) | ~7% | Opens for most players |
+| BTN | 8 | 10 (+2) | 4.4% | Clear open for everyone |
 
 Both the classic Chen score and the Chen+ score are shown in the stats panel during play so you can see the difference position makes.
 

@@ -304,7 +304,7 @@ function afLabel(af: number): string {
 </script>
 
 <template>
-  <div class="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden text-sm lg:h-[calc(100vh-6rem)] flex flex-col">
+  <div class="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-clip text-sm h-[min(calc(100vh-6rem),800px)] flex flex-col">
     <!-- Tab bar -->
     <div class="flex border-b border-gray-700/50 shrink-0">
       <button
@@ -321,7 +321,7 @@ function afLabel(af: number): string {
     </div>
 
     <!-- Pinned: Your Hand + Recommendation (Live tab only) -->
-    <div v-if="activeTab === 'hand' && analysis && holeCards" class="p-4 pb-0 space-y-3 shrink-0 border-b border-gray-700/30">
+    <div v-if="activeTab === 'hand' && analysis && holeCards" class="p-4 pb-0 space-y-3 shrink-0 overflow-hidden border-b border-gray-700/30">
       <!-- Hero's Hand -->
       <div>
         <div class="flex items-center justify-between">
