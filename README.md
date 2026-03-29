@@ -2,15 +2,19 @@
 
 ![No Limit Hold'em Simulator](app/public/og-image.png)
 
-A browser-based No-Limit Texas Hold'em poker simulator with 25 intelligent bot opponents (including 18 pro player personas), real-time hand analysis, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay.
+A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay.
 
+- **Card-aware bot AI** -- bots evaluate actual hole cards and board texture, not just random probabilities
+- **Street-aware decisions** -- c-betting, double-barreling, giving up with air, multiway pot adjustments
+- **Preflop escalation** -- full 3-bet/4-bet/5-bet logic with per-persona frequencies
+- **Hero adaptation** -- bots adjust to your play style over a rolling 10-hand window
 - **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
-- **Monte Carlo equity engine** -- 300-500 adaptive iterations against opponent ranges
-- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, set draws with exact hit probability
+- **Monte Carlo equity engine** -- 500-800 adaptive iterations against opponent ranges
+- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability
 - **Pot odds** with pass/fail verdict against your live equity
 - **Authentic 6-max ranges** -- 169 hands ranked by EV, position-aware from UTG (15%) to BTN (42%)
 - **25 bot personas** (7 fictional + 18 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles
-- **Per-persona tilt** -- Hellmuth tilts after 1 loss; Ivey needs 10+ consecutive losses
+- **Per-persona tilt** -- Phellmuth tilts after 1 loss; Pvey needs 10+ consecutive losses
 - **Consistency system** -- bots occasionally misplay (1-12% depending on persona)
 - **Opponent HUD** -- live VPIP, PFR, Aggression Factor, WTSD with strategic reads
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
@@ -80,26 +84,26 @@ The setup screen shows your full table roster with inline controls. Each bot can
 
 | Pro | VPIP | Style | Tilt | Consistency |
 |-----|------|-------|------|-------------|
-| Phil Hellmuth | 20% | Near-GTO, massive tilt after losses | 2.5x | 96% |
-| Daniel Negreanu | 32% | Suited connectors from any position, creative | 0.5x | 96% |
-| Phil Ivey | 23% | Near-perfect, rare mistakes, almost untiltable | 0.3x | 99% |
-| Doyle Brunson | 28% | Power poker, traps with monsters | 0.4x | 96% |
-| Jennifer Tilly | 30% | Unpredictable tight/loose mix | 0.7x | 91% |
-| Phil Laak | 27% | Unorthodox, analytical, float bets | 0.6x | 93% |
-| Antonio Esfandiari | 29% | Charismatic aggressor, constant pressure | 0.9x | 94% |
-| Gabe Kaplan | 26% | Steady, intelligent, solid fundamentals | 0.8x | 95% |
-| Jean-Robert Bellande | 36% | Fearless gambler, huge bluffs | 1.4x | 90% |
+| Hill Phellmuth | 20% | Near-GTO, massive tilt after losses | 2.5x | 96% |
+| Naniel Degreanu | 32% | Suited connectors from any position, creative | 0.5x | 96% |
+| Ihil Pvey | 23% | Near-perfect, rare mistakes, almost untiltable | 0.3x | 99% |
+| Boyle Drunson | 28% | Power poker, traps with monsters | 0.4x | 96% |
+| Tennifer Jilly | 30% | Unpredictable tight/loose mix | 0.7x | 91% |
+| Lhil Paak | 27% | Unorthodox, analytical, float bets | 0.6x | 93% |
+| Entonio Asfandiari | 29% | Charismatic aggressor, constant pressure | 0.9x | 94% |
+| Kabe Gaplan | 26% | Steady, intelligent, solid fundamentals | 0.8x | 95% |
+| Bean-Robert Jellande | 36% | Fearless gambler, huge bluffs | 1.4x | 90% |
 | Mike Matusow | 28% | Solid until tilt -- then reckless all-ins | 2.2x | 91% |
-| Chris Moneymaker | 30% | Online grinder, occasional overplays | 1.1x | 92% |
-| Chip Reese | 24% | Legendary, near-zero leaks, ice cold | 0.3x | 98% |
-| Stu Ungar | 26% | Genius reads, fearless, erratic brilliance | 1.0x | 93% |
-| Vanessa Selbst | 25% | Fearless aggressor, relentless 3-bets | 0.8x | 95% |
-| Erik Seidel | 21% | Quiet assassin, tight, patient, untiltable | 0.3x | 98% |
-| Tom Dwan | 31% | "durrrr" hyper-LAG, massive bluffs | 0.5x | 95% |
-| Patrik Antonius | 24% | Finnish ice, calm, precise | 0.4x | 97% |
-| Scotty Nguyen | 30% | Loose-aggressive with flair, tilts on bad beats | 1.2x | 91% |
-| Johnny Chan | 22% | Old-school TAG, traps, patient, consistent | 0.5x | 97% |
-| Brynn Kenney | 25% | Modern GTO high-roller, creative lines | 0.6x | 95% |
+| Mhris Coneymaker | 30% | Online grinder, occasional overplays | 1.1x | 92% |
+| Rhip Ceese | 24% | Legendary, near-zero leaks, ice cold | 0.3x | 98% |
+| Utu Sngar | 26% | Genius reads, fearless, erratic brilliance | 1.0x | 93% |
+| Sanessa Velbst | 25% | Fearless aggressor, relentless 3-bets | 0.8x | 95% |
+| Serik Eidel | 21% | Quiet assassin, tight, patient, untiltable | 0.3x | 98% |
+| Dom Twan | 31% | "durrrr" hyper-LAG, massive bluffs | 0.5x | 95% |
+| Aatrik Pantonius | 24% | Finnish ice, calm, precise | 0.4x | 97% |
+| Ncotty Sguyen | 30% | Loose-aggressive with flair, tilts on bad beats | 1.2x | 91% |
+| Cohnny Jhan | 22% | Old-school TAG, traps, patient, consistent | 0.5x | 97% |
+| Krynn Benney | 25% | Modern GTO high-roller, creative lines | 0.6x | 95% |
 
 **Table composition:**
 - **Pro count selector**: 0 / 1 / 2 / 3 / All pros per table (default 2)
@@ -135,8 +139,8 @@ The setup screen shows your full table roster with inline controls. Each bot can
 
 ### Tilt System
 - Per-persona tilt multiplier scales how fast they tilt and how hard it hits
-- **Hellmuth (2.5x)**: Tilts after 1 loss, massive stat swings
-- **Ivey (0.3x)**: Needs 10+ consecutive losses, barely changes even when tilted
+- **Phellmuth (2.5x)**: Tilts after 1 loss, massive stat swings
+- **Pvey (0.3x)**: Needs 10+ consecutive losses, barely changes even when tilted
 - **Mild tilt**: VPIP +4%, aggression +0.15, bluff freq +3%
 - **Full tilt**: VPIP +8%, PFR +4%, aggression +0.3, bluff freq +6%
 - Tilt decays over 3-6 hands, then returns to baseline
@@ -145,10 +149,10 @@ The setup screen shows your full table roster with inline controls. Each bot can
 ### Consistency System
 - Each bot has a consistency rating (0.88-0.99)
 - Before each decision, rolls against consistency. On fail, makes a random off-strategy play.
-- **Near-perfect (0.98-0.99)**: Phil Ivey, Chip Reese, Erik Seidel -- misplay ~1-2% of decisions
-- **Very disciplined (0.95-0.97)**: Solid Sam, Doyle Brunson, Patrik Antonius, Johnny Chan
-- **Mostly solid (0.92-0.94)**: Negreanu, Stu Ungar, Moneymaker, Phil Laak
-- **Inconsistent (0.88-0.91)**: Wild Wendy, Bellande, Matusow, Scotty Nguyen
+- **Near-perfect (0.98-0.99)**: Ihil Pvey, Rhip Ceese, Serik Eidel -- misplay ~1-2% of decisions
+- **Very disciplined (0.95-0.97)**: Solid Sam, Boyle Drunson, Aatrik Pantonius, Cohnny Jhan
+- **Mostly solid (0.92-0.94)**: Degreanu, Utu Sngar, Coneymaker, Lhil Paak
+- **Inconsistent (0.88-0.91)**: Wild Wendy, Jellande, Matusow, Ncotty Sguyen
 
 ### Session Management
 - **5-minute hero timeout**: Inactivity auto-folds current hand, pauses game, saves session. Resume or end from pause screen.
@@ -377,7 +381,7 @@ Run all tests: `yarn test` (666 tests, 14 files, ~22 seconds)
 
 ### Phase 4 -- Pro Bot Tests (`phase4-pro-bots.test.ts`)
 - All 18 pros validated: existence, stat ranges, tiltMultiplier, unique playstyles
-- Per-persona behavioral verification: Hellmuth tilt, Ivey composure, Negreanu creativity
+- Per-persona behavioral verification: Phellmuth tilt, Pvey composure, Degreanu creativity
 - Table composition: max configurable pros, no duplicates across 100 random generations
 
 ### Phase 4 -- Universal Persona Alignment (`phase4-all-personas.test.ts`)
@@ -387,8 +391,8 @@ Run all tests: `yarn test` (666 tests, 14 files, ~22 seconds)
 
 ### Phase 4 -- Realistic Pipeline (`phase4-realistic-sim.test.ts`)
 - **All 25 bots x 50K hands with real cards**: Fisher-Yates shuffle, hand evaluation, position variation, tilt lifecycle
-- Tilt behavioral impact: Hellmuth plays looser when tilted, Ivey barely changes, Seidel tilts far less than Hellmuth
-- Comparative ordering holds with real cards: Tight Tony < Loose Lucy, Ivey < Negreanu, Dwan raises more than Carl
+- Tilt behavioral impact: Phellmuth plays looser when tilted, Pvey barely changes, Eidel tilts far less than Phellmuth
+- Comparative ordering holds with real cards: Tight Tony < Loose Lucy, Pvey < Degreanu, Twan raises more than Carl
 - Full pipeline integrity: no crashes, reasonable VPIP range, hand evaluator produces valid results
 
 ### Phase 5 -- Stats (`phase5-stats.test.ts`)

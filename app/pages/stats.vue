@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * Stats dashboard — loads cross-session data from Supabase (with localStorage fallback).
- * Shows lifetime aggregates, session history table, per-hand history with expandable
+ * Shows lifetime aggregates, session drill-down, per-hand history with expandable
  * action logs, PokerStars-format export, and profit trends.
+ * Uses Nuxt UI 4 modals for delete confirmations.
  */
 import { useSupabase, ensureAnonSession, getCurrentUser } from '~/composables/useSupabase'
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
@@ -49,9 +50,20 @@ const userId = ref<string | null>(null)
 const activeTab = ref<'overview' | 'sessions' | 'hands'>('overview')
 const isGitHubAuth = ref(false)
 const localSession = ref<any>(null)
+const selectedSession = ref<SessionRow | null>(null) // drill-down into session
+
+// ─── Filters & Drill-down ─────────────────────────────────────
+const positionFilter = ref<string | null>(null) // filter hands by position
+
+// ─── Delete Modals ────────────────────────────────────────────
+const showDeleteAllModal = ref(false)
+const showDeleteSessionModal = ref(false)
+const showDeleteHandModal = ref(false)
+const deleteSessionTarget = ref<SessionRow | null>(null)
+const deleteHandTarget = ref<HandRow | null>(null)
+const deleteAllConfirmText = ref('')
 
 onMounted(async () => {
-  // Always load localStorage session data
   try {
     const saved = localStorage.getItem('holdem-session-stats')
     if (saved) localSession.value = JSON.parse(saved)
@@ -69,14 +81,12 @@ onMounted(async () => {
     return
   }
 
-  // Check if this is a GitHub user
   const user = await getCurrentUser()
   isGitHubAuth.value = !!user && !user.is_anonymous
 
   if (isGitHubAuth.value) {
     await loadData(sb)
   } else {
-    // Not signed in — use localStorage data only, show local session hands
     if (localSession.value?.hands) {
       hands.value = localSession.value.hands.map((h: any, i: number) => ({
         id: `local-${i}`,
@@ -100,13 +110,10 @@ onMounted(async () => {
 })
 
 // ─── Delete Functions ──────────────────────────────────────────
-const confirmingDeleteAll = ref(false)
-const confirmingDeleteSession = ref<string | null>(null)
 
 async function deleteAllData() {
   const sb = useSupabase()
 
-  // Delete from Supabase
   if (sb && userId.value) {
     const { error: handsErr } = await sb.from('hands').delete().eq('user_id', userId.value)
     if (handsErr) console.warn('Failed to delete hands:', handsErr.message)
@@ -114,20 +121,17 @@ async function deleteAllData() {
     if (sessErr) console.warn('Failed to delete sessions:', sessErr.message)
   }
 
-  // Clear ALL localStorage poker data
   localStorage.removeItem('holdem-session-stats')
-
-  // Clear local state
   sessions.value = []
   hands.value = []
   localSession.value = null
-  confirmingDeleteAll.value = false
+  showDeleteAllModal.value = false
+  deleteAllConfirmText.value = ''
 }
 
 async function deleteSession(sessionId: string) {
   const sb = useSupabase()
 
-  // Delete from Supabase
   if (sb && userId.value) {
     const { error: handsErr } = await sb.from('hands').delete().eq('session_id', sessionId)
     if (handsErr) console.warn('Failed to delete session hands:', handsErr.message)
@@ -135,17 +139,61 @@ async function deleteSession(sessionId: string) {
     if (sessErr) console.warn('Failed to delete session:', sessErr.message)
   }
 
-  // Update local state
   sessions.value = sessions.value.filter(s => s.id !== sessionId)
   hands.value = hands.value.filter(h => h.session_id !== sessionId)
 
-  // If this was the current localStorage session, clear it too
   if (localSession.value?.id === sessionId) {
     localStorage.removeItem('holdem-session-stats')
     localSession.value = null
   }
 
-  confirmingDeleteSession.value = null
+  // If we were viewing this session, go back
+  if (selectedSession.value?.id === sessionId) {
+    selectedSession.value = null
+  }
+
+  showDeleteSessionModal.value = false
+  deleteSessionTarget.value = null
+}
+
+async function deleteHand(handId: string) {
+  const sb = useSupabase()
+
+  if (sb && userId.value && !handId.startsWith('local-')) {
+    const { error: err } = await sb.from('hands').delete().eq('id', handId)
+    if (err) console.warn('Failed to delete hand:', err.message)
+  }
+
+  // Remove from local state
+  hands.value = hands.value.filter(h => h.id !== handId)
+
+  // If local hand, update localStorage
+  if (handId.startsWith('local-') && localSession.value?.hands) {
+    const idx = parseInt(handId.replace('local-', ''), 10)
+    if (idx >= 0) {
+      localSession.value.hands.splice(idx, 1)
+      localStorage.setItem('holdem-session-stats', JSON.stringify(localSession.value))
+    }
+  }
+
+  if (expandedHand.value === handId) expandedHand.value = null
+  showDeleteHandModal.value = false
+  deleteHandTarget.value = null
+}
+
+function openDeleteHandModal(h: HandRow) {
+  deleteHandTarget.value = h
+  showDeleteHandModal.value = true
+}
+
+function drillIntoPosition(position: string) {
+  positionFilter.value = position
+  activeTab.value = 'hands'
+}
+
+function openDeleteSessionModal(s: SessionRow) {
+  deleteSessionTarget.value = s
+  showDeleteSessionModal.value = true
 }
 
 async function loadData(sb: ReturnType<typeof useSupabase>) {
@@ -203,7 +251,6 @@ const winRate = computed(() => {
   return (lifetimeStats.value.won / lifetimeStats.value.totalHands) * 100
 })
 
-// Per-session win/loss summary
 const sessionSummary = computed(() => {
   const winning = sessions.value.filter(s => s.total_profit > 0).length
   const losing = sessions.value.filter(s => s.total_profit < 0).length
@@ -213,11 +260,12 @@ const sessionSummary = computed(() => {
   return { winning, losing, breakeven, bestSession, worstSession }
 })
 
-// ─── Position Stats ────────────────────────────────────────────
-
 const positionStats = computed(() => {
+  const source = selectedSession.value
+    ? hands.value.filter(h => h.session_id === selectedSession.value!.id)
+    : hands.value
   const map = new Map<string, { played: number; won: number; profit: number }>()
-  for (const h of hands.value) {
+  for (const h of source) {
     const pos = h.position || 'Unknown'
     const entry = map.get(pos) || { played: 0, won: 0, profit: 0 }
     entry.played++
@@ -228,6 +276,32 @@ const positionStats = computed(() => {
   return [...map.entries()]
     .map(([position, stats]) => ({ position, ...stats, winRate: (stats.won / stats.played) * 100 }))
     .sort((a, b) => b.profit - a.profit)
+})
+
+// Session-specific hands for drill-down
+const sessionHands = computed(() => {
+  if (!selectedSession.value) return []
+  return hands.value.filter(h => h.session_id === selectedSession.value!.id)
+})
+
+// ─── Profit Timeline ──────────────────────────────────────────
+
+const profitTimeline = computed(() => {
+  const source = selectedSession.value
+    ? sessionHands.value
+    : hands.value
+  const recent = [...source].reverse().slice(-50)
+  let running = 0
+  return recent.map(h => {
+    running += h.profit
+    return running
+  })
+})
+
+const profitTrendClass = computed(() => {
+  const timeline = profitTimeline.value
+  if (timeline.length < 2) return 'text-gray-400'
+  return timeline[timeline.length - 1] >= timeline[0] ? 'text-green-400' : 'text-red-400'
 })
 
 // ─── Export Functions ──────────────────────────────────────────
@@ -258,17 +332,8 @@ function exportLifetimeJSON() {
 function exportLifetimeCSV() {
   const headers = ['Hand #', 'Session', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size', 'Stake', 'Players', 'Played At']
   const rows = hands.value.map(h => [
-    h.hand_number,
-    h.session_id.slice(0, 8),
-    h.hole_cards,
-    h.board || '',
-    h.position,
-    h.result,
-    h.profit,
-    h.pot_size,
-    h.stake_level,
-    h.player_count,
-    h.played_at,
+    h.hand_number, h.session_id.slice(0, 8), h.hole_cards, h.board || '',
+    h.position, h.result, h.profit, h.pot_size, h.stake_level, h.player_count, h.played_at,
   ].join(','))
   downloadFile([headers.join(','), ...rows].join('\n'), `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv')
 }
@@ -280,9 +345,9 @@ function exportSessionJSON(s: SessionRow) {
 }
 
 function exportSessionCSV(s: SessionRow) {
-  const sessionHands = hands.value.filter(h => h.session_id === s.id)
+  const sHands = hands.value.filter(h => h.session_id === s.id)
   const headers = ['Hand #', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size', 'Played At']
-  const rows = sessionHands.map(h => [
+  const rows = sHands.map(h => [
     h.hand_number, h.hole_cards, h.board || '', h.position, h.result, h.profit, h.pot_size, h.played_at,
   ].join(','))
   downloadFile([headers.join(','), ...rows].join('\n'), `holdem-session-${s.id.slice(0, 8)}.csv`, 'text/csv')
@@ -295,9 +360,9 @@ function exportLifetimePokerStars() {
 }
 
 function exportSessionPokerStars(s: SessionRow) {
-  const sessionHands = hands.value.filter(h => h.session_id === s.id)
+  const sHands = hands.value.filter(h => h.session_id === s.id)
   const stakeLevel = getStakeFromLevel(s.stake_level)
-  const content = exportHandsAsPokerStars(sessionHands, stakeLevel)
+  const content = exportHandsAsPokerStars(sHands, stakeLevel)
   downloadFile(content, `holdem-session-${s.id.slice(0, 8)}.txt`, 'text/plain')
 }
 
@@ -315,23 +380,6 @@ function getStakeFromLevel(level: number): { sb: number; bb: number } {
   return stakes[level] || { sb: 1, bb: 2 }
 }
 
-// ─── Profit Over Time (last 50 hands) ─────────────────────────
-
-const profitTimeline = computed(() => {
-  const recent = [...hands.value].reverse().slice(-50)
-  let running = 0
-  return recent.map(h => {
-    running += h.profit
-    return running
-  })
-})
-
-const profitTrendClass = computed(() => {
-  const timeline = profitTimeline.value
-  if (timeline.length < 2) return 'text-gray-400'
-  return timeline[timeline.length - 1] >= timeline[0] ? 'text-green-400' : 'text-red-400'
-})
-
 // ─── Helpers ───────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
@@ -348,19 +396,46 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
 function boardCards(board: string): string[] {
   return board.split(' ').filter(Boolean)
 }
+
+// Current view hands (lifetime or session drill-down, with optional position filter)
+const displayedHands = computed(() => {
+  let source = selectedSession.value ? sessionHands.value : hands.value
+  if (positionFilter.value) {
+    source = source.filter(h => h.position === positionFilter.value)
+  }
+  return source
+})
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-950 text-white">
-    <!-- Header -->
     <div class="max-w-5xl mx-auto px-4 py-6">
+      <!-- Header -->
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl font-bold">Hero Stats</h1>
-          <p class="text-sm text-gray-500 mt-0.5">
-            <template v-if="isGitHubAuth">Lifetime stats for your GitHub account</template>
-            <template v-else>Current session stats (sign in with GitHub for lifetime tracking)</template>
-          </p>
+          <div class="flex items-center gap-3">
+            <button
+              v-if="selectedSession"
+              class="text-gray-400 hover:text-white transition-colors"
+              @click="selectedSession = null"
+            >
+              <span class="text-lg">&larr;</span>
+            </button>
+            <div>
+              <h1 class="text-2xl font-bold">
+                {{ selectedSession ? `Session ${selectedSession.id.slice(0, 8)}` : 'Hero Stats' }}
+              </h1>
+              <p class="text-sm text-gray-500 mt-0.5">
+                <template v-if="selectedSession">
+                  {{ stakeNames[selectedSession.stake_level] || 'Unknown' }} &middot;
+                  {{ selectedSession.player_count }} players &middot;
+                  {{ formatDate(selectedSession.started_at) }}
+                </template>
+                <template v-else-if="isGitHubAuth">Lifetime stats for your GitHub account</template>
+                <template v-else>Current session stats (sign in with GitHub for lifetime tracking)</template>
+              </p>
+            </div>
+          </div>
         </div>
         <div class="flex items-center gap-2">
           <SupabaseStatus />
@@ -380,23 +455,19 @@ function boardCards(board: string): string[] {
             <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
             <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
           </div>
-          Loading stats from Supabase...
+          Loading stats...
         </div>
       </div>
 
       <!-- Error -->
       <div v-else-if="error" class="rounded-xl bg-red-900/20 border border-red-800/30 p-6 text-center">
         <p class="text-red-400 text-sm">{{ error }}</p>
-        <NuxtLink to="/" class="text-xs text-gray-500 mt-2 inline-block hover:text-gray-300">
-          Play some hands first, then come back
-        </NuxtLink>
       </div>
 
       <!-- No data -->
       <div v-else-if="hands.length === 0" class="text-center py-20 space-y-4">
         <p class="text-gray-400">No hands recorded yet.</p>
         <p v-if="!isGitHubAuth" class="text-xs text-gray-600">
-          You're not signed in. Session stats are stored locally and reset when you close the browser.
           Sign in with GitHub for persistent lifetime stats.
         </p>
         <NuxtLink to="/">
@@ -407,238 +478,156 @@ function boardCards(board: string): string[] {
       <!-- Stats content -->
       <template v-else>
         <!-- Tab bar -->
-        <div class="flex border-b border-gray-800 mb-6">
+        <div class="flex border-b border-gray-800 mb-6 gap-1">
           <button
             v-for="tab in (['overview', 'sessions', 'hands'] as const)"
             :key="tab"
-            class="px-4 py-2 text-sm font-medium capitalize transition-colors"
+            class="px-5 py-2.5 text-sm font-medium capitalize transition-all rounded-t-lg"
             :class="activeTab === tab
-              ? 'text-white border-b-2 border-green-500'
-              : 'text-gray-500 hover:text-gray-300'"
-            @click="activeTab = tab"
+              ? 'text-white bg-gray-800/60 border-b-2 border-green-500'
+              : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'"
+            @click="activeTab = tab; selectedSession = null; positionFilter = null"
           >
             {{ tab }}
+            <span
+              v-if="tab === 'sessions'"
+              class="ml-1.5 text-[0.6rem] bg-gray-700/60 px-1.5 py-0.5 rounded-full"
+            >{{ sessions.length }}</span>
+            <span
+              v-if="tab === 'hands'"
+              class="ml-1.5 text-[0.6rem] bg-gray-700/60 px-1.5 py-0.5 rounded-full"
+            >{{ displayedHands.length }}</span>
           </button>
         </div>
 
         <!-- ═══ OVERVIEW ═══ -->
         <div v-if="activeTab === 'overview'" class="space-y-6">
-
-          <!-- ── TOTALS ── -->
-          <div>
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Totals</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.totalHands }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Hands Played</div>
+          <!-- Headline stat -->
+          <div class="bg-gradient-to-br from-gray-900 to-gray-900/60 border border-gray-800 rounded-2xl p-6 flex items-center justify-between">
+            <div>
+              <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                {{ selectedSession ? 'Session' : 'Lifetime' }} Profit
               </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono" :class="lifetimeStats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'">
-                  {{ formatProfit(lifetimeStats.totalProfit) }}
-                </div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Lifetime Profit</div>
+              <div
+                class="text-4xl font-bold font-mono"
+                :class="lifetimeStats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'"
+              >
+                {{ formatProfit(lifetimeStats.totalProfit) }}
               </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-white">${{ Math.round(lifetimeStats.avgPot) }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Avg Pot Size</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.handsPerSession }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Hands / Session</div>
-              </div>
+            </div>
+            <div class="text-right space-y-1">
+              <div class="text-sm text-gray-400">{{ lifetimeStats.totalHands }} hands</div>
+              <div class="text-sm text-gray-400">{{ winRate.toFixed(1) }}% win rate</div>
             </div>
           </div>
 
-          <!-- ── SESSIONS ── -->
-          <div>
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Sessions</h2>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.totalSessions }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Total</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-green-400">{{ sessionSummary.winning }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Winning</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-red-400">{{ sessionSummary.losing }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Losing</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-lg font-bold font-mono text-green-400">{{ formatProfit(sessionSummary.bestSession) }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Best Session</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-lg font-bold font-mono text-red-400">{{ formatProfit(sessionSummary.worstSession) }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Worst Session</div>
-              </div>
+          <!-- Key metrics -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-4">
+              <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider mb-2">Won</div>
+              <div class="text-2xl font-bold font-mono text-green-400">{{ lifetimeStats.won }}</div>
             </div>
-            <div v-if="lifetimeStats.totalSessions > 0" class="mt-2 text-xs text-gray-500 text-center">
-              Avg profit per session: <span class="font-mono" :class="lifetimeStats.avgProfit >= 0 ? 'text-green-400' : 'text-red-400'">{{ formatProfit(Math.round(lifetimeStats.avgProfit)) }}</span>
+            <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-4">
+              <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider mb-2">Lost</div>
+              <div class="text-2xl font-bold font-mono text-red-400">{{ lifetimeStats.lost }}</div>
+            </div>
+            <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-4">
+              <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider mb-2">Folded</div>
+              <div class="text-2xl font-bold font-mono text-gray-400">{{ lifetimeStats.folded }}</div>
+            </div>
+            <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-4">
+              <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider mb-2">Avg Pot</div>
+              <div class="text-2xl font-bold font-mono text-white">${{ Math.round(lifetimeStats.avgPot) }}</div>
             </div>
           </div>
 
-          <!-- ── WIN / LOSS ── -->
-          <div>
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Win / Loss</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono" :class="winRate >= 30 ? 'text-green-400' : 'text-red-400'">
-                  {{ winRate.toFixed(1) }}%
-                </div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Win Rate</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.showdownRate.toFixed(0) }}%</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Showdown Rate</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono" :class="lifetimeStats.wonAtShowdown >= 50 ? 'text-green-400' : 'text-red-400'">
-                  {{ lifetimeStats.wonAtShowdown.toFixed(0) }}%
-                </div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Won at Showdown</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.foldPct.toFixed(0) }}%</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Fold Rate</div>
-              </div>
+          <!-- Advanced stats -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-900/40 border border-gray-800/40 rounded-xl p-3 text-center">
+              <div class="text-lg font-bold font-mono text-white">{{ lifetimeStats.showdownRate.toFixed(0) }}%</div>
+              <div class="text-[0.6rem] text-gray-500 uppercase">Showdown Rate</div>
             </div>
-
-            <!-- Win/Loss/Fold bars -->
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
-              <div class="space-y-2.5">
-                <div class="flex items-center gap-3">
-                  <span class="text-xs text-green-400 w-14">Won</span>
-                  <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.won / lifetimeStats.totalHands) * 100 : 0}%` }" />
-                  </div>
-                  <span class="text-xs text-white font-mono w-14 text-right">{{ lifetimeStats.won }}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span class="text-xs text-red-400 w-14">Lost</span>
-                  <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-red-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.lost / lifetimeStats.totalHands) * 100 : 0}%` }" />
-                  </div>
-                  <span class="text-xs text-white font-mono w-14 text-right">{{ lifetimeStats.lost }}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span class="text-xs text-gray-400 w-14">Folded</span>
-                  <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-gray-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.folded / lifetimeStats.totalHands) * 100 : 0}%` }" />
-                  </div>
-                  <span class="text-xs text-white font-mono w-14 text-right">{{ lifetimeStats.folded }}</span>
-                </div>
+            <div class="bg-gray-900/40 border border-gray-800/40 rounded-xl p-3 text-center">
+              <div class="text-lg font-bold font-mono" :class="lifetimeStats.wonAtShowdown >= 50 ? 'text-green-400' : 'text-red-400'">
+                {{ lifetimeStats.wonAtShowdown.toFixed(0) }}%
               </div>
+              <div class="text-[0.6rem] text-gray-500 uppercase">Won at Showdown</div>
             </div>
-          </div>
-
-          <!-- ── NOTABLE HANDS ── -->
-          <div>
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Notable Hands</h2>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold font-mono text-green-400">{{ formatProfit(lifetimeStats.biggestWin) }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Biggest Win</div>
-              </div>
-              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold font-mono text-red-400">{{ formatProfit(lifetimeStats.biggestLoss) }}</div>
-                <div class="text-xs text-gray-500 mt-1 uppercase">Biggest Loss</div>
-              </div>
+            <div class="bg-gray-900/40 border border-gray-800/40 rounded-xl p-3 text-center">
+              <div class="text-lg font-bold font-mono text-green-400">{{ formatProfit(lifetimeStats.biggestWin) }}</div>
+              <div class="text-[0.6rem] text-gray-500 uppercase">Biggest Win</div>
+            </div>
+            <div class="bg-gray-900/40 border border-gray-800/40 rounded-xl p-3 text-center">
+              <div class="text-lg font-bold font-mono text-red-400">{{ formatProfit(lifetimeStats.biggestLoss) }}</div>
+              <div class="text-[0.6rem] text-gray-500 uppercase">Biggest Loss</div>
             </div>
           </div>
 
           <!-- Profit trend -->
-          <div v-if="profitTimeline.length > 1">
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Profit Trend</h2>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
-              <div class="text-xs text-gray-400 mb-2">Last {{ profitTimeline.length }} hands</div>
-              <div class="flex items-end gap-[2px] h-20">
-                <div
-                  v-for="(val, i) in profitTimeline"
-                  :key="i"
-                  class="flex-1 rounded-t-sm transition-all"
-                  :class="val >= 0 ? 'bg-green-500/70' : 'bg-red-500/70'"
-                  :style="{ height: `${Math.max(4, Math.abs(val) / Math.max(...profitTimeline.map(Math.abs)) * 100)}%` }"
-                />
-              </div>
-              <div class="flex justify-between text-[0.6rem] text-gray-600 mt-1">
-                <span>Oldest</span>
-                <span :class="profitTrendClass" class="font-mono font-semibold">{{ formatProfit(profitTimeline[profitTimeline.length - 1]) }}</span>
-                <span>Latest</span>
-              </div>
+          <div v-if="profitTimeline.length > 1" class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Profit Trend</span>
+              <span :class="profitTrendClass" class="text-sm font-mono font-bold">
+                {{ formatProfit(profitTimeline[profitTimeline.length - 1]) }}
+              </span>
+            </div>
+            <div class="flex items-end gap-[2px] h-20">
+              <div
+                v-for="(val, i) in profitTimeline"
+                :key="i"
+                class="flex-1 rounded-t-sm transition-all"
+                :class="val >= 0 ? 'bg-green-500/60' : 'bg-red-500/60'"
+                :style="{ height: `${Math.max(4, Math.abs(val) / Math.max(...profitTimeline.map(Math.abs)) * 100)}%` }"
+              />
+            </div>
+            <div class="flex justify-between text-[0.6rem] text-gray-600 mt-1">
+              <span>Oldest</span>
+              <span>Last {{ profitTimeline.length }} hands</span>
+              <span>Latest</span>
             </div>
           </div>
 
           <!-- Position stats -->
-          <div v-if="positionStats.length > 0">
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">By Position</h2>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
-              <div class="space-y-2">
-                <div
-                  v-for="ps in positionStats"
-                  :key="ps.position"
-                  class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg px-3 py-2"
-                >
-                  <span class="font-semibold text-white w-12">{{ ps.position }}</span>
-                  <span class="text-gray-400">{{ ps.played }} hands</span>
-                  <span :class="ps.winRate >= 30 ? 'text-green-400' : 'text-red-400'" class="font-mono">
-                    {{ ps.winRate.toFixed(0) }}% win
-                  </span>
-                  <span :class="ps.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono w-16 text-right">
-                    {{ formatProfit(ps.profit) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Export lifetime -->
-          <div class="mt-6">
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Export Lifetime Data</h2>
-            <div class="flex gap-2">
-              <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimeJSON">
-                JSON
-              </UButton>
-              <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimeCSV">
-                CSV
-              </UButton>
-              <UTooltip text="PokerStars hand history format — importable into PokerTracker, Hold'em Manager, Equilab">
-                <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimePokerStars">
-                  PokerStars .txt
-                </UButton>
-              </UTooltip>
-            </div>
-          </div>
-
-          <!-- Danger zone -->
-          <div class="mt-8 border-t border-red-900/30 pt-6">
-            <h2 class="text-xs font-semibold text-red-500/60 uppercase tracking-wider mb-3">Danger Zone</h2>
-            <div v-if="!confirmingDeleteAll">
+          <div v-if="positionStats.length > 0" class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-5">
+            <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider mb-3">By Position</div>
+            <div class="space-y-1.5">
               <button
-                class="text-xs text-red-400/60 hover:text-red-400 transition-colors"
-                @click="confirmingDeleteAll = true"
+                v-for="ps in positionStats"
+                :key="ps.position"
+                class="w-full flex items-center gap-3 text-xs bg-gray-800/40 rounded-lg px-3 py-2 hover:bg-gray-800/60 transition-colors cursor-pointer text-left"
+                @click="drillIntoPosition(ps.position)"
               >
-                Delete all lifetime data...
+                <span class="font-bold text-white w-10 text-center bg-gray-700/50 rounded px-2 py-0.5">{{ ps.position }}</span>
+                <span class="text-gray-400 flex-1">{{ ps.played }} hands</span>
+                <span :class="ps.winRate >= 30 ? 'text-green-400' : 'text-red-400'" class="font-mono w-16">
+                  {{ ps.winRate.toFixed(0) }}% win
+                </span>
+                <span :class="ps.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono w-16 text-right font-bold">
+                  {{ formatProfit(ps.profit) }}
+                </span>
+                <span class="text-gray-600 text-[0.6rem]">&rsaquo;</span>
               </button>
             </div>
-            <div v-else class="bg-red-900/20 border border-red-800/30 rounded-lg p-4 space-y-3">
-              <p class="text-sm text-red-300">This will permanently delete all sessions and hands from Supabase. This cannot be undone.</p>
-              <div class="flex gap-2">
-                <button
-                  class="px-4 py-1.5 rounded-md text-xs font-semibold bg-red-700 text-white hover:bg-red-600 transition-all"
-                  @click="deleteAllData"
-                >
-                  Yes, Delete Everything
-                </button>
-                <button
-                  class="px-4 py-1.5 rounded-md text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all"
-                  @click="confirmingDeleteAll = false"
-                >
-                  Cancel
-                </button>
-              </div>
+          </div>
+
+          <!-- Export & Delete -->
+          <div class="flex items-center justify-between pt-4 border-t border-gray-800/40">
+            <div class="flex gap-2">
+              <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimeJSON">JSON</UButton>
+              <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimeCSV">CSV</UButton>
+              <UTooltip text="PokerStars hand history format — importable into PokerTracker, Hold'em Manager, Equilab">
+                <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimePokerStars">PokerStars</UButton>
+              </UTooltip>
             </div>
+            <UButton
+              variant="ghost"
+              color="error"
+              size="xs"
+              icon="i-lucide-trash-2"
+              @click="showDeleteAllModal = true"
+            >
+              Delete All Data
+            </UButton>
           </div>
         </div>
 
@@ -647,69 +636,53 @@ function boardCards(board: string): string[] {
           <div
             v-for="s in sessions"
             :key="s.id"
-            class="bg-gray-900/80 border border-gray-800 rounded-xl p-4"
+            class="bg-gray-900/60 border border-gray-800/60 rounded-xl overflow-hidden hover:border-gray-700/60 transition-colors"
           >
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm text-white font-semibold">{{ stakeNames[s.stake_level] || 'Unknown' }} — {{ s.player_count }} players</span>
-              <span class="text-xs text-gray-500">{{ formatDate(s.started_at) }}</span>
-            </div>
-            <div class="grid grid-cols-4 gap-2 text-xs">
-              <div>
-                <span class="text-gray-500">Hands</span>
-                <div class="text-white font-mono">{{ s.hands_played }}</div>
-              </div>
-              <div>
-                <span class="text-gray-500">Won</span>
-                <div class="text-green-400 font-mono">{{ s.hands_won }}</div>
-              </div>
-              <div>
-                <span class="text-gray-500">Lost</span>
-                <div class="text-red-400 font-mono">{{ s.hands_lost }}</div>
-              </div>
-              <div>
-                <span class="text-gray-500">Profit</span>
-                <div :class="s.total_profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono">
-                  {{ formatProfit(s.total_profit) }}
-                </div>
-              </div>
-            </div>
-            <!-- Session actions -->
-            <div class="mt-2 flex items-center justify-between">
-              <div class="flex gap-1">
-                <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionJSON(s)">
-                  JSON
-                </UButton>
-                <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionCSV(s)">
-                  CSV
-                </UButton>
-                <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionPokerStars(s)">
-                  PS .txt
-                </UButton>
-              </div>
-              <template v-if="confirmingDeleteSession === s.id">
+            <!-- Session header — clickable for drill-down -->
+            <button
+              class="w-full text-left p-4 hover:bg-gray-800/30 transition-colors"
+              @click="selectedSession = s; activeTab = 'overview'"
+            >
+              <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
-                  <span class="text-xs text-red-400">Delete this session?</span>
-                  <button
-                    class="px-2 py-1 rounded text-[0.65rem] font-semibold bg-red-700 text-white hover:bg-red-600"
-                    @click="deleteSession(s.id)"
-                  >
-                    Delete
-                  </button>
-                  <button
-                    class="px-2 py-1 rounded text-[0.65rem] font-semibold bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    @click="confirmingDeleteSession = null"
-                  >
-                    Cancel
-                  </button>
+                  <span class="text-sm text-white font-semibold">{{ stakeNames[s.stake_level] || 'Unknown' }}</span>
+                  <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{{ s.player_count }}p</span>
                 </div>
-              </template>
-              <button
-                v-else
-                class="text-[0.6rem] text-gray-600 hover:text-red-400 transition-colors"
-                @click="confirmingDeleteSession = s.id"
+                <div class="flex items-center gap-3">
+                  <span
+                    class="text-lg font-bold font-mono"
+                    :class="s.total_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                  >
+                    {{ formatProfit(s.total_profit) }}
+                  </span>
+                  <span class="text-gray-600 text-xs">&rsaquo;</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-gray-500">
+                <span>{{ s.hands_played }} hands</span>
+                <span class="text-green-400/60">{{ s.hands_won }}W</span>
+                <span class="text-red-400/60">{{ s.hands_lost }}L</span>
+                <span class="text-gray-600">{{ s.hands_folded }}F</span>
+                <span class="ml-auto">{{ formatDate(s.started_at) }}</span>
+              </div>
+            </button>
+
+            <!-- Session actions -->
+            <div class="flex items-center justify-between px-4 py-2 bg-gray-800/20 border-t border-gray-800/30">
+              <div class="flex gap-1">
+                <UButton variant="ghost" color="neutral" size="2xs" @click.stop="exportSessionJSON(s)">JSON</UButton>
+                <UButton variant="ghost" color="neutral" size="2xs" @click.stop="exportSessionCSV(s)">CSV</UButton>
+                <UButton variant="ghost" color="neutral" size="2xs" @click.stop="exportSessionPokerStars(s)">PS</UButton>
+              </div>
+              <UButton
+                variant="ghost"
+                color="error"
+                size="2xs"
+                icon="i-lucide-trash-2"
+                @click.stop="openDeleteSessionModal(s)"
               >
-                Delete session
-              </button>
+                Delete
+              </UButton>
             </div>
           </div>
           <div v-if="sessions.length === 0" class="text-center text-gray-500 text-sm py-8">
@@ -719,193 +692,297 @@ function boardCards(board: string): string[] {
 
         <!-- ═══ HANDS ═══ -->
         <div v-if="activeTab === 'hands'">
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-              <thead>
-                <tr class="text-gray-500 border-b border-gray-800">
-                  <th class="text-left py-2 px-2">#</th>
-                  <th class="text-left py-2 px-2">Cards</th>
-                  <th class="text-left py-2 px-2">Board</th>
-                  <th class="text-left py-2 px-2">Pos</th>
-                  <th class="text-left py-2 px-2">Result</th>
-                  <th class="text-right py-2 px-2">Profit</th>
-                  <th class="text-right py-2 px-2">Pot</th>
-                  <th class="text-right py-2 px-2">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="h in hands" :key="h.id">
-                  <tr
-                    class="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
-                    @click="expandedHand = expandedHand === h.id ? null : h.id"
+          <!-- Breadcrumb / filter bar -->
+          <div class="mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+              <button class="hover:text-white transition-colors" @click="selectedSession = null; positionFilter = null">All Hands</button>
+              <template v-if="selectedSession">
+                <span>&rsaquo;</span>
+                <button class="hover:text-white transition-colors text-gray-400" @click="positionFilter = null">
+                  Session {{ selectedSession.id.slice(0, 8) }}
+                </button>
+              </template>
+              <template v-if="positionFilter">
+                <span>&rsaquo;</span>
+                <span class="text-white font-semibold">{{ positionFilter }}</span>
+              </template>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-500">{{ displayedHands.length }} hands</span>
+              <button
+                v-if="positionFilter"
+                class="text-xs text-gray-500 hover:text-white transition-colors underline underline-offset-2"
+                @click="positionFilter = null"
+              >
+                Clear filter
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <template v-for="h in displayedHands" :key="h.id">
+              <div
+                class="bg-gray-900/60 border border-gray-800/60 rounded-xl overflow-hidden hover:border-gray-700/60 transition-colors"
+              >
+                <!-- Hand row -->
+                <button
+                  class="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-800/20 transition-colors"
+                  @click="expandedHand = expandedHand === h.id ? null : h.id"
+                >
+                  <span class="text-gray-600 text-xs w-4">{{ expandedHand === h.id ? '&#9660;' : '&#9654;' }}</span>
+                  <span class="text-xs text-gray-500 w-8">#{{ h.hand_number }}</span>
+                  <span class="font-mono text-white text-sm w-16">{{ h.hole_cards }}</span>
+                  <span class="font-mono text-gray-500 text-xs flex-1 truncate">{{ h.board || '---' }}</span>
+                  <span class="text-xs text-gray-400 w-8">{{ h.position }}</span>
+                  <span
+                    class="px-2 py-0.5 rounded text-[0.6rem] font-bold uppercase w-16 text-center"
+                    :class="{
+                      'bg-green-900/40 text-green-400': h.result === 'won',
+                      'bg-red-900/40 text-red-400': h.result === 'lost',
+                      'bg-gray-800/60 text-gray-500': h.result === 'folded',
+                    }"
                   >
-                    <td class="py-1.5 px-2 text-gray-500">
-                      <span class="text-gray-600 mr-1">{{ expandedHand === h.id ? '▼' : '▶' }}</span>
-                      {{ h.hand_number }}
-                    </td>
-                    <td class="py-1.5 px-2 font-mono text-white">{{ h.hole_cards }}</td>
-                    <td class="py-1.5 px-2 font-mono text-gray-400">{{ h.board || '—' }}</td>
-                    <td class="py-1.5 px-2 text-gray-300">{{ h.position }}</td>
-                    <td class="py-1.5 px-2">
+                    {{ h.result }}
+                  </span>
+                  <span class="font-mono text-sm w-16 text-right font-bold" :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'">
+                    {{ formatProfit(h.profit) }}
+                  </span>
+                </button>
+
+                <!-- Expanded detail -->
+                <div v-if="expandedHand === h.id" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10 space-y-4">
+                  <!-- Result + Replay -->
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
                       <span
-                        class="px-1.5 py-0.5 rounded text-[0.6rem] font-semibold uppercase"
+                        class="px-3 py-1 rounded-lg text-sm font-bold"
                         :class="{
-                          'bg-green-900/50 text-green-400': h.result === 'won',
-                          'bg-red-900/50 text-red-400': h.result === 'lost',
-                          'bg-gray-800 text-gray-500': h.result === 'folded',
+                          'bg-green-600/20 text-green-400': h.result === 'won',
+                          'bg-red-600/15 text-red-400': h.result === 'lost',
+                          'bg-gray-700/40 text-gray-400': h.result === 'folded',
                         }"
                       >
-                        {{ h.result }}
+                        {{ h.result === 'won' ? 'WON' : h.result === 'lost' ? 'LOST' : 'FOLDED' }}
                       </span>
-                    </td>
-                    <td class="py-1.5 px-2 text-right font-mono" :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'">
-                      {{ formatProfit(h.profit) }}
-                    </td>
-                    <td class="py-1.5 px-2 text-right font-mono text-gray-400">${{ h.pot_size }}</td>
-                    <td class="py-1.5 px-2 text-right text-gray-600">{{ formatDate(h.played_at) }}</td>
-                  </tr>
-                  <!-- Expanded hand detail -->
-                  <tr v-if="expandedHand === h.id">
-                    <td colspan="8" class="px-4 py-3 bg-gray-800/30">
-                      <div class="space-y-4">
-                        <!-- Result banner -->
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center gap-3">
-                            <span
-                              class="px-3 py-1 rounded-lg text-sm font-bold"
-                              :class="{
-                                'bg-green-600/30 text-green-400': h.result === 'won',
-                                'bg-red-600/20 text-red-400': h.result === 'lost',
-                                'bg-gray-700/50 text-gray-400': h.result === 'folded',
-                              }"
-                            >
-                              {{ h.result === 'won' ? 'WON' : h.result === 'lost' ? 'LOST' : 'FOLDED' }}
-                            </span>
-                            <span :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold text-lg">
-                              {{ formatProfit(h.profit) }}
-                            </span>
-                          </div>
-                          <div class="flex items-center gap-3">
-                            <div class="text-xs text-gray-500">
-                              Pot: <span class="text-yellow-400 font-mono">${{ h.pot_size }}</span>
-                              &middot; Position: <span class="text-gray-300">{{ h.position }}</span>
-                            </div>
-                            <NuxtLink
-                              v-if="h.players && h.players.length > 0"
-                              :to="`/replay?hand=${h.id}`"
-                            >
-                              <UButton
-                                variant="outline"
-                                color="primary"
-                                size="xs"
-                                icon="i-lucide-play"
-                              >
-                                Replay
-                              </UButton>
-                            </NuxtLink>
-                          </div>
-                        </div>
+                      <span :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold text-lg">
+                        {{ formatProfit(h.profit) }}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-gray-500">Pot: <span class="text-yellow-400 font-mono">${{ h.pot_size }}</span></span>
+                      <NuxtLink v-if="h.players && h.players.length > 0" :to="`/replay?hand=${h.id}`">
+                        <UButton variant="outline" color="primary" size="xs" icon="i-lucide-play">Replay</UButton>
+                      </NuxtLink>
+                      <UButton variant="ghost" color="neutral" size="xs" icon="i-lucide-download" @click="exportSingleHandPokerStars(h)">Export</UButton>
+                      <UButton variant="ghost" color="error" size="xs" icon="i-lucide-trash-2" @click.stop="openDeleteHandModal(h)">Delete</UButton>
+                    </div>
+                  </div>
 
-                        <!-- Hero's hole cards -->
-                        <div class="bg-gray-900/60 rounded-lg p-3">
-                          <div class="text-xs text-gray-500 mb-1">Your Hand</div>
-                          <div class="text-xl font-mono font-bold text-white">{{ h.hole_cards }}</div>
-                        </div>
+                  <!-- Cards -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-900/50 rounded-lg p-3">
+                      <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Your Hand</div>
+                      <div class="text-xl font-mono font-bold text-white">{{ h.hole_cards }}</div>
+                    </div>
+                    <div v-if="h.board" class="bg-gray-900/50 rounded-lg p-3">
+                      <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Board</div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-lg font-mono text-white">{{ boardCards(h.board).slice(0, 3).join(' ') }}</span>
+                        <span v-if="boardCards(h.board).length >= 4" class="text-lg font-mono text-amber-300">{{ boardCards(h.board)[3] }}</span>
+                        <span v-if="boardCards(h.board).length >= 5" class="text-lg font-mono text-red-300">{{ boardCards(h.board)[4] }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="bg-gray-900/50 rounded-lg p-3">
+                      <div class="text-xs text-gray-600">Hand ended preflop</div>
+                    </div>
+                  </div>
 
-                        <!-- Board with street labels -->
-                        <div v-if="h.board" class="bg-gray-900/60 rounded-lg p-3">
-                          <div class="text-xs text-gray-500 mb-2">Board</div>
-                          <div class="flex items-center gap-3">
-                            <div v-if="boardCards(h.board).length >= 3">
-                              <div class="text-[0.6rem] text-yellow-500/70 uppercase mb-0.5">Flop</div>
-                              <div class="text-lg font-mono text-white">{{ boardCards(h.board).slice(0, 3).join(' ') }}</div>
-                            </div>
-                            <div v-if="boardCards(h.board).length >= 4" class="border-l border-gray-700/50 pl-3">
-                              <div class="text-[0.6rem] text-yellow-500/70 uppercase mb-0.5">Turn</div>
-                              <div class="text-lg font-mono text-white">{{ boardCards(h.board)[3] }}</div>
-                            </div>
-                            <div v-if="boardCards(h.board).length >= 5" class="border-l border-gray-700/50 pl-3">
-                              <div class="text-[0.6rem] text-yellow-500/70 uppercase mb-0.5">River</div>
-                              <div class="text-lg font-mono text-white">{{ boardCards(h.board)[4] }}</div>
-                            </div>
-                          </div>
+                  <!-- Players -->
+                  <div v-if="h.players && h.players.length > 0">
+                    <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Players</div>
+                    <div class="grid grid-cols-2 gap-1.5">
+                      <div
+                        v-for="(player, pi) in h.players"
+                        :key="pi"
+                        class="flex items-center justify-between bg-gray-900/40 rounded px-2.5 py-1.5 text-xs"
+                        :class="player.folded ? 'opacity-40' : ''"
+                      >
+                        <div class="flex items-center gap-1.5">
+                          <span :class="player.isHero ? 'text-amber-400' : 'text-gray-300'" class="font-semibold">{{ player.name }}</span>
+                          <span class="text-gray-600 text-[0.55rem]">{{ player.position }}</span>
                         </div>
-                        <div v-else class="bg-gray-900/60 rounded-lg p-3">
-                          <div class="text-xs text-gray-500">No community cards dealt — hand ended preflop</div>
-                        </div>
-
-                        <!-- All players' cards -->
-                        <div v-if="h.players && h.players.length > 0">
-                          <div class="text-xs text-gray-500 mb-1.5">Players</div>
-                          <div class="grid grid-cols-2 gap-1.5">
-                            <div
-                              v-for="(player, pi) in h.players"
-                              :key="pi"
-                              class="flex items-center justify-between bg-gray-900/60 rounded px-2.5 py-1.5 text-xs"
-                              :class="player.folded ? 'opacity-50' : ''"
-                            >
-                              <div class="flex items-center gap-2">
-                                <span
-                                  class="font-semibold"
-                                  :class="player.isHero ? 'text-amber-400' : 'text-gray-300'"
-                                >
-                                  {{ player.name }}
-                                </span>
-                                <span class="text-gray-600 text-[0.6rem]">{{ player.position }}</span>
-                              </div>
-                              <div class="flex items-center gap-1.5">
-                                <span class="font-mono text-white">{{ player.holeCards || '?' }}</span>
-                                <span v-if="player.folded" class="text-red-400/60 text-[0.55rem]">FOLD</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Hand History (PokerStars format) -->
-                        <div v-if="h.players && h.players.length > 0">
-                          <div class="flex items-center justify-between mb-1.5">
-                            <div class="text-xs text-gray-500">Hand History</div>
-                            <UButton
-                              variant="ghost"
-                              color="neutral"
-                              size="2xs"
-                              icon="i-lucide-download"
-                              @click="exportSingleHandPokerStars(h)"
-                            >
-                              Export .txt
-                            </UButton>
-                          </div>
-                          <div class="bg-gray-900/60 rounded-lg p-3 max-h-80 overflow-y-auto">
-                            <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap"><template v-for="(line, li) in toPokerStarsFormat(h, getStakeFromLevel(h.stake_level)).split('\n')" :key="li"><span :class="[
-                              line.startsWith('***') ? 'text-yellow-500/80 font-semibold' : '',
-                              line.startsWith('Dealt to') ? 'text-amber-400' : '',
-                              line.includes('collected') ? 'text-green-400 font-semibold' : '',
-                              line.startsWith('Seat') && line.includes('won') ? 'text-green-400' : '',
-                              line.startsWith('Seat') && line.includes('lost') ? 'text-red-400/70' : '',
-                              line.startsWith('Seat') && line.includes('folded') ? 'text-gray-600' : '',
-                              line.startsWith('PokerStars') ? 'text-gray-500' : '',
-                              line.startsWith('Table') ? 'text-gray-500' : '',
-                              !line.startsWith('***') && !line.startsWith('Dealt') && !line.includes('collected') && !line.startsWith('Seat') && !line.startsWith('Poker') && !line.startsWith('Table') && !line.startsWith('Board') && !line.startsWith('Total') && line.trim() ? 'text-gray-300' : '',
-                              line.startsWith('Board') || line.startsWith('Total') ? 'text-gray-400' : '',
-                            ]">{{ line }}
-</span></template></pre>
-                          </div>
-                        </div>
-                        <div v-else class="text-xs text-gray-600 italic">
-                          No play-by-play recorded for this hand.
+                        <div class="flex items-center gap-1">
+                          <span class="font-mono text-white">{{ player.holeCards || '?' }}</span>
+                          <span v-if="player.folded" class="text-red-400/50 text-[0.5rem]">FOLD</span>
                         </div>
                       </div>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+
+                  <!-- Hand History -->
+                  <div v-if="h.players && h.players.length > 0">
+                    <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Hand History</div>
+                    <div class="bg-gray-900/50 rounded-lg p-3 max-h-60 overflow-y-auto">
+                      <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap"><template v-for="(line, li) in toPokerStarsFormat(h, getStakeFromLevel(h.stake_level)).split('\n')" :key="li"><span :class="[
+                        line.startsWith('***') ? 'text-yellow-500/80 font-semibold' : '',
+                        line.startsWith('Dealt to') ? 'text-amber-400' : '',
+                        line.includes('collected') ? 'text-green-400 font-semibold' : '',
+                        line.startsWith('Seat') && line.includes('won') ? 'text-green-400' : '',
+                        line.startsWith('Seat') && line.includes('lost') ? 'text-red-400/70' : '',
+                        line.startsWith('Seat') && line.includes('folded') ? 'text-gray-600' : '',
+                        line.startsWith('PokerStars') || line.startsWith('Table') ? 'text-gray-500' : '',
+                        line.startsWith('Board') || line.startsWith('Total') ? 'text-gray-400' : '',
+                      ]">{{ line }}
+</span></template></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
-          <div v-if="hands.length === 0" class="text-center text-gray-500 text-sm py-8">
+          <div v-if="displayedHands.length === 0" class="text-center text-gray-500 text-sm py-8">
             No hands recorded yet.
           </div>
         </div>
       </template>
     </div>
+
+    <!-- ═══ DELETE ALL MODAL ═══ -->
+    <UModal
+      v-model:open="showDeleteAllModal"
+      title="Delete All Lifetime Data"
+      :dismissible="true"
+    >
+      <template #body>
+        <div class="space-y-4 p-6">
+          <div class="flex items-center gap-3 text-red-400">
+            <span class="text-2xl">&#9888;</span>
+            <p class="text-sm font-semibold">This action is permanent and cannot be undone.</p>
+          </div>
+          <p class="text-sm text-gray-400">
+            All sessions, hand histories, and statistics will be permanently deleted from both your device and the cloud. This includes {{ lifetimeStats.totalHands }} hands across {{ lifetimeStats.totalSessions }} sessions.
+          </p>
+          <div>
+            <label class="text-xs text-gray-500 block mb-1.5">
+              Type <span class="font-mono font-bold text-red-400">DELETE</span> to confirm
+            </label>
+            <input
+              v-model="deleteAllConfirmText"
+              type="text"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600"
+              placeholder="Type DELETE here"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton
+              color="neutral"
+              variant="outline"
+              @click="showDeleteAllModal = false; deleteAllConfirmText = ''"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              color="error"
+              :disabled="deleteAllConfirmText !== 'DELETE'"
+              @click="deleteAllData"
+            >
+              Delete Everything
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ═══ DELETE SESSION MODAL ═══ -->
+    <UModal
+      v-model:open="showDeleteSessionModal"
+      title="Delete Session"
+      :dismissible="true"
+    >
+      <template #body>
+        <div class="space-y-4 p-6">
+          <p class="text-sm text-gray-400">
+            Delete this session and all its hand history? This cannot be undone.
+          </p>
+          <div v-if="deleteSessionTarget" class="bg-gray-800/50 rounded-lg p-3 text-xs space-y-1">
+            <div class="flex justify-between">
+              <span class="text-gray-500">Stakes</span>
+              <span class="text-white">{{ stakeNames[deleteSessionTarget.stake_level] || 'Unknown' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">Hands</span>
+              <span class="text-white font-mono">{{ deleteSessionTarget.hands_played }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">Result</span>
+              <span :class="deleteSessionTarget.total_profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold">
+                {{ formatProfit(deleteSessionTarget.total_profit) }}
+              </span>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton
+              color="neutral"
+              variant="outline"
+              @click="showDeleteSessionModal = false; deleteSessionTarget = null"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              color="error"
+              @click="deleteSession(deleteSessionTarget!.id)"
+            >
+              Delete Session
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ═══ DELETE HAND MODAL ═══ -->
+    <UModal
+      v-model:open="showDeleteHandModal"
+      title="Delete Hand"
+      :dismissible="true"
+    >
+      <template #body>
+        <div class="space-y-4 p-6">
+          <p class="text-sm text-gray-400">
+            Delete this hand from your history? This cannot be undone.
+          </p>
+          <div v-if="deleteHandTarget" class="bg-gray-800/50 rounded-lg p-3 text-xs space-y-1">
+            <div class="flex justify-between">
+              <span class="text-gray-500">Hand</span>
+              <span class="text-white font-mono">#{{ deleteHandTarget.hand_number }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">Cards</span>
+              <span class="text-white font-mono">{{ deleteHandTarget.hole_cards }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">Result</span>
+              <span :class="deleteHandTarget.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold">
+                {{ formatProfit(deleteHandTarget.profit) }}
+              </span>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton
+              color="neutral"
+              variant="outline"
+              @click="showDeleteHandModal = false; deleteHandTarget = null"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              color="error"
+              @click="deleteHand(deleteHandTarget!.id)"
+            >
+              Delete Hand
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

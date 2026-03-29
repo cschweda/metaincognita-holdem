@@ -32,5 +32,8 @@ yarn-error.log*
 # Testing
 coverage/
 
+# Simulation output
+scripts/output/
+
 # Misc
 *.local

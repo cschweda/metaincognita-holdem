@@ -26,6 +26,7 @@ export interface HandRecord {
   potSize: number
   actions: string[]      // play-by-play log
   players: PlayerHand[]  // all players' cards + status
+  winnerName?: string    // name of the hand winner
 }
 
 export interface SessionData {
@@ -164,20 +165,22 @@ export function useSessionStats() {
     const sb = useSupabase()
     if (!sb || !userId.value) return
 
-    const { error } = await sb.from('sessions').upsert({
+    // Insert only — don't overwrite existing session data with zeros
+    const { error } = await sb.from('sessions').insert({
       id: session.value.id,
       user_id: userId.value,
       started_at: session.value.startedAt,
       stake_level: session.value.stakeLevel,
       player_count: session.value.playerCount,
       starting_stack: session.value.startingStack,
-      hands_played: 0,
-      hands_won: 0,
-      hands_lost: 0,
-      hands_folded: 0,
-      total_profit: 0,
-    })
-    if (!error) sessionCreatedInSupabase.value = true
+      hands_played: session.value.handsPlayed,
+      hands_won: session.value.handsWon,
+      hands_lost: session.value.handsLost,
+      hands_folded: session.value.handsFolded,
+      total_profit: session.value.totalProfit,
+    }).select().maybeSingle()
+    // Ignore duplicate key errors (session already exists from prior save)
+    if (!error || error.code === '23505') sessionCreatedInSupabase.value = true
     else console.warn('Failed to create session:', error.message)
   }
 

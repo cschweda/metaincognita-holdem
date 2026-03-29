@@ -3,7 +3,7 @@ export default defineAppConfig({
     tooltip: {
       slots: {
         content: [
-          'z-50 max-w-xs',
+          'z-50 max-w-xs h-auto',
           'bg-[#030712] text-gray-100',
           'opacity-100',
           'shadow-xl',
@@ -16,7 +16,7 @@ export default defineAppConfig({
           'data-[state=closed]:animate-[scale-out_100ms_ease-in]',
           'origin-(--reka-tooltip-content-transform-origin)',
         ].join(' '),
-        text: 'whitespace-normal text-wrap',
+        text: 'whitespace-normal text-wrap break-words',
       },
     },
   },

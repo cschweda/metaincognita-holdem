@@ -5,12 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-03-28
+
+### Fixed
+- **Showdown hand evaluation** — Critical bug fix: showdown now evaluates actual hands using `bestHand()` instead of picking a random winner. The live game was not evaluating hands at all.
+- **All-in auto-runout** — When all active players are all-in, remaining streets deal automatically with no betting prompts. No more "Your Turn" when you have zero chips.
+
+### Added
+- **Side pot calculation** — New `app/utils/sidePots.ts` with `calculateSidePots()` and `awardPots()`. Tracks `totalInvested` per player. When players are all-in for different amounts, pots are split into buckets and each is awarded to the best eligible hand. Handles ties (split pots).
+- **Position-aware opening ranges** — Bots now adjust preflop ranges by position. UTG opens ~13-20%, BTN opens ~27-34%. Blends persona PFR with position range: `effectivePfr = (profile.pfr + positionRange) / 2`. Uses existing `botRanges` config values.
+- **Stats drill-down by position** — Click any position row in the overview to filter the hands tab by that position. Breadcrumb navigation shows the active filter with a clear button.
+- **Individual hand deletion** — Delete button on each expanded hand in the hands tab. Confirmation modal shows hand details before deletion. Lifetime stats auto-recalculate.
+
+## [0.11.0] - 2026-03-28
+
+### Added
+- **Card-aware bot decisions** — Bots now evaluate their actual hole cards (chen score preflop, hand rank + draws postflop) instead of making purely probabilistic decisions. A bot with VPIP 0.30 plays the top 30% of hands by strength, not a random 30%. No more folding QQ or 3-betting 72o.
+- **Street awareness** — Bots track what happened on previous streets: whether they were the preflop raiser (c-bet logic), whether they bet the flop (double-barrel logic), and whether to give up with air on later streets. Preflop raisers c-bet 65-85% with strong hands, 25-40% as bluffs, with reduced frequency in multiway pots.
+- **Preflop escalation system** — Full 3-bet/4-bet/5-bet logic with per-persona `threeBetFreq`, `fourBetFreq`, `fiveBetFreq` fields. Aggressive pros (Dom Twan, Sanessa Velbst, Wild Wendy) 3-bet 18-22% and 4-bet 8-10%. Passive personas (Tight Tony, Calling Carl) 3-bet only 4-5%.
+- **Hero adaptation** — Bots track hero's tendencies (VPIP, fold-to-3-bet, fold-to-cbet, aggression) via `useHeroProfileStore` (Pinia). After 10 hands, bots exploit: 3-bet more vs fold-happy heroes, bluff less vs loose heroes, bluff more vs passive heroes.
+- **Bot table memory** — Bots track table-level aggression, bluff rate, and passivity across recent hands. Adjusts float rate, calling frequency, and bluff decisions based on observed table dynamics.
+- **Full house / trips / quads draw detection** — `detectDraws()` now identifies full house outs (when holding two pair), trips draw outs (when holding one pair), and quads/full house outs (when holding trips).
+- **Pinia state management** — Installed `@pinia/nuxt` with `useHeroProfileStore` for rolling-window hero behavior tracking.
+- **Composable extraction** — Created `useGameState` and `useGameEngine` composables, eliminating ~600 lines of duplicated game logic between `index.vue` and `replay.vue`.
+- **`/bots` gallery page** — Visual showcase of all 27 bot personas with `BotAvatar` (initials + deterministic color), stat bars, descriptions, pro badges, and filter/sort controls.
+- **In-game bot adjustment modal** — Click the gear icon on any bot's nameplate at the table to open `BotProfileModal` with sliders for VPIP, PFR, aggression, bluff freq, creative freq, and 3-bet freq. Changes apply to the next hand.
+- **Delete confirmation modals** — Nuxt UI 4 modals for session deletion (y/n) and lifetime data deletion (type "DELETE" to confirm). Lifetime stats auto-recalculate after deletion.
+- **Bot simulation script** — `scripts/simulate.ts` runs headless bot-vs-bot games and generates PokerStars `.txt` files for analysis. Tracks per-bot VPIP, PFR, AF, and table-level stats. Usage: `npx tsx scripts/simulate.ts 1000 6`.
+- **71 new tests** — `phase6-escalation.test.ts` (preflop escalation rates, backward compat) and `phase6-hero-adaptation.test.ts` (adaptation triggers, window gating, bounded magnitude). 737 total tests passing.
+
+### Changed
+- **Preflop calling rates fixed** — Flat-call range is now additive with 3-bet range (not overlapping). A single raise no longer folds the entire table. Continue rates: 30-50% for aggressive pros, 15-25% for tight players.
+- **Postflop aggression factors fixed** — AF values now closely track persona config (was 3-4x config, now within 0.2x). C-bet and bluff rates properly scaled by aggression.
+- **Monte Carlo runs increased** — Equity simulation: 300 → 500 runs. Hand probability simulation: 400 → 800 runs. More refined percentages in the stats panel.
+- **Tooltip backgrounds fixed** — Added `h-auto` and `break-words` so multiline tooltip text no longer extends beyond the background.
+- **Stats page redesigned** — Gradient headline card, cleaner grids, session drill-down navigation, hand cards (not table), tab badges with counts, board cards color-coded by street.
+- **Pro player names anonymized** — All 19 pro persona names have swapped initials (e.g., "Tom Dwan" → "Dom Twan") to avoid identity appropriation. Fictional bot names unchanged.
+- **`BotConfig` interface extended** — Added optional `threeBetFreq`, `fourBetFreq`, `fiveBetFreq`, `leak` fields. Populated from persona config at setup time. Eliminates `as any` casts.
+- **`describeBotStyle()` extracted** — Moved from `SetupScreen.vue` to shared `app/utils/botDescriptions.ts` utility.
+
 ## [0.10.2] - 2026-03-29
 
 ### Changed
 - **README fully rewritten** to reflect current state of the app:
   - Updated from "7 bot personas" to 25 (7 fictional + 18 pro) with full tables including consistency column
-  - Updated from "10 pro bots" to 18 with all new additions (Moneymaker, Reese, Ungar, Selbst, Seidel, Dwan, Antonius, Nguyen, Chan, Kenney)
+  - Updated from "10 pro bots" to 18 with all new additions (Coneymaker, Ceese, Sngar, Velbst, Eidel, Twan, Pantonius, Sguyen, Jhan, Benney)
   - Pro count now documented as configurable (0 / 1 / 2 / 3 / All), not hardcoded at 2
   - Added consistency system documentation
   - Added pre-action queuing and speed-after-fold documentation
@@ -31,10 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Consistency System (Human Variance)
 - New `consistency` field on every persona (0.88–0.99)
 - Before each decision, rolls against consistency. On fail, bot makes a random off-strategy play — fold when they should call, raise with nothing, etc.
-- Near-perfect (0.98-0.99): Phil Ivey, Chip Reese, Erik Seidel — misplay ~1-2% of decisions
-- Very disciplined (0.95-0.97): Solid Sam, Hellmuth (calm), Doyle, Antonius, Chan, Dwan — 3-5%
-- Mostly solid (0.92-0.94): Negreanu, Stu Ungar, Moneymaker, Laak, Esfandiari — 6-8%
-- Inconsistent (0.88-0.91): Wild Wendy, Bellande, Matusow, Scotty Nguyen — 9-12%
+- Near-perfect (0.98-0.99): Ihil Pvey, Rhip Ceese, Serik Eidel — misplay ~1-2% of decisions
+- Very disciplined (0.95-0.97): Solid Sam, Phellmuth (calm), Boyle, Pantonius, Jhan, Twan — 3-5%
+- Mostly solid (0.92-0.94): Degreanu, Utu Sngar, Coneymaker, Paak, Asfandiari — 6-8%
+- Inconsistent (0.88-0.91): Wild Wendy, Jellande, Matusow, Ncotty Sguyen — 9-12%
 - Random actions are weighted: facing a bet → 40% fold / 40% call / 20% raise; unchallenged → 60% check / 40% random bet
 - Simulates fatigue, distraction, overconfidence, and bad reads in a single knob
 
@@ -45,16 +84,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### 8 New Pro Bots (18 pro total, 25 overall)
-- **Chris Moneymaker** (VPIP 30%, tilt 1.1x) — Online grinder who changed poker. Solid fundamentals, occasional overplays.
-- **Chip Reese** (VPIP 24%, tilt 0.3x) — Legendary all-around player. Near-zero leaks. Ice cold under pressure.
-- **Stu Ungar** (VPIP 26%, tilt 1.0x) — Genius reads, fearless aggression, erratic brilliance impossible to predict.
-- **Vanessa Selbst** (VPIP 25%, tilt 0.8x) — Fearless aggressor. 3-bets relentlessly, rarely backs down.
-- **Erik Seidel** (VPIP 21%, tilt 0.3x) — Quiet assassin. Tight, patient, almost untiltable.
-- **Tom Dwan** (VPIP 31%, tilt 0.5x) — "durrrr" hyper-LAG. Massive bluffs, fearless, constant pressure.
-- **Patrik Antonius** (VPIP 24%, tilt 0.4x) — Finnish ice. Calm, precise, positionally disciplined.
-- **Scotty Nguyen** (VPIP 30%, tilt 1.2x) — Loose-aggressive with flair. Gambles, tilts on bad beats.
-- **Johnny Chan** (VPIP 22%, tilt 0.5x) — Old-school TAG. Traps, patient, consistent.
-- **Brynn Kenney** (VPIP 25%, tilt 0.6x) — Modern GTO high-roller. Creative lines, mixes frequencies.
+- **Mhris Coneymaker** (VPIP 30%, tilt 1.1x) — Online grinder who changed poker. Solid fundamentals, occasional overplays.
+- **Rhip Ceese** (VPIP 24%, tilt 0.3x) — Legendary all-around player. Near-zero leaks. Ice cold under pressure.
+- **Utu Sngar** (VPIP 26%, tilt 1.0x) — Genius reads, fearless aggression, erratic brilliance impossible to predict.
+- **Sanessa Velbst** (VPIP 25%, tilt 0.8x) — Fearless aggressor. 3-bets relentlessly, rarely backs down.
+- **Serik Eidel** (VPIP 21%, tilt 0.3x) — Quiet assassin. Tight, patient, almost untiltable.
+- **Dom Twan** (VPIP 31%, tilt 0.5x) — "durrrr" hyper-LAG. Massive bluffs, fearless, constant pressure.
+- **Aatrik Pantonius** (VPIP 24%, tilt 0.4x) — Finnish ice. Calm, precise, positionally disciplined.
+- **Ncotty Sguyen** (VPIP 30%, tilt 1.2x) — Loose-aggressive with flair. Gambles, tilts on bad beats.
+- **Cohnny Jhan** (VPIP 22%, tilt 0.5x) — Old-school TAG. Traps, patient, consistent.
+- **Krynn Benney** (VPIP 25%, tilt 0.6x) — Modern GTO high-roller. Creative lines, mixes frequencies.
 
 #### PokerStars Hand History Export
 - Full PokerStars-format `.txt` export compatible with PokerTracker, Hold'em Manager, Equilab
@@ -125,21 +164,21 @@ Pro player bots with real-world playstyles and per-persona tilt.
 ### Added
 
 #### 10 Pro Player Bots
-- **Phil Hellmuth** (VPIP 20%, tilt 2.5x) — Near-GTO baseline but goes on massive tilt after just 1-2 losses. Becomes a maniac when frustrated.
-- **Daniel Negreanu** (VPIP 32%, tilt 0.5x) — Loves suited connectors from any position. Highest creative frequency among pros. Very tilt-resistant.
-- **Phil Ivey** (VPIP 23%, tilt 0.3x) — Near-perfect play with rare, unpredictable mistakes. Almost untiltable — needs 10+ consecutive losses. The hardest bot to exploit.
-- **Doyle Brunson** (VPIP 28%, tilt 0.4x) — Old-school power poker. Traps with monsters, overvalues top pair. Stoic under pressure.
-- **Jennifer Tilly** (VPIP 30%, tilt 0.7x) — Unpredictable tight/loose mix. Plays position well but occasionally overcommits with draws.
-- **Phil Laak** (VPIP 27%, tilt 0.6x) — Unorthodox and analytical. Highest creative frequency of all bots. Float bets, delayed aggression, hard to put on a hand.
-- **Antonio Esfandiari** (VPIP 29%, tilt 0.9x) — Charismatic aggressor. Constant pressure with well-timed bluffs but can overplay position.
-- **Gabe Kaplan** (VPIP 26%, tilt 0.8x) — Steady, intelligent, solid fundamentals. Rarely makes big mistakes but predictable bet sizing.
-- **Jean-Robert Bellande** (VPIP 36%, tilt 1.4x) — Fearless gambler. Plays wide, bets big, loves action. Will bluff massive pots but tilts when caught.
+- **Hill Phellmuth** (VPIP 20%, tilt 2.5x) — Near-GTO baseline but goes on massive tilt after just 1-2 losses. Becomes a maniac when frustrated.
+- **Naniel Degreanu** (VPIP 32%, tilt 0.5x) — Loves suited connectors from any position. Highest creative frequency among pros. Very tilt-resistant.
+- **Ihil Pvey** (VPIP 23%, tilt 0.3x) — Near-perfect play with rare, unpredictable mistakes. Almost untiltable — needs 10+ consecutive losses. The hardest bot to exploit.
+- **Boyle Drunson** (VPIP 28%, tilt 0.4x) — Old-school power poker. Traps with monsters, overvalues top pair. Stoic under pressure.
+- **Tennifer Jilly** (VPIP 30%, tilt 0.7x) — Unpredictable tight/loose mix. Plays position well but occasionally overcommits with draws.
+- **Lhil Paak** (VPIP 27%, tilt 0.6x) — Unorthodox and analytical. Highest creative frequency of all bots. Float bets, delayed aggression, hard to put on a hand.
+- **Entonio Asfandiari** (VPIP 29%, tilt 0.9x) — Charismatic aggressor. Constant pressure with well-timed bluffs but can overplay position.
+- **Kabe Gaplan** (VPIP 26%, tilt 0.8x) — Steady, intelligent, solid fundamentals. Rarely makes big mistakes but predictable bet sizing.
+- **Bean-Robert Jellande** (VPIP 36%, tilt 1.4x) — Fearless gambler. Plays wide, bets big, loves action. Will bluff massive pots but tilts when caught.
 - **Mike Matusow** (VPIP 28%, tilt 2.2x) — "The Mouth." Solid player who self-destructs on tilt. Explosive outbursts lead to reckless all-ins and wild bluffs.
 
 #### Per-Persona Tilt System
 - Each bot has a `tiltMultiplier` that scales how fast they tilt and how hard it hits
-- Hellmuth (2.5x): tilts after 1 loss, massive stat swings
-- Ivey (0.3x): needs 10+ losses, barely changes even when tilted
+- Phellmuth (2.5x): tilts after 1 loss, massive stat swings
+- Pvey (0.3x): needs 10+ losses, barely changes even when tilted
 - Tilt trigger threshold, severity, and effect magnitude all scale per bot
 - Caps raised: VPIP 65%, aggression 3.0, bluffFreq 50% to accommodate extreme tilt
 
@@ -151,7 +190,7 @@ Pro player bots with real-world playstyles and per-persona tilt.
 
 #### Pro Bot Tests (46 new tests in `phase4-pro-bots.test.ts`)
 - All 9 pros exist with valid fields, PFR <= VPIP
-- Per-persona behavioral verification: Hellmuth, Negreanu, Ivey, Brunson, Tilly
+- Per-persona behavioral verification: Phellmuth, Degreanu, Pvey, Drunson, Jilly
 - Comparative ordering: VPIP, tilt multipliers, creative frequency, aggression
 - Tilt multiplier mechanics: faster trigger at high mult, larger effect, default 1.0 unchanged
 - Table composition: max 2 pros verified over 100 random generations, no duplicates

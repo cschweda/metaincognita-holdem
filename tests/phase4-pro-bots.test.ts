@@ -65,10 +65,10 @@ describe('Pro bot personas exist with correct fields', () => {
   })
 })
 
-// ─── Phil Hellmuth ─────────────────────────────────────────────
+// ─── Hill Phellmuth ─────────────────────────────────────────────
 
-describe('Phil Hellmuth — GTO baseline with extreme tilt', () => {
-  const hellmuth = getPersona('Phil Hellmuth')
+describe('Hill Phellmuth — GTO baseline with extreme tilt', () => {
+  const hellmuth = getPersona('Hill Phellmuth')
 
   it('plays tight-ish when not tilted (VPIP ~20%)', () => {
     const stats = runStats(hellmuth)
@@ -88,7 +88,7 @@ describe('Phil Hellmuth — GTO baseline with extreme tilt', () => {
     expect(state.tilted).toBe(true) // tilts after a single loss
   })
 
-  it('tilted Hellmuth plays drastically looser than base', () => {
+  it('tilted Phellmuth plays drastically looser than base', () => {
     const baseStats = simulateBotStats(profileFrom(hellmuth), N)
     const tiltedProfile = applyTilt(
       profileFrom(hellmuth),
@@ -104,31 +104,31 @@ describe('Phil Hellmuth — GTO baseline with extreme tilt', () => {
     expect(tiltStats.raiseRate).toBeGreaterThan(baseStats.raiseRate)
   })
 
-  it('tilted Hellmuth is looser than tilted Ivey', () => {
-    const ivey = getPersona('Phil Ivey')
+  it('tilted Phellmuth is looser than tilted Pvey', () => {
+    const ivey = getPersona('Ihil Pvey')
     const tiltState: TiltState = { consecutiveLosses: 3, tilted: true, severity: 1.0, handsRemaining: 5 }
 
-    const tiltedHellmuth = applyTilt(profileFrom(hellmuth), tiltState, config.tilt, hellmuth.tiltMultiplier!)
-    const tiltedIvey = applyTilt(profileFrom(ivey), tiltState, config.tilt, ivey.tiltMultiplier!)
+    const tiltedPhellmuth = applyTilt(profileFrom(hellmuth), tiltState, config.tilt, hellmuth.tiltMultiplier!)
+    const tiltedPvey = applyTilt(profileFrom(ivey), tiltState, config.tilt, ivey.tiltMultiplier!)
 
-    expect(tiltedHellmuth.vpip).toBeGreaterThan(tiltedIvey.vpip)
-    expect(tiltedHellmuth.aggression).toBeGreaterThan(tiltedIvey.aggression)
+    expect(tiltedPhellmuth.vpip).toBeGreaterThan(tiltedPvey.vpip)
+    expect(tiltedPhellmuth.aggression).toBeGreaterThan(tiltedPvey.aggression)
   })
 })
 
-// ─── Daniel Negreanu ───────────────────────────────────────────
+// ─── Naniel Degreanu ───────────────────────────────────────────
 
-describe('Daniel Negreanu — suited connectors, creative, tilt-resistant', () => {
-  const negreanu = getPersona('Daniel Negreanu')
+describe('Naniel Degreanu — suited connectors, creative, tilt-resistant', () => {
+  const negreanu = getPersona('Naniel Degreanu')
 
   it('plays loose (VPIP ~32% — wider than most)', () => {
     const stats = runStats(negreanu)
     expect(stats.vpip).toBeGreaterThan(0.20)
   })
 
-  it('plays looser than Hellmuth and Ivey', () => {
-    const hellmuthStats = runStats(getPersona('Phil Hellmuth'))
-    const iveyStats = runStats(getPersona('Phil Ivey'))
+  it('plays looser than Phellmuth and Pvey', () => {
+    const hellmuthStats = runStats(getPersona('Hill Phellmuth'))
+    const iveyStats = runStats(getPersona('Ihil Pvey'))
     const negStats = runStats(negreanu)
     expect(negStats.vpip).toBeGreaterThan(hellmuthStats.vpip)
     expect(negStats.vpip).toBeGreaterThan(iveyStats.vpip)
@@ -139,7 +139,7 @@ describe('Daniel Negreanu — suited connectors, creative, tilt-resistant', () =
     // Among the highest creative frequencies (top 3)
     const sorted = [...config.personas].sort((a, b) => b.creativeFreq - a.creativeFreq)
     const top3 = sorted.slice(0, 3).map(p => p.name)
-    expect(top3).toContain('Daniel Negreanu')
+    expect(top3).toContain('Naniel Degreanu')
   })
 
   it('is very tilt-resistant (0.5x multiplier)', () => {
@@ -156,10 +156,10 @@ describe('Daniel Negreanu — suited connectors, creative, tilt-resistant', () =
   })
 })
 
-// ─── Phil Ivey ─────────────────────────────────────────────────
+// ─── Ihil Pvey ─────────────────────────────────────────────────
 
-describe('Phil Ivey — near-perfect, almost untiltable', () => {
-  const ivey = getPersona('Phil Ivey')
+describe('Ihil Pvey — near-perfect, almost untiltable', () => {
+  const ivey = getPersona('Ihil Pvey')
 
   it('plays solid TAG style (VPIP ~23%, PFR ~19%)', () => {
     const stats = runStats(ivey)
@@ -184,7 +184,7 @@ describe('Phil Ivey — near-perfect, almost untiltable', () => {
     expect(state.tilted).toBe(true) // finally tilts at 10
   })
 
-  it('even when tilted, Ivey barely changes (0.3x boosts)', () => {
+  it('even when tilted, Pvey barely changes (0.3x boosts)', () => {
     const baseStats = simulateBotStats(profileFrom(ivey), N)
     const tiltedProfile = applyTilt(
       profileFrom(ivey),
@@ -194,16 +194,16 @@ describe('Phil Ivey — near-perfect, almost untiltable', () => {
     )
     const tiltStats = simulateBotStats(tiltedProfile, N)
 
-    // Only slight increase — Ivey stays composed
+    // Only slight increase — Pvey stays composed
     const vpipDiff = tiltStats.vpip - baseStats.vpip
     expect(vpipDiff).toBeLessThan(0.06) // barely widens
   })
 })
 
-// ─── Doyle Brunson ─────────────────────────────────────────────
+// ─── Boyle Drunson ─────────────────────────────────────────────
 
-describe('Doyle Brunson — power poker, tilt-resistant', () => {
-  const doyle = getPersona('Doyle Brunson')
+describe('Boyle Drunson — power poker, tilt-resistant', () => {
+  const doyle = getPersona('Boyle Drunson')
 
   it('plays moderately loose with aggression (VPIP ~28%)', () => {
     const stats = runStats(doyle)
@@ -224,10 +224,10 @@ describe('Doyle Brunson — power poker, tilt-resistant', () => {
   })
 })
 
-// ─── Jennifer Tilly ────────────────────────────────────────────
+// ─── Tennifer Jilly ────────────────────────────────────────────
 
-describe('Jennifer Tilly — unpredictable, moderate tilt', () => {
-  const tilly = getPersona('Jennifer Tilly')
+describe('Tennifer Jilly — unpredictable, moderate tilt', () => {
+  const tilly = getPersona('Tennifer Jilly')
 
   it('plays loose-ish (VPIP ~30%)', () => {
     const stats = runStats(tilly)
@@ -255,12 +255,12 @@ describe('Mike Matusow — "The Mouth", solid but self-destructs on tilt', () =>
     expect(stats.vpip).toBeLessThan(0.40)
   })
 
-  it('has second-highest tilt multiplier (2.2x, behind Hellmuth)', () => {
+  it('has second-highest tilt multiplier (2.2x, behind Phellmuth)', () => {
     expect(matusow.tiltMultiplier).toBeGreaterThan(2.0)
-    expect(matusow.tiltMultiplier).toBeLessThan(getPersona('Phil Hellmuth').tiltMultiplier!)
+    expect(matusow.tiltMultiplier).toBeLessThan(getPersona('Hill Phellmuth').tiltMultiplier!)
   })
 
-  it('tilts after 1-2 losses like Hellmuth', () => {
+  it('tilts after 1-2 losses like Phellmuth', () => {
     const state = createTiltState()
     // effective threshold = round(3 / 2.2) = 1
     updateTilt(state, false, false, config.tilt, matusow.tiltMultiplier!)
@@ -284,32 +284,32 @@ describe('Mike Matusow — "The Mouth", solid but self-destructs on tilt', () =>
 // ─── Comparative: Pro vs Pro ───────────────────────────────────
 
 describe('Pro bot comparative behavior', () => {
-  it('Hellmuth is tighter than Negreanu when not tilted', () => {
-    expect(getPersona('Phil Hellmuth').vpip).toBeLessThan(getPersona('Daniel Negreanu').vpip)
+  it('Phellmuth is tighter than Degreanu when not tilted', () => {
+    expect(getPersona('Hill Phellmuth').vpip).toBeLessThan(getPersona('Naniel Degreanu').vpip)
   })
 
-  it('Ivey is tighter than Negreanu', () => {
-    expect(getPersona('Phil Ivey').vpip).toBeLessThan(getPersona('Daniel Negreanu').vpip)
+  it('Pvey is tighter than Degreanu', () => {
+    expect(getPersona('Ihil Pvey').vpip).toBeLessThan(getPersona('Naniel Degreanu').vpip)
   })
 
-  it('Negreanu is the loosest pro', () => {
-    const proVpips = ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly']
+  it('Degreanu is the loosest pro', () => {
+    const proVpips = ['Hill Phellmuth', 'Naniel Degreanu', 'Ihil Pvey', 'Boyle Drunson', 'Tennifer Jilly']
       .map(n => getPersona(n).vpip)
-    expect(getPersona('Daniel Negreanu').vpip).toBe(Math.max(...proVpips))
+    expect(getPersona('Naniel Degreanu').vpip).toBe(Math.max(...proVpips))
   })
 
-  it('Ivey has the lowest tilt multiplier of all bots', () => {
+  it('Pvey has the lowest tilt multiplier of all bots', () => {
     const allTilts = config.personas.map(p => p.tiltMultiplier ?? 1)
-    expect(getPersona('Phil Ivey').tiltMultiplier).toBe(Math.min(...allTilts))
+    expect(getPersona('Ihil Pvey').tiltMultiplier).toBe(Math.min(...allTilts))
   })
 
-  it('Hellmuth has the highest tilt multiplier of all bots', () => {
+  it('Phellmuth has the highest tilt multiplier of all bots', () => {
     const allTilts = config.personas.map(p => p.tiltMultiplier ?? 1)
-    expect(getPersona('Phil Hellmuth').tiltMultiplier).toBe(Math.max(...allTilts))
+    expect(getPersona('Hill Phellmuth').tiltMultiplier).toBe(Math.max(...allTilts))
   })
 
   it('all pros have unique playstyles (no two have identical VPIP+PFR+aggression)', () => {
-    const pros = ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly']
+    const pros = ['Hill Phellmuth', 'Naniel Degreanu', 'Ihil Pvey', 'Boyle Drunson', 'Tennifer Jilly']
     const signatures = pros.map(n => {
       const p = getPersona(n)
       return `${p.vpip}-${p.pfr}-${p.aggression}`
@@ -325,12 +325,12 @@ describe('Per-persona tilt multiplier mechanics', () => {
     const fast = createTiltState()
     const slow = createTiltState()
 
-    // Hellmuth (2.5x) vs Ivey (0.3x) — same number of losses
+    // Phellmuth (2.5x) vs Pvey (0.3x) — same number of losses
     updateTilt(fast, false, false, config.tilt, 2.5)
     updateTilt(slow, false, false, config.tilt, 0.3)
 
-    expect(fast.tilted).toBe(true)  // Hellmuth tilts immediately
-    expect(slow.tilted).toBe(false) // Ivey doesn't
+    expect(fast.tilted).toBe(true)  // Phellmuth tilts immediately
+    expect(slow.tilted).toBe(false) // Pvey doesn't
   })
 
   it('higher multiplier = larger tilt effect', () => {

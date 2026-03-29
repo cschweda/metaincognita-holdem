@@ -7,6 +7,7 @@
  */
 import config from '@config'
 import { isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'
+import { dynamicBotName, describeBotStyle, FICTIONAL_NAMES } from '~/utils/botDescriptions'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
@@ -31,6 +32,10 @@ export interface BotConfig {
   bluffFreq: number
   creativeFreq: number
   tiltMultiplier: number
+  threeBetFreq?: number
+  fourBetFreq?: number
+  fiveBetFreq?: number
+  leak?: string
 }
 
 const playerCount = ref(6)
@@ -83,11 +88,8 @@ async function handleEmailAuth() {
   }
 }
 
-// Pro bots are real player personas; fictional bots are the originals
-const proBots = config.personas.filter(p =>
-  !['Tight Tony', 'Loose Lucy', 'Aggressive Alex', 'Calling Carl', 'Tricky Tina', 'Solid Sam', 'Wild Wendy'].includes(p.name)
-)
-const fictionalBots = config.personas.filter(p => !proBots.includes(p))
+const proBots = config.personas.filter(p => !FICTIONAL_NAMES.includes(p.name))
+const fictionalBots = config.personas.filter(p => FICTIONAL_NAMES.includes(p.name))
 
 const maxPros = ref(2)
 
@@ -108,6 +110,10 @@ function generateDefaultBots(count: number): BotConfig[] {
     bluffFreq: persona.bluffFreq,
     creativeFreq: persona.creativeFreq,
     tiltMultiplier: persona.tiltMultiplier ?? 1.0,
+    threeBetFreq: persona.threeBetFreq,
+    fourBetFreq: persona.fourBetFreq,
+    fiveBetFreq: persona.fiveBetFreq,
+    leak: persona.leak,
   }))
 }
 
@@ -127,6 +133,10 @@ function applyPreset(botIndex: number, presetName: string) {
   bot.bluffFreq = preset.bluffFreq
   bot.creativeFreq = preset.creativeFreq
   bot.tiltMultiplier = ('tiltMultiplier' in preset) ? (preset as any).tiltMultiplier : 1.0
+  bot.threeBetFreq = (preset as any).threeBetFreq
+  bot.fourBetFreq = (preset as any).fourBetFreq
+  bot.fiveBetFreq = (preset as any).fiveBetFreq
+  bot.leak = (preset as any).leak
   if ('leak' in preset) {
     bot.name = presetName
   }
@@ -147,74 +157,7 @@ function setAllSame(presetName: string) {
  * E.g., "Loose Lucy" becomes "Aggro Lucy" if aggression is cranked up,
  * or "Nitty Lucy" if VPIP is dialed way down.
  */
-function dynamicBotName(bot: BotConfig): string {
-  // Extract the first name from the preset (e.g., "Tight Tony" → "Tony")
-  const presetParts = bot.preset.split(' ')
-  const firstName = presetParts.length > 1 ? presetParts[presetParts.length - 1] : bot.preset
-
-  // Find the matching persona/preset to check if stats have drifted
-  const original = [...config.personas, ...config.botPresets].find(p => p.name === bot.preset)
-  if (!original) return bot.name
-
-  // Check if stats have meaningfully changed from the preset
-  const vpipDrift = Math.abs(bot.vpip - original.vpip) > 0.05
-  const aggrDrift = Math.abs(bot.aggression - original.aggression) > 0.2
-  const bluffDrift = Math.abs(bot.bluffFreq - original.bluffFreq) > 0.06
-
-  if (!vpipDrift && !aggrDrift && !bluffDrift) return original.name
-
-  // Build a new adjective based on dominant trait
-  let adj = ''
-  if (bot.vpip <= 0.14) adj = 'Nitty'
-  else if (bot.vpip <= 0.19) adj = 'Tight'
-  else if (bot.vpip >= 0.36) adj = 'Wild'
-  else if (bot.vpip >= 0.30) adj = 'Loose'
-  else if (bot.aggression >= 1.4) adj = 'Aggro'
-  else if (bot.aggression <= 0.6) adj = 'Passive'
-  else if (bot.bluffFreq >= 0.22) adj = 'Bluffy'
-  else if (bot.bluffFreq <= 0.07) adj = 'Honest'
-  else adj = 'Custom'
-
-  return `${adj} ${firstName}`
-}
-
-/**
- * Generates a plain-English description of a bot's playstyle based on its stats.
- */
-function describeBotStyle(bot: BotConfig): string {
-  const parts: string[] = []
-
-  // Tightness/looseness
-  if (bot.vpip <= 0.15) parts.push('extremely tight')
-  else if (bot.vpip <= 0.20) parts.push('tight')
-  else if (bot.vpip <= 0.28) parts.push('moderately selective')
-  else if (bot.vpip <= 0.35) parts.push('loose')
-  else parts.push('very loose')
-
-  // Aggression style
-  if (bot.aggression >= 1.4) parts.push('highly aggressive')
-  else if (bot.aggression >= 1.1) parts.push('aggressive')
-  else if (bot.aggression >= 0.8) parts.push('balanced')
-  else parts.push('passive')
-
-  let desc = `This is a ${parts.join(', ')} player`
-
-  // PFR vs VPIP ratio tells the story
-  const pfrRatio = bot.pfr / bot.vpip
-  if (pfrRatio > 0.8) desc += ' who raises most of the hands they play'
-  else if (pfrRatio < 0.5) desc += ' who prefers calling over raising preflop'
-
-  // Bluff tendency
-  if (bot.bluffFreq >= 0.22) desc += '. Bluffs frequently — call them down with medium-strength hands.'
-  else if (bot.bluffFreq >= 0.14) desc += '. Will bluff occasionally, especially in position.'
-  else if (bot.bluffFreq <= 0.08) desc += '. Rarely bluffs — when they bet big, believe them.'
-  else desc += '.'
-
-  // Creative plays
-  if (bot.creativeFreq >= 0.07) desc += ' Expect unorthodox plays like limp-reraises and check-raise bluffs.'
-
-  return desc
-}
+// dynamicBotName and describeBotStyle imported from ~/utils/botDescriptions
 
 const selectedStake = computed(() => config.stakes.find(s => s.level === stakeLevel.value)!)
 const startingStack = computed(() => selectedStake.value.bb * stackBB.value)

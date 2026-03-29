@@ -37,6 +37,8 @@ const props = withDefaults(defineProps<{
   tiltSeverity: 0,
 })
 
+const emit = defineEmits<{ settings: [] }>()
+
 const peeking = ref(false)
 
 function togglePeek() {
@@ -70,7 +72,7 @@ const actionBadge = computed(() => {
 <template>
   <div
     v-if="!eliminated"
-    class="flex flex-col items-center gap-1 transition-all duration-300 relative"
+    class="group flex flex-col items-center gap-1 transition-all duration-300 relative"
     :class="{ 'opacity-30 grayscale': folded }"
   >
     <!-- Action badge (floats above everything) -->
@@ -137,9 +139,16 @@ const actionBadge = computed(() => {
         tilted && !folded ? 'border-red-500/40 shadow-red-500/10' : '',
       ]"
     >
-      <div class="flex items-center justify-center gap-1.5">
+      <div class="flex items-center justify-center gap-1">
         <PositionBadge :position="position" />
         <span class="font-semibold text-sm truncate max-w-20">{{ name }}</span>
+        <button
+          v-if="!isHero && !eliminated"
+          class="ml-0.5 text-gray-500 hover:text-gray-200 transition-colors opacity-0 group-hover:opacity-100"
+          @click.stop="emit('settings')"
+        >
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
       </div>
       <div class="text-xs mt-0.5 font-mono" :class="chips > 0 ? 'text-green-400' : 'text-red-400'">
         {{ formattedChips }}

@@ -315,6 +315,53 @@ export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
     draws.push({ type: 'Set draw (pocket pair)', outs: 2, cards: [holeRanks[0]] })
   }
 
+  // Two pair → full house outs
+  // Count ranks that appear exactly twice across hole + board
+  const allRanks = all.map(c => c.rank)
+  const rankCounts = new Map<number, number>()
+  for (const r of allRanks) rankCounts.set(r, (rankCounts.get(r) || 0) + 1)
+  const pairedRanks = [...rankCounts.entries()].filter(([_, count]) => count === 2).map(([rank]) => rank)
+  const tripRanks = [...rankCounts.entries()].filter(([_, count]) => count === 3).map(([rank]) => rank)
+
+  // Must use at least one hole card for the pair to count
+  const heroPairedRanks = pairedRanks.filter(r => holeRanks.includes(r))
+
+  if (heroPairedRanks.length >= 1 && pairedRanks.length >= 2 && tripRanks.length === 0) {
+    // Two pair — each paired rank has 2 remaining cards that make a full house
+    let fullHouseOuts = 0
+    const outCards: number[] = []
+    for (const r of pairedRanks) {
+      const remaining = 4 - (rankCounts.get(r) || 0)
+      fullHouseOuts += remaining
+      outCards.push(r)
+    }
+    if (fullHouseOuts > 0) {
+      draws.push({ type: 'Full house draw', outs: fullHouseOuts, cards: outCards })
+    }
+  }
+
+  // Trips → quads or full house
+  const heroTripRanks = tripRanks.filter(r => holeRanks.includes(r))
+  if (heroTripRanks.length > 0) {
+    // 1 out to quads (4th card of trip rank)
+    const quadsOuts = 1
+    // Any board card pairing gives full house
+    const nonTripBoardRanks = [...new Set(boardRanks.filter(r => !tripRanks.includes(r)))]
+    const fullHouseOuts = nonTripBoardRanks.length * 3 // ~3 remaining cards per rank
+    if (quadsOuts + fullHouseOuts > 0) {
+      draws.push({ type: 'Quads/full house draw', outs: quadsOuts + Math.min(fullHouseOuts, 6), cards: heroTripRanks })
+    }
+  }
+
+  // One pair (using a hole card) → trips draw
+  if (heroPairedRanks.length === 1 && pairedRanks.length === 1 && tripRanks.length === 0) {
+    const r = heroPairedRanks[0]
+    const remaining = 4 - (rankCounts.get(r) || 0)
+    if (remaining > 0) {
+      draws.push({ type: 'Trips draw', outs: remaining, cards: [r] })
+    }
+  }
+
   return draws
 }
 
@@ -352,7 +399,7 @@ export function estimateEquity(
   holeCards: [Card, Card],
   community: Card[],
   numOpponents: number,
-  iterations: number = 300,
+  iterations: number = 500,
 ): number {
   if (community.length === 5) {
     // At showdown, just evaluate directly — no simulation needed
@@ -570,7 +617,7 @@ export function recommend(
 export function simulateHandProbabilities(
   holeCards: [Card, Card],
   community: Card[],
-  iterations: number = 500,
+  iterations: number = 800,
 ): HandProbability[] {
   const currentResult = community.length >= 3 ? bestHand(holeCards, community) : null
   const currentRank = currentResult?.rank ?? -1
@@ -662,12 +709,12 @@ export function analyzeHand(
   // Equity (Monte Carlo)
   const equity = streetName === 'preflop'
     ? estimatePreflopEquity(chen, numOpponents)
-    : estimateEquity(holeCards, community, numOpponents, 300)
+    : estimateEquity(holeCards, community, numOpponents, 500)
 
   const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0)
 
   // Hand improvement probabilities
-  const handProbabilities = simulateHandProbabilities(holeCards, community, 400)
+  const handProbabilities = simulateHandProbabilities(holeCards, community, 800)
 
   return {
     madeHand,
