@@ -68,6 +68,12 @@ const normanFoldQuips = new UniquePool([
   `Gone faster than my paycheck on a Friday night.`,
   `That fold was easier than my divorce. And quicker.`,
   `Out. See ya. Wouldn't wanna be ya. Actually, I wouldn't wanna be any of us.`,
+  `Fold. The silent killer of poker dreams. And also the savior of bankrolls.`,
+  `Gone. Vanished. Poof. Like my 401k after my last Vegas trip.`,
+  `And another one folds. It's like watching dominoes, except the dominoes have feelings.`,
+  `Mucked it. Wise decision. I say that about everything I don't understand.`,
+  `Out of the hand. Into the void. Where all folded hands go to live their best lives.`,
+  `Fold. In Spanish, that's "fold." I took four years of Spanish and that's all I remember.`,
 ])
 
 const normanBigFoldQuips = new UniquePool([
@@ -83,6 +89,11 @@ const normanBigFoldQuips = new UniquePool([
   `If I folded that hand, I'd want a receipt. For emotional damages.`,
   `My jaw just hit the floor. And it's a long way down from this commentary booth.`,
   `That fold is going to be on their deathbed highlight reel. "Remember when I folded those aces?"`,
+  `Laying that down is like giving back a winning lottery ticket. I'm physically ill.`,
+  `That fold takes more discipline than I've shown in my entire life. Combined.`,
+  `I'm going to need therapy after watching that fold. More therapy.`,
+  `Folding that is like returning a puppy. Technically the right call, but emotionally devastating.`,
+  `That laydown is either the best fold of the year or the worst. There is no in-between.`,
 ])
 
 const normanBluffQuips = new UniquePool([
@@ -102,6 +113,12 @@ const normanBluffQuips = new UniquePool([
   `Complete air. I've seen more substance in a soap bubble.`,
   `That bluff is so bold it should have its own Netflix special.`,
   `Nothing. Nada. Zilch. Zero. But hey, nice bet sizing.`,
+  `They're selling a story. A fiction. A fairy tale. "Once upon a time, I had a good hand." The end.`,
+  `That's a bluff so pure it belongs in a museum. The Museum of Bad Decisions.`,
+  `Betting with nothing. I've done that in life. It doesn't work there either.`,
+  `Complete air. The hand is empty. The bet is full. That's poker, baby.`,
+  `Bluffing. The art of lying with chips instead of words. At least chips don't stutter.`,
+  `They've got nothing but confidence. Which, in poker, is sometimes enough. And sometimes not.`,
 ])
 
 const normanRaiseQuips = new UniquePool([
@@ -121,6 +138,13 @@ const normanRaiseQuips = new UniquePool([
   `That's a statement bet. The statement is: "I'm better than you." We'll see about that.`,
   `A raise. In poker, if you're not raising, you're just renting your seat.`,
   `Chips flying into the pot. Music to a poker player's ears. Nails on a chalkboard to a poker player's wallet.`,
+  `Raising. The universal language of "I think I'm better than you."`,
+  `A raise. Because checking is for people who don't believe in themselves. Or their cards.`,
+  `Bet. The poker equivalent of planting a flag and saying "this pot is mine."`,
+  `A nice raise. Confident. Commanding. Like a substitute teacher who actually knows the material.`,
+  `Chips in the middle. That's commitment. More commitment than I've shown in any relationship.`,
+  `Raising it up. Fortune favors the bold. It also bankrupts the bold, but let's stay positive.`,
+  `That bet says "come and get me." Which is either courage or an invitation to disaster.`,
 ])
 
 const normanCallQuips = new UniquePool([
@@ -140,6 +164,12 @@ const normanCallQuips = new UniquePool([
   `Calling. Not folding, not raising. The Goldilocks of poker decisions.`,
   `A call. Sometimes you just want to see what happens next. Like watching a car accident. In slow motion. With chips.`,
   `Flat call. They want to dance, but they don't want to lead.`,
+  `Calling. The poker equivalent of "sure, why not." The unofficial motto of my life.`,
+  `A call. Keeping the dream alive. The dream of winning this pot. We all have dreams.`,
+  `Flat call. No drama. No excitement. Just pure, uncut poker. The good stuff.`,
+  `Calling. Because raising takes energy and folding takes courage. Calling takes neither.`,
+  `A call. The most noncommittal move in poker. It's like saying "maybe" to a wedding invitation.`,
+  `Calling. The Switzerland of poker moves. Neutral. Boring. Effective.`,
 ])
 
 const normanCheckQuips = new UniquePool([
@@ -158,6 +188,10 @@ const normanCheckQuips = new UniquePool([
   `Check. Free card. The best price in poker. I love free things. Free cards, free buffets, free advice that I ignore.`,
   `No bet. Just vibes. Poker vibes.`,
   `Check. They're either trapping or they have absolutely nothing. In my experience, it's usually nothing.`,
+  `Tap tap. The international sign for "I have no idea what I'm doing but I'm still in."`,
+  `A check. Because sometimes the bravest thing you can do is nothing. That's what I tell my boss.`,
+  `Checking. The pause button of poker. Hit it when you need to think. Or when you have nothing to think about.`,
+  `Check. No bet. Just sitting there. Existing. Vibing. Like me at parties.`,
 ])
 
 const normanAllinQuips = new UniquePool([
@@ -175,6 +209,10 @@ const normanAllinQuips = new UniquePool([
   `They've pushed it all in. This is the moment we've been waiting for. Well, I've been waiting for lunch, but this is good too.`,
   `ALL-IN! Buckle up, buttercup. Things are about to get real.`,
   `Everything in the middle. That pot is bigger than my car payment. Both of them.`,
+  `All-in! That's the poker equivalent of "hold my beer and watch this."`,
+  `Shove! All of it! Everything! My palms are sweating and I don't even have money in this.`,
+  `All-in. The moment of truth. The point of no return. The... I'm running out of clichés.`,
+  `They've pushed it all in. Somewhere, a poker coaching video just wrote itself.`,
 ])
 
 const normanAllinJunkQuips = new UniquePool([
@@ -190,6 +228,10 @@ const normanAllinJunkQuips = new UniquePool([
   `That's the kind of all-in that makes your grandmother weep. And she doesn't even play poker.`,
   `Shoving with that hand is like skydiving without a parachute. Thrilling for about three seconds.`,
   `ALL-IN with junk. In their defense, it IS fun to say "all-in." It's less fun to lose.`,
+  `All-in with that?! That hand couldn't beat a ham sandwich. And the sandwich has mayo.`,
+  `Shoving with garbage. Somewhere, a poker textbook just burst into flames.`,
+  `All-in with that hand. That's not courage, that's a Wikipedia article about bad decisions.`,
+  `ALL-IN with nothing. My ex-wife had more substance. And that's saying something.`,
 ])
 
 const normanShowdownWinQuips = new UniquePool([
@@ -205,6 +247,11 @@ const normanShowdownWinQuips = new UniquePool([
   `Nicely done, Hero. Textbook. If the textbook was written by someone who's actually good at poker. Unlike my textbook.`,
   `Hero wins! The poker gods smile upon the worthy. And occasionally the unworthy. I'm living proof.`,
   `And that's how it's done. Take notes, kids. Actually, don't take notes from me. Take notes from Hero.`,
+  `Hero scoops! That's the kind of result that makes you forget all the bad beats. Temporarily.`,
+  `And Hero takes the money. The beautiful, beautiful money.`,
+  `Hero wins! I'd high-five Hero but I'm in a commentary booth and also I'm awkward.`,
+  `Cha-ching! Hero cashes in. That sound? That's the sound of chips moving in the right direction.`,
+  `Hero with the win! If poker were easy, everyone would do it. It's not easy. Hero just made it look easy.`,
 ])
 
 const normanShowdownLoseQuips = new UniquePool([
@@ -220,6 +267,11 @@ const normanShowdownLoseQuips = new UniquePool([
   `And Hero loses. Welcome to the club. We have meetings on Tuesdays. And Wednesdays. And every other day.`,
   `That's a loss. But in poker, every loss is a learning experience. I've learned SO MUCH over the years. So, so much.`,
   `Hero loses the pot. Somewhere, a poker coach is saying "that's variance." It doesn't help, but they say it.`,
+  `Hero loses. Poker taketh away. That's all poker does, really. Taketh.`,
+  `And Hero drops that one. The bankroll takes a hit. Like my self-esteem at my high school reunion.`,
+  `Tough loss. But remember: it's not about winning or losing. It's about... no wait, it IS about winning.`,
+  `Hero doesn't win this one. But there's always the next hand. And the hand after that. And eventually retirement.`,
+  `Ouch. That's going to leave a mark. Not a physical mark. An emotional, financial mark.`,
 ])
 
 const normanCoolerQuips = new UniquePool([
@@ -232,6 +284,9 @@ const normanCoolerQuips = new UniquePool([
   `Both players had monsters. The poker gods just chose violence today.`,
   `A cooler! That's the kind of hand that makes you question every life decision that led you to a poker table.`,
   `Brutal cooler. In a fair world, both players would win. This is not a fair world. I have the tax returns to prove it.`,
+  `That's a cooler so cold it needs a jacket. And therapy.`,
+  `Both players played it perfectly. One of them just got unlucky. That's the cruelest part.`,
+  `Cooler! The universe's way of reminding you that poker isn't fair. Neither is life. But especially poker.`,
 ])
 
 const normanForeshadowQuips = new UniquePool([
@@ -245,6 +300,9 @@ const normanForeshadowQuips = new UniquePool([
   `Don't go anywhere. What's coming next is worth the price of admission. Which, in this case, is free. You're welcome.`,
   `I know something you don't know. Well, you'll know in a second. But for this one glorious second, I know more than you.`,
   `The deck has plans. Big plans. Better plans than I've ever had, honestly.`,
+  `I'm not saying I know what's coming, but I'm saying you should probably pay attention.`,
+  `The poker gods are up to something. They've got that look in their eyes. The mischievous one.`,
+  `Stay tuned. What happens next is brought to you by the letter "wow."`,
 ])
 
 const normanStreetHitQuips = new UniquePool([
@@ -260,6 +318,11 @@ const normanStreetHitQuips = new UniquePool([
   `The deck delivers! Unlike my pizza guy, who is perpetually 45 minutes late.`,
   `That's a card that makes poker players believe in destiny. And poker.`,
   `Oh! That's the card! THAT'S the card! I need to sit down. I am sitting down. I need to sit down MORE.`,
+  `The board just changed everything. It's like a plot twist in a movie, except with money.`,
+  `That card hits like a freight train. A beautiful, chip-filled freight train.`,
+  `Something just happened and it's going to matter. A lot. Like, a lot a lot.`,
+  `The card! The beautiful card! I haven't been this excited since... well, since the last exciting card.`,
+  `That changes the math, the mood, and the entire hand. Poker is a rollercoaster and we just hit the loop.`,
 ])
 
 const normanStreetMissQuips = new UniquePool([
@@ -272,6 +335,10 @@ const normanStreetMissQuips = new UniquePool([
   `Nothing. The board is not cooperating. Story of my life with boards. And floors. And ceilings.`,
   `Complete miss. The deck has spoken, and it said "nah."`,
   `Brick city. Population: one very nervous poker player.`,
+  `A blank. The most useless card in the deck. Well, the most useless card for THEM. Someone else might love it.`,
+  `Nothing doing. That card helped nobody. It's the Switzerland of cards. Neutral and boring.`,
+  `Miss. That card is about as helpful as a screen door on a submarine.`,
+  `Brick. The deck just said "tough luck, pal." The deck is not very sympathetic.`,
 ])
 
 // Norman silence level — 0 = talks all the time, 100 = never talks on routine actions
@@ -294,11 +361,15 @@ const normanPersonaQuips: Record<string, string[]> = {
     `Degreanu's in the hand. The man can read souls. Or so he claims on his vlog.`,
     `Degreanu with the suited connectors again. The man loves speculative hands more than I love buffets.`,
     `That's Degreanu. Always chatting, always smiling, always taking your money.`,
+    `Degreanu's talking at the table again. He talks more than I do. And I talk for a LIVING.`,
+    `Degreanu. The man who turned talking at the poker table into an art form. And a YouTube channel.`,
   ],
   'Ihil Pvey': [
     `Pvey at the table. The man is a machine. I've never seen him blink. Literally never.`,
     `Pvey's involved. This is the guy who plays perfect poker. It's annoying, frankly.`,
     `Pvey. The human calculator. Makes my brain hurt just watching him.`,
+    `Pvey making a move. The Tiger Woods of poker. Minus the... you know what, let's just stick with "The Tiger Woods of poker."`,
+    `That's Pvey. Ten bracelets. Ten. I can barely win ten dollars in my home game.`,
   ],
   'Boyle Drunson': [
     `Drunson in the hand. The Godfather of Poker. This man was playing poker before most of us were born.`,
@@ -329,14 +400,20 @@ const normanPersonaQuips: Record<string, string[]> = {
   'Tennifer Jilly': [
     `Jilly's in the hand. She's unpredictable. One hand she's a nit, next hand she's a maniac. It's unsettling.`,
     `That's Jilly. She'll either fold everything or bluff you off the table. Flip a coin.`,
+    `Jilly at the table. The only player I know who plays tight AND loose in the same hand. Don't ask me how.`,
+    `That's Jilly. She's like a box of chocolates. You never know what you're going to get. But it's usually expensive.`,
   ],
   'Rhip Ceese': [
     `Ceese at the table. The legend. The man has more bracelets than a jewelry store.`,
     `That's Ceese. Near-zero leaks. Playing against him is like playing against a wall. A very expensive wall.`,
+    `Ceese. The man has been playing poker since before most of us were born. And he's still crushing.`,
+    `That's Ceese making a move. Ice in his veins. I have ice cream in mine, but it's not the same.`,
   ],
   'Utu Sngar': [
     `Sngar's involved. Genius-level reads. The man sees things the rest of us can't.`,
     `That's Sngar. Fearless and brilliant. A terrifying combination at a poker table.`,
+    `Sngar in the hand. The man plays poker like he's playing three-dimensional chess. In space. Blindfolded.`,
+    `That's Sngar. He once soul-read a player so accurately that the player considered a career change.`,
   ],
   'Serik Eidel': [
     `Eidel in the hand. The Quiet Assassin. You won't hear him coming. You'll just hear your chips leaving.`,
@@ -345,26 +422,38 @@ const normanPersonaQuips: Record<string, string[]> = {
   'Sanessa Velbst': [
     `Velbst at the table. Fearless aggressor. She 3-bets like it's going out of style.`,
     `That's Velbst. She doesn't just play poker, she attacks it.`,
+    `Velbst in the hand. One of the best female players ever. One of the best PLAYERS ever. Period.`,
+    `That's Velbst. She raises more before breakfast than most people raise all day.`,
   ],
   'Aatrik Pantonius': [
     `Pantonius. Finnish ice. The man's blood temperature is somewhere below freezing.`,
     `That's Pantonius. Calm, precise, and completely terrifying.`,
+    `Pantonius at the table. I've seen warmer personalities in a walk-in freezer.`,
+    `That's Pantonius. The Finnish Terminator of poker. He'll be back. And he'll have your chips.`,
   ],
   'Ncotty Sguyen': [
     `Sguyen's in. Loose-aggressive with flair. If poker were a dance, he'd be doing the cha-cha.`,
     `That's Sguyen. Watch out — he tilts on bad beats, and when he tilts, chips fly everywhere.`,
+    `Sguyen at the table. The man plays poker like he's in a music video. All style, occasional substance.`,
+    `That's Sguyen. He once called a raise "for entertainment purposes." It was a $50,000 raise.`,
   ],
   'Mhris Coneymaker': [
     `Coneymaker at the table. Online grinder turned live pro. He's seen more flops than a pancake house.`,
     `That's Coneymaker. The internet kid. He's played more hands than most of us have had meals.`,
+    `Coneymaker in the hand. He used to play 24 tables at once online. I can barely play one. At a time. Badly.`,
+    `That's Coneymaker. Proof that you can get good at poker by playing approximately nine million hands online.`,
   ],
   'Cohnny Jhan': [
     `Jhan's in the hand. Old-school tight-aggressive. The man doesn't waste chips.`,
     `That's Jhan. Patient as a cat watching a mouse hole. And just as deadly.`,
+    `Jhan at the table. He plays like poker was invented for him. It wasn't, but he acts like it was.`,
+    `That's Jhan. The man waits for hands like I wait for pizza delivery. Patiently and with great anticipation.`,
   ],
   'Krynn Benney': [
     `Benney at the table. Modern GTO high-roller. She plays poker like a chess grandmaster plays chess.`,
     `That's Benney. Creative lines, big pots. The new school of poker.`,
+    `Benney in the hand. GTO stands for "Game Theory Optimal." I thought it stood for "Get The Other guy's money." Same thing, really.`,
+    `That's Benney. She thinks in ranges while I think about lunch. Different skill sets.`,
   ],
   'Entonio Asfandiari': [
     `Asfandiari's involved! The Magician. He makes your chips disappear. Get it? Magician? I'll see myself out.`,
@@ -373,6 +462,8 @@ const normanPersonaQuips: Record<string, string[]> = {
   'Lhil Paak': [
     `Paak's in the hand. Unorthodox, analytical, and just weird enough to be dangerous.`,
     `That's Paak. He floats bets like a butterfly and stings like a bee. I might be mixing metaphors.`,
+    `Paak at the table. The man sees poker differently than the rest of us. Like a poker savant. A dangerous, well-dressed savant.`,
+    `That's Paak. He'll flat-call you in a spot where everyone else 3-bets or folds. And somehow it works.`,
   ],
 }
 
@@ -390,6 +481,13 @@ const normanGenericQuips = new UniquePool([
   `My therapist says I should stop comparing life to poker. I raised.`,
   `You know, poker and golf have a lot in common. In both, I'm terrible but I keep coming back.`,
   `This is good poker. Unlike the poker I play, which is more of a charitable donation.`,
+  `I love watching poker. It's like chess, except the pieces can lie to you.`,
+  `This is why poker is the greatest game. Every hand is a story. Some are comedies. Most of mine are tragedies.`,
+  `You know what I love about poker? Every hand, anything can happen. Same with my life, except in my life it's usually bad.`,
+  `Great table action tonight. Reminds me of the old days at the WSOP. When I used to actually play. Before the restraining order.`,
+  `Poker: the only game where the best hand doesn't always win and the worst hand sometimes does. That's also my resume summary.`,
+  `I always say, poker is 10% cards, 10% strategy, and 80% trying not to look at your chips when you're nervous.`,
+  `You can learn a lot about a person from how they play poker. For example, I've learned that I'm terrible at poker.`,
 ])
 
 interface GS {
