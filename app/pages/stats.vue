@@ -42,7 +42,13 @@ interface HandRow {
 }
 
 const loading = ref(true)
-const expandedHand = ref<string | null>(null)
+const showHandModal = ref(false)
+const selectedHand = ref<HandRow | null>(null)
+
+function openHandDetail(h: HandRow) {
+  selectedHand.value = h
+  showHandModal.value = true
+}
 const error = ref<string | null>(null)
 const sessions = ref<SessionRow[]>([])
 const hands = ref<HandRow[]>([])
@@ -70,6 +76,16 @@ const analysisHand = ref<HandRow | null>(null)
 function openAnalysis(h: HandRow) {
   analysisHand.value = h
   showAnalysisModal.value = true
+}
+
+const copiedHandId = ref<string | null>(null)
+
+async function copyHandToClipboard(h: HandRow) {
+  const stakeLevel = getStakeFromLevel(h.stake_level)
+  const text = toPokerStarsFormat(h, stakeLevel)
+  await navigator.clipboard.writeText(text)
+  copiedHandId.value = h.id
+  setTimeout(() => { copiedHandId.value = null }, 2000)
 }
 
 onMounted(async () => {
@@ -186,7 +202,7 @@ async function deleteHand(handId: string) {
     }
   }
 
-  if (expandedHand.value === handId) expandedHand.value = null
+  if (selectedHand.value?.id === handId) { showHandModal.value = false; selectedHand.value = null }
   showDeleteHandModal.value = false
   deleteHandTarget.value = null
 }
@@ -199,6 +215,10 @@ function openDeleteHandModal(h: HandRow) {
 function drillIntoPosition(position: string) {
   positionFilter.value = position
   activeTab.value = 'hands'
+}
+
+function drillIntoHand(h: HandRow) {
+  openHandDetail(h)
 }
 
 function openDeleteSessionModal(s: SessionRow) {
@@ -287,6 +307,14 @@ const positionStats = computed(() => {
   return [...map.entries()]
     .map(([position, stats]) => ({ position, ...stats, winRate: (stats.won / stats.played) * 100 }))
     .sort((a, b) => b.profit - a.profit)
+})
+
+// Recent hands for overview (reverse chronological, already sorted from load)
+const recentHands = computed(() => {
+  const source = selectedSession.value
+    ? hands.value.filter(h => h.session_id === selectedSession.value!.id)
+    : hands.value
+  return source.slice(0, 20)
 })
 
 // Session-specific hands for drill-down
@@ -621,6 +649,49 @@ const displayedHands = computed(() => {
             </div>
           </div>
 
+          <!-- Recent Hands -->
+          <div v-if="recentHands.length > 0" class="bg-gray-900/60 border border-gray-800/60 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Recent Hands</span>
+              <button
+                class="text-[0.6rem] text-gray-500 hover:text-white transition-colors underline underline-offset-2"
+                @click="activeTab = 'hands'; positionFilter = null"
+              >
+                View all
+              </button>
+            </div>
+            <div class="space-y-1">
+              <button
+                v-for="h in recentHands"
+                :key="h.id"
+                class="w-full flex items-center gap-2 text-xs bg-gray-800/40 rounded-lg px-3 py-2 hover:bg-gray-800/60 transition-colors cursor-pointer text-left"
+                @click="drillIntoHand(h)"
+              >
+                <span class="text-gray-600 w-8 text-right font-mono">#{{ h.hand_number }}</span>
+                <span class="font-mono text-white w-14">{{ h.hole_cards }}</span>
+                <span class="text-gray-600 w-8 text-center text-[0.6rem]">{{ h.position }}</span>
+                <span class="font-mono text-gray-500 text-[0.65rem] flex-1 truncate">{{ h.board || '---' }}</span>
+                <span
+                  class="px-1.5 py-0.5 rounded text-[0.55rem] font-bold uppercase w-14 text-center"
+                  :class="{
+                    'bg-green-900/40 text-green-400': h.result === 'won',
+                    'bg-red-900/40 text-red-400': h.result === 'lost',
+                    'bg-gray-800/60 text-gray-500': h.result === 'folded',
+                  }"
+                >
+                  {{ h.result }}
+                </span>
+                <span
+                  class="font-mono w-14 text-right font-bold"
+                  :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                >
+                  {{ formatProfit(h.profit) }}
+                </span>
+                <span class="text-gray-600 text-[0.6rem]">&rsaquo;</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Export & Delete -->
           <div class="flex items-center justify-between pt-4 border-t border-gray-800/40">
             <div class="flex gap-2">
@@ -732,124 +803,29 @@ const displayedHands = computed(() => {
 
           <div class="space-y-2">
             <template v-for="h in displayedHands" :key="h.id">
-              <div
-                class="bg-gray-900/60 border border-gray-800/60 rounded-xl overflow-hidden hover:border-gray-700/60 transition-colors"
+              <button
+                class="w-full text-left px-4 py-3 flex items-center gap-3 bg-gray-900/60 border border-gray-800/60 rounded-xl hover:border-gray-700/60 hover:bg-gray-800/20 transition-colors cursor-pointer"
+                @click="openHandDetail(h)"
               >
-                <!-- Hand row -->
-                <button
-                  class="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-800/20 transition-colors"
-                  @click="expandedHand = expandedHand === h.id ? null : h.id"
+                <span class="text-xs text-gray-500 w-8">#{{ h.hand_number }}</span>
+                <span class="font-mono text-white text-sm w-16">{{ h.hole_cards }}</span>
+                <span class="font-mono text-gray-500 text-xs flex-1 truncate">{{ h.board || '---' }}</span>
+                <span class="text-xs text-gray-400 w-8">{{ h.position }}</span>
+                <span
+                  class="px-2 py-0.5 rounded text-[0.6rem] font-bold uppercase w-16 text-center"
+                  :class="{
+                    'bg-green-900/40 text-green-400': h.result === 'won',
+                    'bg-red-900/40 text-red-400': h.result === 'lost',
+                    'bg-gray-800/60 text-gray-500': h.result === 'folded',
+                  }"
                 >
-                  <span class="text-gray-600 text-xs w-4">{{ expandedHand === h.id ? '&#9660;' : '&#9654;' }}</span>
-                  <span class="text-xs text-gray-500 w-8">#{{ h.hand_number }}</span>
-                  <span class="font-mono text-white text-sm w-16">{{ h.hole_cards }}</span>
-                  <span class="font-mono text-gray-500 text-xs flex-1 truncate">{{ h.board || '---' }}</span>
-                  <span class="text-xs text-gray-400 w-8">{{ h.position }}</span>
-                  <span
-                    class="px-2 py-0.5 rounded text-[0.6rem] font-bold uppercase w-16 text-center"
-                    :class="{
-                      'bg-green-900/40 text-green-400': h.result === 'won',
-                      'bg-red-900/40 text-red-400': h.result === 'lost',
-                      'bg-gray-800/60 text-gray-500': h.result === 'folded',
-                    }"
-                  >
-                    {{ h.result }}
-                  </span>
-                  <span class="font-mono text-sm w-16 text-right font-bold" :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'">
-                    {{ formatProfit(h.profit) }}
-                  </span>
-                </button>
-
-                <!-- Expanded detail -->
-                <div v-if="expandedHand === h.id" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10 space-y-4">
-                  <!-- Result + Replay -->
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                      <span
-                        class="px-3 py-1 rounded-lg text-sm font-bold"
-                        :class="{
-                          'bg-green-600/20 text-green-400': h.result === 'won',
-                          'bg-red-600/15 text-red-400': h.result === 'lost',
-                          'bg-gray-700/40 text-gray-400': h.result === 'folded',
-                        }"
-                      >
-                        {{ h.result === 'won' ? 'WON' : h.result === 'lost' ? 'LOST' : 'FOLDED' }}
-                      </span>
-                      <span :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold text-lg">
-                        {{ formatProfit(h.profit) }}
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs text-gray-500">Pot: <span class="text-yellow-400 font-mono">${{ h.pot_size }}</span></span>
-                      <NuxtLink v-if="h.players && h.players.length > 0" :to="`/replay?hand=${h.id}`">
-                        <UButton variant="outline" color="primary" size="xs" icon="i-lucide-play">Replay</UButton>
-                      </NuxtLink>
-                      <UButton v-if="h.actions && h.actions.length > 0" variant="outline" color="info" size="xs" icon="i-lucide-search" @click.stop="openAnalysis(h)">Analyze</UButton>
-                      <UButton variant="ghost" color="neutral" size="xs" icon="i-lucide-download" @click="exportSingleHandPokerStars(h)">Export</UButton>
-                      <UButton variant="ghost" color="error" size="xs" icon="i-lucide-trash-2" @click.stop="openDeleteHandModal(h)">Delete</UButton>
-                    </div>
-                  </div>
-
-                  <!-- Cards -->
-                  <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-gray-900/50 rounded-lg p-3">
-                      <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Your Hand</div>
-                      <div class="text-xl font-mono font-bold text-white">{{ h.hole_cards }}</div>
-                    </div>
-                    <div v-if="h.board" class="bg-gray-900/50 rounded-lg p-3">
-                      <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Board</div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-lg font-mono text-white">{{ boardCards(h.board).slice(0, 3).join(' ') }}</span>
-                        <span v-if="boardCards(h.board).length >= 4" class="text-lg font-mono text-amber-300">{{ boardCards(h.board)[3] }}</span>
-                        <span v-if="boardCards(h.board).length >= 5" class="text-lg font-mono text-red-300">{{ boardCards(h.board)[4] }}</span>
-                      </div>
-                    </div>
-                    <div v-else class="bg-gray-900/50 rounded-lg p-3">
-                      <div class="text-xs text-gray-600">Hand ended preflop</div>
-                    </div>
-                  </div>
-
-                  <!-- Players -->
-                  <div v-if="h.players && h.players.length > 0">
-                    <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Players</div>
-                    <div class="grid grid-cols-2 gap-1.5">
-                      <div
-                        v-for="(player, pi) in h.players"
-                        :key="pi"
-                        class="flex items-center justify-between bg-gray-900/40 rounded px-2.5 py-1.5 text-xs"
-                        :class="player.folded ? 'opacity-40' : ''"
-                      >
-                        <div class="flex items-center gap-1.5">
-                          <span :class="player.isHero ? 'text-amber-400' : 'text-gray-300'" class="font-semibold">{{ player.name }}</span>
-                          <span class="text-gray-600 text-[0.55rem]">{{ player.position }}</span>
-                        </div>
-                        <div class="flex items-center gap-1">
-                          <span class="font-mono text-white">{{ player.holeCards || '?' }}</span>
-                          <span v-if="player.folded" class="text-red-400/50 text-[0.5rem]">FOLD</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Hand History -->
-                  <div v-if="h.players && h.players.length > 0">
-                    <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Hand History</div>
-                    <div class="bg-gray-900/50 rounded-lg p-3 max-h-60 overflow-y-auto">
-                      <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap"><template v-for="(line, li) in toPokerStarsFormat(h, getStakeFromLevel(h.stake_level)).split('\n')" :key="li"><span :class="[
-                        line.startsWith('***') ? 'text-yellow-500/80 font-semibold' : '',
-                        line.startsWith('Dealt to') ? 'text-amber-400' : '',
-                        line.includes('collected') ? 'text-green-400 font-semibold' : '',
-                        line.startsWith('Seat') && line.includes('won') ? 'text-green-400' : '',
-                        line.startsWith('Seat') && line.includes('lost') ? 'text-red-400/70' : '',
-                        line.startsWith('Seat') && line.includes('folded') ? 'text-gray-600' : '',
-                        line.startsWith('PokerStars') || line.startsWith('Table') ? 'text-gray-500' : '',
-                        line.startsWith('Board') || line.startsWith('Total') ? 'text-gray-400' : '',
-                      ]">{{ line }}
-</span></template></pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  {{ h.result }}
+                </span>
+                <span class="font-mono text-sm w-16 text-right font-bold" :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'">
+                  {{ formatProfit(h.profit) }}
+                </span>
+                <span class="text-gray-600 text-[0.6rem]">&rsaquo;</span>
+              </button>
             </template>
           </div>
           <div v-if="displayedHands.length === 0" class="text-center text-gray-500 text-sm py-8">
@@ -992,6 +968,119 @@ const displayedHands = computed(() => {
             >
               Delete Hand
             </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ═══ HAND DETAIL MODAL ═══ -->
+    <UModal
+      v-model:open="showHandModal"
+      :dismissible="true"
+      :ui="{ width: 'max-w-2xl' }"
+    >
+      <template #body>
+        <div v-if="selectedHand" class="p-6 space-y-5">
+          <!-- Header: result + profit -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-500 font-mono">#{{ selectedHand.hand_number }}</span>
+              <span
+                class="px-3 py-1 rounded-lg text-sm font-bold"
+                :class="{
+                  'bg-green-600/20 text-green-400': selectedHand.result === 'won',
+                  'bg-red-600/15 text-red-400': selectedHand.result === 'lost',
+                  'bg-gray-700/40 text-gray-400': selectedHand.result === 'folded',
+                }"
+              >
+                {{ selectedHand.result === 'won' ? 'WON' : selectedHand.result === 'lost' ? 'LOST' : 'FOLDED' }}
+              </span>
+              <span :class="selectedHand.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold text-xl">
+                {{ formatProfit(selectedHand.profit) }}
+              </span>
+            </div>
+            <span class="text-xs text-gray-500">
+              Pot: <span class="text-yellow-400 font-mono">${{ selectedHand.pot_size }}</span>
+              &middot; {{ selectedHand.position }}
+            </span>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <NuxtLink v-if="selectedHand.players && selectedHand.players.length > 0" :to="`/replay?hand=${selectedHand.id}`">
+              <UButton variant="outline" color="primary" size="xs" icon="i-lucide-play">Replay</UButton>
+            </NuxtLink>
+            <UButton v-if="selectedHand.actions && selectedHand.actions.length > 0" variant="outline" color="info" size="xs" icon="i-lucide-search" @click="openAnalysis(selectedHand)">Analyze</UButton>
+            <UButton
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              :icon="copiedHandId === selectedHand.id ? 'i-lucide-check' : 'i-lucide-clipboard'"
+              @click="copyHandToClipboard(selectedHand)"
+            >
+              {{ copiedHandId === selectedHand.id ? 'Copied' : 'Copy' }}
+            </UButton>
+            <UButton variant="ghost" color="neutral" size="xs" icon="i-lucide-download" @click="exportSingleHandPokerStars(selectedHand)">Export</UButton>
+            <UButton variant="ghost" color="error" size="xs" icon="i-lucide-trash-2" @click="openDeleteHandModal(selectedHand)">Delete</UButton>
+          </div>
+
+          <!-- Cards -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-gray-900/50 rounded-lg p-3">
+              <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Your Hand</div>
+              <div class="text-xl font-mono font-bold text-white">{{ selectedHand.hole_cards }}</div>
+            </div>
+            <div v-if="selectedHand.board" class="bg-gray-900/50 rounded-lg p-3">
+              <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Board</div>
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-mono text-white">{{ boardCards(selectedHand.board).slice(0, 3).join(' ') }}</span>
+                <span v-if="boardCards(selectedHand.board).length >= 4" class="text-lg font-mono text-amber-300">{{ boardCards(selectedHand.board)[3] }}</span>
+                <span v-if="boardCards(selectedHand.board).length >= 5" class="text-lg font-mono text-red-300">{{ boardCards(selectedHand.board)[4] }}</span>
+              </div>
+            </div>
+            <div v-else class="bg-gray-900/50 rounded-lg p-3">
+              <div class="text-xs text-gray-600">Hand ended preflop</div>
+            </div>
+          </div>
+
+          <!-- Players -->
+          <div v-if="selectedHand.players && selectedHand.players.length > 0">
+            <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Players</div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <div
+                v-for="(player, pi) in selectedHand.players"
+                :key="pi"
+                class="flex items-center justify-between bg-gray-900/40 rounded px-2.5 py-1.5 text-xs"
+                :class="player.folded ? 'opacity-40' : ''"
+              >
+                <div class="flex items-center gap-1.5">
+                  <span :class="player.isHero ? 'text-amber-400' : 'text-gray-300'" class="font-semibold">{{ player.name }}</span>
+                  <span class="text-gray-600 text-[0.55rem]">{{ player.position }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="font-mono text-white">{{ player.holeCards || '?' }}</span>
+                  <span v-if="player.folded" class="text-red-400/50 text-[0.5rem]">FOLD</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hand History -->
+          <div v-if="selectedHand.players && selectedHand.players.length > 0">
+            <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Hand History</div>
+            <div class="bg-gray-900/50 rounded-lg p-3 max-h-72 overflow-y-auto">
+              <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap"><template v-for="(line, li) in toPokerStarsFormat(selectedHand, getStakeFromLevel(selectedHand.stake_level)).split('\n')" :key="li"><span :class="[
+                line.startsWith('***') ? 'text-yellow-500/80 font-semibold' : '',
+                line.startsWith('Dealt to') ? 'text-amber-400' : '',
+                line.includes('collected') ? 'text-green-400 font-semibold' : '',
+                line.startsWith('Seat') && line.includes('won') ? 'text-green-400' : '',
+                line.startsWith('Seat') && line.includes('lost') ? 'text-red-400/70' : '',
+                line.startsWith('Seat') && line.includes('folded') ? 'text-gray-600' : '',
+                line.startsWith('PokerStars') || line.startsWith('Table') ? 'text-gray-500' : '',
+                line.startsWith('Board') || line.startsWith('Total') ? 'text-gray-400' : '',
+              ]">{{ line }}
+</span></template></pre>
+            </div>
           </div>
         </div>
       </template>

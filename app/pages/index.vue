@@ -551,15 +551,16 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           >
             <span class="text-xs text-gray-400">Stack</span>
             <span
-              class="text-base font-bold font-mono"
+              class="text-base font-bold font-mono tabular-nums min-w-[3.5rem] text-right"
               :class="gs.hero.value.chips >= startingStack ? 'text-green-400' : 'text-red-400'"
             >
               {{ formatPot(gs.hero.value.chips) }}
             </span>
             <span
-              v-if="gs.hero.value.chips !== startingStack"
-              class="text-xs font-mono"
-              :class="gs.hero.value.chips >= startingStack ? 'text-green-500/60' : 'text-red-500/60'"
+              class="text-xs font-mono tabular-nums min-w-[3rem]"
+              :class="gs.hero.value.chips !== startingStack
+                ? (gs.hero.value.chips >= startingStack ? 'text-green-500/60' : 'text-red-500/60')
+                : 'invisible'"
             >
               ({{ gs.hero.value.chips >= startingStack ? '+' : '' }}{{ formatPot(gs.hero.value.chips - startingStack) }})
             </span>
@@ -602,7 +603,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             </template>
 
             <template #pot>
-              <div class="text-center text-yellow-400 font-bold text-sm">
+              <div class="text-center text-yellow-400 font-bold text-sm font-mono tabular-nums min-w-[5rem]">
                 Pot: {{ formatPot(gs.pot.value) }}
               </div>
             </template>
@@ -633,7 +634,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           <!-- Action status (between table and bet controls) -->
           <div
             v-if="gs.dealt.value && !gs.heroTurn.value && gs.street.value !== 'showdown' && gs.activePlayers.value.length > 1"
-            class="flex justify-center"
+            class="flex justify-center min-h-[2.75rem]"
           >
             <div class="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-2xl px-5 py-2.5 shadow-lg max-w-md">
               <!-- Header: name + dots -->
@@ -709,7 +710,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
               <div class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
               <span class="text-sm font-semibold text-amber-200">
                 Your Turn
-                <span class="text-amber-400/60 font-normal ml-1">{{ gs.toCall.value > 0 ? `— $${gs.toCall.value} to call` : '— check or bet' }}</span>
+                <span class="text-amber-400/60 font-normal ml-1 font-mono tabular-nums">{{ gs.toCall.value > 0 ? `— $${gs.toCall.value} to call` : '— check or bet' }}</span>
               </span>
             </div>
           </div>
@@ -761,7 +762,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
         </div>
 
         <!-- Stats column -->
-        <div class="w-full lg:w-80 space-y-3">
+        <div class="w-full lg:w-80 lg:sticky lg:top-4 space-y-3">
         <StatsPanel
           :hole-cards="gs.heroHoleCards.value as [import('~/utils/cards').Card, import('~/utils/cards').Card] | null"
           :community="gs.visibleCommunity.value"

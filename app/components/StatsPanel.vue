@@ -304,9 +304,9 @@ function afLabel(af: number): string {
 </script>
 
 <template>
-  <div class="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden text-sm">
+  <div class="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden text-sm lg:h-[calc(100vh-6rem)] flex flex-col">
     <!-- Tab bar -->
-    <div class="flex border-b border-gray-700/50">
+    <div class="flex border-b border-gray-700/50 shrink-0">
       <button
         v-for="tab in (['hand', 'session', 'ranges', 'opponents'] as const)"
         :key="tab"
@@ -320,33 +320,62 @@ function afLabel(af: number): string {
       </button>
     </div>
 
-    <div class="p-4 space-y-3 max-h-[calc(100vh-12rem)] overflow-y-auto">
+    <!-- Pinned: Your Hand + Recommendation (Live tab only) -->
+    <div v-if="activeTab === 'hand' && analysis && holeCards" class="p-4 pb-0 space-y-3 shrink-0 border-b border-gray-700/30">
+      <!-- Hero's Hand -->
+      <div>
+        <div class="flex items-center justify-between">
+          <span class="text-gray-400 text-xs">Your Hand</span>
+          <span class="font-mono text-base">{{ formatHoleCards(holeCards) }}</span>
+        </div>
+        <div class="mt-1 flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-xs font-semibold text-white" :class="tierColor">
+            {{ analysis.preflopTierLabel }}
+          </span>
+          <UTooltip text="Classic Chen formula — raw preflop hand strength (0-20). Based on pairs, suited cards, connectedness, and high cards. Does not account for position or playstyle.">
+            <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Chen: {{ analysis.chenScore }}</span>
+          </UTooltip>
+          <UTooltip text="Chen+ — position- and style-adjusted hand strength. Adds bonuses for late position (BTN/CO), suited connectors for loose players, and big cards for tight-aggressive players. This is what bots use for decisions.">
+            <span class="text-gray-300 text-xs font-semibold border-b border-dotted border-gray-600 cursor-help">Chen+: {{ analysis.chenMaxScore }}</span>
+          </UTooltip>
+          <UTooltip :text="positionTooltip">
+            <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Pos: {{ position }}</span>
+          </UTooltip>
+        </div>
+      </div>
+
+      <!-- Recommendation (pinned, hidden after fold or showdown) -->
+      <div v-if="!heroFolded && street !== 'showdown'" class="pb-3">
+        <UTooltip text="Suggested action based on your equity, position, draws, and pot odds. Green = confident play. Yellow = marginal, proceed carefully. Red = weak, consider folding.">
+          <div class="text-xs text-gray-400 mb-1.5 border-b border-dotted border-gray-600 cursor-help inline-block">Recommendation</div>
+        </UTooltip>
+        <button
+          class="w-full rounded-lg px-3 py-2 text-center transition-all"
+          :class="[
+            actionColor,
+            isClickableAction
+              ? 'cursor-pointer hover:brightness-125 active:scale-[0.97] ring-1 ring-white/10'
+              : 'cursor-default',
+          ]"
+          :disabled="!isClickableAction"
+          @click="handleActionClick"
+        >
+          <div class="text-lg font-bold text-white tracking-wide">
+            {{ analysis.action }}
+          </div>
+          <div v-if="isClickableAction && heroTurn" class="text-[0.6rem] text-white/50 mt-0.5">
+            click to {{ analysis.action.toLowerCase() }}
+          </div>
+        </button>
+        <p class="mt-2 text-xs leading-relaxed" :class="reasoningColor">{{ analysis.reasoning }}</p>
+      </div>
+    </div>
+
+    <div class="p-4 space-y-3 overflow-y-auto min-h-0 flex-1">
 
       <!-- ═══ LIVE HAND TAB ═══ -->
       <template v-if="activeTab === 'hand'">
         <template v-if="analysis && holeCards">
-          <!-- Hero's Hand -->
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-400 text-xs">Your Hand</span>
-              <span class="font-mono text-base">{{ formatHoleCards(holeCards) }}</span>
-            </div>
-            <div class="mt-1 flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded text-xs font-semibold text-white" :class="tierColor">
-                {{ analysis.preflopTierLabel }}
-              </span>
-              <UTooltip text="Classic Chen formula — raw preflop hand strength (0-20). Based on pairs, suited cards, connectedness, and high cards. Does not account for position or playstyle.">
-                <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Chen: {{ analysis.chenScore }}</span>
-              </UTooltip>
-              <UTooltip text="Chen+ — position- and style-adjusted hand strength. Adds bonuses for late position (BTN/CO), suited connectors for loose players, and big cards for tight-aggressive players. This is what bots use for decisions.">
-                <span class="text-gray-300 text-xs font-semibold border-b border-dotted border-gray-600 cursor-help">Chen+: {{ analysis.chenMaxScore }}</span>
-              </UTooltip>
-              <UTooltip :text="positionTooltip">
-                <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Pos: {{ position }}</span>
-              </UTooltip>
-            </div>
-          </div>
-
           <!-- Made Hand -->
           <div v-if="street !== 'preflop'" class="border-t border-gray-700/50 pt-3">
             <div class="text-xs text-gray-400">Current Hand</div>
@@ -362,7 +391,7 @@ function afLabel(af: number): string {
               <UTooltip text="Your chance of winning this hand if all remaining cards are dealt out. Calculated via Monte Carlo simulation (300-500 random runouts).">
                 <span class="text-xs text-gray-400 border-b border-dotted border-gray-600 cursor-help">Equity vs {{ numOpponents }} opponent{{ numOpponents > 1 ? 's' : '' }}</span>
               </UTooltip>
-              <span class="text-lg font-bold font-mono" :class="equityColor">{{ analysis.equity }}%</span>
+              <span class="text-lg font-bold font-mono tabular-nums min-w-[3.5rem] text-right" :class="equityColor">{{ analysis.equity }}%</span>
             </div>
             <div class="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
               <div
@@ -409,22 +438,27 @@ function afLabel(af: number): string {
 
           <!-- Pot Odds -->
           <div v-if="potOdds" class="border-t border-gray-700/50 pt-3">
-            <UTooltip text="The ratio between the pot and the amount you need to call. If your equity exceeds the required percentage, calling is mathematically profitable.">
-              <div class="text-xs text-gray-400 mb-1 border-b border-dotted border-gray-600 cursor-help inline-block">Pot Odds</div>
+            <UTooltip text="Compare your equity to the pot odds. If your equity % exceeds the required %, calling is mathematically profitable.">
+              <div class="text-xs text-gray-400 mb-2 border-b border-dotted border-gray-600 cursor-help inline-block">Pot Odds</div>
             </UTooltip>
             <div class="grid grid-cols-2 gap-2 text-xs">
-              <div class="bg-gray-800/50 rounded px-2 py-1">
-                <div class="text-gray-500">Ratio</div>
-                <div class="text-white font-mono">{{ potOdds.ratio }} : 1</div>
+              <div class="bg-gray-800/50 rounded px-2 py-1.5">
+                <div class="text-gray-500 mb-0.5">Your Equity</div>
+                <div class="font-mono tabular-nums text-base font-bold" :class="analysis && analysis.equity >= parseFloat(potOdds.percentage) ? 'text-green-400' : 'text-red-400'">
+                  {{ analysis ? analysis.equity : '—' }}%
+                </div>
               </div>
-              <div class="bg-gray-800/50 rounded px-2 py-1">
-                <div class="text-gray-500">Need</div>
-                <div class="text-white font-mono">{{ potOdds.percentage }}%</div>
+              <div class="bg-gray-800/50 rounded px-2 py-1.5">
+                <div class="text-gray-500 mb-0.5">Need</div>
+                <div class="text-white font-mono tabular-nums text-base font-bold">{{ potOdds.percentage }}%</div>
               </div>
             </div>
-            <div v-if="potOddsVerdict" class="mt-1.5 text-xs font-semibold"
-              :class="potOddsVerdict.pass ? 'text-green-400' : 'text-red-400'">
-              {{ potOddsVerdict.pass ? '✓' : '✗' }} {{ potOddsVerdict.text }}
+            <div class="mt-1.5 flex items-center justify-between">
+              <span v-if="potOddsVerdict" class="text-xs font-semibold"
+                :class="potOddsVerdict.pass ? 'text-green-400' : 'text-red-400'">
+                {{ potOddsVerdict.pass ? '✓' : '✗' }} {{ potOddsVerdict.text }}
+              </span>
+              <span class="text-[0.6rem] text-gray-600 font-mono tabular-nums">{{ potOdds.ratio }} : 1</span>
             </div>
           </div>
 
@@ -434,7 +468,7 @@ function afLabel(af: number): string {
               <UTooltip text="Expected Value — the average profit or loss of calling this bet over many hands. Positive EV (+EV) means the call is profitable long-term. Calculated as: (equity × pot) - ((1 - equity) × call amount). Fold EV is always $0.">
                 <span class="text-xs text-gray-400 border-b border-dotted border-gray-600 cursor-help">Expected Value</span>
               </UTooltip>
-              <span class="text-lg font-bold font-mono" :class="expectedValue >= 0 ? 'text-green-400' : 'text-red-400'">
+              <span class="text-lg font-bold font-mono tabular-nums min-w-[4rem] text-right" :class="expectedValue >= 0 ? 'text-green-400' : 'text-red-400'">
                 {{ expectedValue >= 0 ? '+' : '' }}${{ expectedValue.toFixed(1) }}
               </span>
             </div>
@@ -556,31 +590,6 @@ function afLabel(af: number): string {
             </div>
           </div>
 
-          <!-- Recommendation (hidden after fold or showdown) -->
-          <div v-if="!heroFolded && street !== 'showdown'" class="border-t border-gray-700/50 pt-3">
-            <UTooltip text="Suggested action based on your equity, position, draws, and pot odds. Green = confident play. Yellow = marginal, proceed carefully. Red = weak, consider folding.">
-              <div class="text-xs text-gray-400 mb-1.5 border-b border-dotted border-gray-600 cursor-help inline-block">Recommendation</div>
-            </UTooltip>
-            <button
-              class="w-full rounded-lg px-3 py-2 text-center transition-all"
-              :class="[
-                actionColor,
-                isClickableAction
-                  ? 'cursor-pointer hover:brightness-125 active:scale-[0.97] ring-1 ring-white/10'
-                  : 'cursor-default',
-              ]"
-              :disabled="!isClickableAction"
-              @click="handleActionClick"
-            >
-              <div class="text-lg font-bold text-white tracking-wide">
-                {{ analysis.action }}
-              </div>
-              <div v-if="isClickableAction && heroTurn" class="text-[0.6rem] text-white/50 mt-0.5">
-                click to {{ analysis.action.toLowerCase() }}
-              </div>
-            </button>
-            <p class="mt-2 text-xs leading-relaxed" :class="reasoningColor">{{ analysis.reasoning }}</p>
-          </div>
         </template>
         <div v-else class="text-center text-gray-500 text-xs py-8">Waiting for deal...</div>
       </template>
@@ -678,7 +687,7 @@ function afLabel(af: number): string {
             </div>
             <div class="bg-gray-800/50 rounded-lg px-3 py-2 text-center">
               <div
-                class="text-2xl font-bold font-mono"
+                class="text-2xl font-bold font-mono tabular-nums"
                 :class="sessionStats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'"
               >
                 {{ sessionStats.totalProfit >= 0 ? '+' : '' }}${{ sessionStats.totalProfit }}

@@ -55,11 +55,11 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Equity**: Monte Carlo simulation (300 iterations, adaptive to 500 in close spots) against random opponent ranges
 - **Hand improvement probabilities**: Per-rank % chance of making each hand by the river (e.g., "Flush: 19.2%", "Two Pair: 32.4%")
 - **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river
-- **Pot odds**: Ratio, percentage, required equity, pass/fail verdict against your actual equity
+- **Pot odds**: Side-by-side percentage comparison (Your Equity vs Need), with ratio shown as secondary reference, pass/fail verdict
 - **Expected Value (EV)**: `(equity x pot) - call cost` -- green for +EV (profitable call), red for -EV
 - **SPR**: Stack-to-Pot Ratio with strategic guidance (low/medium/high SPR advice)
 - **Rule of 2/4**: Quick mental math reference alongside exact calculations
-- **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street. Color-coded: green (confident), yellow (marginal), red (fold).
+- **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street. Color-coded: green (confident), yellow (marginal), red (fold). Pinned at top of stats panel so it's always visible without scrolling.
 
 ### Hand Ranges
 - Authentic 6-max cash game opening ranges by position (UTG 15% through BTN 42%)
@@ -124,6 +124,8 @@ The setup screen shows your full table roster with inline controls. Each bot can
 | Ncotty Sguyen | 30% | Loose-aggressive with flair, tilts on bad beats | 1.2x | 91% |
 | Cohnny Jhan | 22% | Old-school TAG, traps, patient, consistent | 0.5x | 97% |
 | Krynn Benney | 25% | Modern GTO high-roller, creative lines | 0.6x | 95% |
+
+**How pro stats are derived:** The 18 pro persona stats are hand-crafted archetypes, not pulled from a PokerTracker or HendonMob database. Each profile is built from publicly known playstyle characteristics -- interviews, televised hands, training content, and community consensus about how these players approach the game. VPIP/PFR values reflect the player's documented tight-or-loose tendencies (e.g., a known LAG gets 30%+ VPIP, a known nit gets sub-22%). Aggression, bluff frequency, and tilt multipliers are tuned to match the player's public reputation (e.g., a famously tilt-prone player gets a high tilt multiplier; a "poker robot" gets near-zero). Consistency values reflect perceived technical precision. The goal is _recognizable playstyle archetypes_ for learning, not exact replication of real-world database stats. All pro persona names use swapped initials to avoid identity appropriation.
 
 **Table composition:**
 - **Pro count selector**: 0 / 1 / 2 / 3 / All pros per table (default 2)
@@ -225,9 +227,9 @@ The app has three persistence tiers depending on configuration:
 - **"Replay Again"** button to try the same hand multiple times
 
 ### Stats Page (`/stats`)
-- **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position
+- **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position, recent hands (last 20, reverse chronological -- click to expand details with Replay/Analyze/Export)
 - **Sessions**: History cards with per-session stats, individual delete, per-session JSON/CSV/PokerStars export
-- **Hands**: Click any row to expand -- PokerStars-format hand history with color-coded streets, all players' hole cards, and per-hand export
+- **Hands**: Click any row to open a detail modal -- PokerStars-format hand history with color-coded streets, all players' hole cards, copy-to-clipboard, and per-hand export
 - **Hand Analysis Modal**: Click "Analyze" on any hand for a detailed street-by-street instructional breakdown:
   - Player profiles with playstyle, stats, tilt, and leak descriptions
   - Per-action explanations referencing Chen/Chen+, board texture, hand strength, draws, and the specific bot's persona

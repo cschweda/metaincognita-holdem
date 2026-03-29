@@ -131,7 +131,7 @@ function formatAmount(n: number): string {
         >
           <template v-if="canCheck">Check</template>
           <template v-else>
-            Call {{ formatAmount(Math.min(toCall, maxRaise)) }}
+            Call <span class="tabular-nums">{{ formatAmount(Math.min(toCall, maxRaise)) }}</span>
             <span v-if="toCall >= maxRaise" class="text-xs opacity-70 ml-1">(all-in)</span>
           </template>
         </button>
@@ -152,10 +152,10 @@ function formatAmount(n: number): string {
           @click="handleRaise"
         >
           <template v-if="isAllIn">
-            All-In {{ formatAmount(maxRaise) }}
+            All-In <span class="tabular-nums">{{ formatAmount(maxRaise) }}</span>
           </template>
           <template v-else>
-            Raise {{ formatAmount(raiseAmount) }}
+            Raise <span class="tabular-nums">{{ formatAmount(raiseAmount) }}</span>
           </template>
         </button>
       </UTooltip>
@@ -186,7 +186,7 @@ function formatAmount(n: number): string {
             @click="!preset.isClamped && raisePreset(preset.amount)"
           >
             {{ preset.label }}
-            <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(preset.raw) }}</span>
+            <span class="block text-[0.6rem] opacity-60 mt-0.5 tabular-nums">{{ formatAmount(preset.raw) }}</span>
           </button>
         </UTooltip>
 
@@ -201,14 +201,14 @@ function formatAmount(n: number): string {
             @click="raisePreset(maxRaise)"
           >
             All-In
-            <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(maxRaise) }}</span>
+            <span class="block text-[0.6rem] opacity-60 mt-0.5 tabular-nums">{{ formatAmount(maxRaise) }}</span>
           </button>
         </UTooltip>
       </div>
 
       <!-- Slider -->
       <div class="flex items-center gap-3">
-        <span class="text-[0.65rem] text-gray-500 w-12 text-right">{{ formatAmount(minRaise) }}</span>
+        <span class="text-[0.65rem] text-gray-500 w-16 text-right font-mono tabular-nums">{{ formatAmount(minRaise) }}</span>
         <input
           v-model.number="raiseAmount"
           type="range"
@@ -221,14 +221,14 @@ function formatAmount(n: number): string {
                  [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-green-300
                  [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer"
         />
-        <span class="text-[0.65rem] text-gray-500 w-12">{{ formatAmount(maxRaise) }}</span>
+        <span class="text-[0.65rem] text-gray-500 w-16 font-mono tabular-nums">{{ formatAmount(maxRaise) }}</span>
       </div>
 
       <!-- Current raise display + min-raise indicator + custom input toggle -->
       <div class="flex items-center justify-between">
         <div class="text-sm">
           <span class="text-gray-400">Raise to: </span>
-          <span class="text-green-400 font-bold font-mono">{{ formatAmount(raiseAmount) }}</span>
+          <span class="text-green-400 font-bold font-mono tabular-nums">{{ formatAmount(raiseAmount) }}</span>
           <span v-if="isAllIn" class="text-amber-400 text-xs ml-1">(all-in)</span>
           <span class="text-gray-600 text-[0.6rem] ml-2">min {{ formatAmount(minRaise) }}</span>
         </div>

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] - 2026-03-28
+
+### Added
+- **Recent Hands on Overview** — The stats Overview tab now shows a "Recent Hands" section (up to 20 hands, reverse chronological) below the "By Position" breakdown. Click any hand to open a detail modal with Replay, Analyze, Copy, Export, and Delete actions.
+- **Hand Detail Modal** — Replaced expandable hand rows with a full modal dialog. Keeps hand list scroll position stable, gives more room for hand history, and feels consistent with the existing Analyze modal.
+- **Copy to Clipboard** — New "Copy" button in the hand detail modal copies the PokerStars-format hand history to clipboard with a 2-second checkmark confirmation.
+- **Pro stat derivation docs** — README now explains how the 18 pro bot persona stats are derived (hand-crafted archetypes from publicly known playstyle traits, not database exports).
+- **.nvmrc** — Pins Node.js version to 22.14.0 for consistent environments.
+
+### Changed
+- **Pot Odds redesign** — Replaced ratio + percentage layout with side-by-side "Your Equity" vs "Need" percentages for direct visual comparison. Ratio shown as secondary reference. Equity color-coded green/red based on whether it exceeds the required percentage.
+- **Stats panel fixed height** — Panel now uses a fixed viewport-relative height (`h-[calc(100vh-6rem)]`) on desktop with internal scrolling, preventing layout shifts when content changes. Column is sticky-positioned so it stays in view.
+- **Recommendation pinned** — "Your Hand" and the action recommendation are pinned at the top of the stats panel (above the scroll area) so they're always visible without scrolling.
+- **Layout shift reduction** — Added `tabular-nums` and `min-w` constraints to all dynamic number displays: hero stack/delta, pot, player chip counts, action badges, bet control amounts, EV, equity, and session profit. Slider range labels widened from `w-12` to `w-16`. Hero stack delta uses `invisible` instead of `v-if` to reserve space.
+- **Supabase status label** — Status pill now reads "Supabase Connected" instead of just "Supabase" for clarity on the setup screen.
+
 ## [0.12.1] - 2026-03-28
 
 ### Added

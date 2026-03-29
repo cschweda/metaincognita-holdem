@@ -80,7 +80,7 @@ const actionBadge = computed(() => {
       v-if="actionBadge"
       class="absolute -top-5 left-1/2 -translate-x-1/2 z-20
              px-2.5 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide
-             shadow-lg whitespace-nowrap"
+             shadow-lg whitespace-nowrap min-w-[3.5rem] text-center tabular-nums"
       :class="actionBadge.color"
     >
       {{ actionBadge.text }}
@@ -150,7 +150,7 @@ const actionBadge = computed(() => {
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
-      <div class="text-xs mt-0.5 font-mono" :class="chips > 0 ? 'text-green-400' : 'text-red-400'">
+      <div class="text-xs mt-0.5 font-mono tabular-nums" :class="chips > 0 ? 'text-green-400' : 'text-red-400'">
         {{ formattedChips }}
       </div>
     </div>

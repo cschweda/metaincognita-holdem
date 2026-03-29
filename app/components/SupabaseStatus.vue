@@ -53,7 +53,7 @@ const dbStatus = computed<'connected' | 'failed' | 'local' | 'checking'>(() => {
 const dbLabel = computed(() => {
   switch (dbStatus.value) {
     case 'checking': return 'Checking...'
-    case 'connected': return 'Supabase'
+    case 'connected': return 'Supabase Connected'
     case 'failed': return 'DB Failed'
     case 'local': return 'Local Only'
   }
