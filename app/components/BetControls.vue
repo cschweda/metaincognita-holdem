@@ -23,13 +23,19 @@ const emit = defineEmits<{
   raise: [amount: number]
 }>()
 
-const raiseAmount = ref(props.minRaise)
+// Default raise to half-pot (clamped to min/max) — more useful than min-raise on big pots
+function defaultRaise(): number {
+  const halfPot = Math.round(props.pot * 0.5)
+  return Math.min(Math.max(halfPot, props.minRaise), props.maxRaise)
+}
+
+const raiseAmount = ref(defaultRaise())
 const customInput = ref('')
 const showCustom = ref(false)
 
-// Keep raise amount within bounds when props change
-watch(() => [props.minRaise, props.maxRaise], () => {
-  raiseAmount.value = Math.max(props.minRaise, Math.min(raiseAmount.value, props.maxRaise))
+// Reset raise amount to a sensible default when the situation changes
+watch(() => [props.minRaise, props.maxRaise, props.pot], () => {
+  raiseAmount.value = defaultRaise()
 })
 
 const canCheck = computed(() => props.toCall === 0)
