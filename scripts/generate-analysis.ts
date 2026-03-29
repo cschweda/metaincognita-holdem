@@ -35,7 +35,7 @@ interface SimResult {
 
 function runSim(hands: number, players: number): SimResult {
   console.log(`  Running ${hands} hands, ${players} players...`)
-  const raw = execSync(`npx tsx scripts/simulate.ts ${hands} ${players}`, {
+  const raw = execSync(`npx tsx scripts/simulate.ts ${hands} ${players} --pros`, {
     cwd: resolve(__dirname, '..'),
     encoding: 'utf-8',
     timeout: 300000,

@@ -18,28 +18,28 @@ useHead({ title: 'Bot Analysis Report' })
 <section class="mb-10"><h2 class="text-xl font-bold text-white mb-4">6-Player Table &mdash; 1000 Hands</h2>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Avg Pot</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">$274.4</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">$172.3</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Preflop Folds</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">525 (52.5%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">635 (63.5%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Flops Seen</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">475 (47.5%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">365 (36.5%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Turns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">440 (44.0%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">341 (34.1%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Rivers</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">410 (41.0%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">325 (32.5%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Showdowns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">344 (34.4%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">266 (26.6%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">3-Bet Pots</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">286 (28.6%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">229 (22.9%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">All-Ins</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">182 (18.2%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">156 (15.6%)</div>
     </div></div>
 <div class="mt-6"><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Observed vs Configured Stats</h3>
 <p class="text-gray-500">No stats available</p>
@@ -52,63 +52,63 @@ useHead({ title: 'Bot Analysis Report' })
       <th class="text-right px-2">Rebuys</th>
     </tr></thead>
     <tbody><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Loose Lucy</td>
-        <td class="text-right px-2 font-mono text-gray-300">$194</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3406</td>
+        <td class="py-1.5 px-2 text-white">Boyle Drunson</td>
+        <td class="text-right px-2 font-mono text-gray-300">$8189</td>
+        <td class="text-right px-2 font-mono text-green-400">+$7589</td>
+        <td class="text-right px-2 font-mono text-gray-500">2</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Serik Eidel</td>
+        <td class="text-right px-2 font-mono text-gray-300">$437</td>
+        <td class="text-right px-2 font-mono text-red-400">$-2163</td>
+        <td class="text-right px-2 font-mono text-gray-500">12</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Ncotty Sguyen</td>
+        <td class="text-right px-2 font-mono text-gray-300">$327</td>
+        <td class="text-right px-2 font-mono text-red-400">$-3673</td>
+        <td class="text-right px-2 font-mono text-gray-500">19</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Krynn Benney</td>
+        <td class="text-right px-2 font-mono text-gray-300">$3835</td>
+        <td class="text-right px-2 font-mono text-green-400">+$1435</td>
+        <td class="text-right px-2 font-mono text-gray-500">11</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Cohnny Jhan</td>
+        <td class="text-right px-2 font-mono text-gray-300">$334</td>
+        <td class="text-right px-2 font-mono text-red-400">$-866</td>
+        <td class="text-right px-2 font-mono text-gray-500">5</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Sanessa Velbst</td>
+        <td class="text-right px-2 font-mono text-gray-300">$198</td>
+        <td class="text-right px-2 font-mono text-red-400">$-3402</td>
         <td class="text-right px-2 font-mono text-gray-500">17</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Calling Carl</td>
-        <td class="text-right px-2 font-mono text-gray-300">$197</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3203</td>
-        <td class="text-right px-2 font-mono text-gray-500">16</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Dom Twan</td>
-        <td class="text-right px-2 font-mono text-gray-300">$1681</td>
-        <td class="text-right px-2 font-mono text-red-400">$-2119</td>
-        <td class="text-right px-2 font-mono text-gray-500">18</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Wild Wendy</td>
-        <td class="text-right px-2 font-mono text-gray-300">$593</td>
-        <td class="text-right px-2 font-mono text-red-400">$-5007</td>
-        <td class="text-right px-2 font-mono text-gray-500">27</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Utu Sngar</td>
-        <td class="text-right px-2 font-mono text-gray-300">$653</td>
-        <td class="text-right px-2 font-mono text-red-400">$-2747</td>
-        <td class="text-right px-2 font-mono text-gray-500">16</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Ihil Pvey</td>
-        <td class="text-right px-2 font-mono text-gray-300">$14651</td>
-        <td class="text-right px-2 font-mono text-green-400">+$13051</td>
-        <td class="text-right px-2 font-mono text-gray-500">7</td>
       </tr></tbody></table>
 </section>
 
 <section class="mb-10"><h2 class="text-xl font-bold text-white mb-4">8-Player Table &mdash; 1000 Hands</h2>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Avg Pot</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">$463.1</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">$302.2</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Preflop Folds</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">437 (43.7%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">501 (50.1%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Flops Seen</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">563 (56.3%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">499 (49.9%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Turns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">544 (54.4%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">471 (47.1%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Rivers</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">522 (52.2%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">454 (45.4%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">Showdowns</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">447 (44.7%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">385 (38.5%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">3-Bet Pots</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">429 (42.9%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">324 (32.4%)</div>
     </div><div class="bg-gray-800/60 rounded-lg p-3">
       <div class="text-[0.65rem] text-gray-500 uppercase tracking-wider">All-Ins</div>
-      <div class="text-lg font-bold font-mono text-white mt-1">272 (27.2%)</div>
+      <div class="text-lg font-bold font-mono text-white mt-1">212 (21.2%)</div>
     </div></div>
 <div class="mt-6"><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Observed vs Configured Stats</h3>
 <p class="text-gray-500">No stats available</p>
@@ -121,45 +121,45 @@ useHead({ title: 'Bot Analysis Report' })
       <th class="text-right px-2">Rebuys</th>
     </tr></thead>
     <tbody><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Tight Tony</td>
-        <td class="text-right px-2 font-mono text-gray-300">$576</td>
-        <td class="text-right px-2 font-mono text-red-400">$-3224</td>
-        <td class="text-right px-2 font-mono text-gray-500">18</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Loose Lucy</td>
-        <td class="text-right px-2 font-mono text-gray-300">$470</td>
-        <td class="text-right px-2 font-mono text-red-400">$-6330</td>
-        <td class="text-right px-2 font-mono text-gray-500">33</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Aggressive Alex</td>
-        <td class="text-right px-2 font-mono text-gray-300">$203</td>
-        <td class="text-right px-2 font-mono text-red-400">$-4797</td>
-        <td class="text-right px-2 font-mono text-gray-500">24</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Mike the Mouth</td>
-        <td class="text-right px-2 font-mono text-gray-300">$3681</td>
-        <td class="text-right px-2 font-mono text-red-400">$-1919</td>
-        <td class="text-right px-2 font-mono text-gray-500">27</td>
-      </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Utu Sngar</td>
-        <td class="text-right px-2 font-mono text-gray-300">$2071</td>
-        <td class="text-right px-2 font-mono text-red-400">$-1929</td>
+        <td class="py-1.5 px-2 text-white">Aatrik Pantonius</td>
+        <td class="text-right px-2 font-mono text-gray-300">$229</td>
+        <td class="text-right px-2 font-mono text-red-400">$-3771</td>
         <td class="text-right px-2 font-mono text-gray-500">19</td>
       </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Bean-Robert Jellande</td>
-        <td class="text-right px-2 font-mono text-gray-300">$1432</td>
-        <td class="text-right px-2 font-mono text-red-400">$-2568</td>
-        <td class="text-right px-2 font-mono text-gray-500">19</td>
+        <td class="py-1.5 px-2 text-white">Naniel Degreanu</td>
+        <td class="text-right px-2 font-mono text-gray-300">$9592</td>
+        <td class="text-right px-2 font-mono text-green-400">+$8792</td>
+        <td class="text-right px-2 font-mono text-gray-500">3</td>
       </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Mhris Coneymaker</td>
-        <td class="text-right px-2 font-mono text-gray-300">$13728</td>
-        <td class="text-right px-2 font-mono text-green-400">+$10728</td>
-        <td class="text-right px-2 font-mono text-gray-500">14</td>
+        <td class="py-1.5 px-2 text-white">Boyle Drunson</td>
+        <td class="text-right px-2 font-mono text-gray-300">$563</td>
+        <td class="text-right px-2 font-mono text-red-400">$-2837</td>
+        <td class="text-right px-2 font-mono text-gray-500">16</td>
       </tr><tr class="border-b border-gray-800/50">
-        <td class="py-1.5 px-2 text-white">Dom Twan</td>
-        <td class="text-right px-2 font-mono text-gray-300">$6234</td>
-        <td class="text-right px-2 font-mono text-green-400">+$4034</td>
+        <td class="py-1.5 px-2 text-white">Cohnny Jhan</td>
+        <td class="text-right px-2 font-mono text-gray-300">$475</td>
+        <td class="text-right px-2 font-mono text-red-400">$-3725</td>
+        <td class="text-right px-2 font-mono text-gray-500">20</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Kabe Gaplan</td>
+        <td class="text-right px-2 font-mono text-gray-300">$247</td>
+        <td class="text-right px-2 font-mono text-red-400">$-4153</td>
+        <td class="text-right px-2 font-mono text-gray-500">21</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Lhil Paak</td>
+        <td class="text-right px-2 font-mono text-gray-300">$9718</td>
+        <td class="text-right px-2 font-mono text-green-400">+$7518</td>
         <td class="text-right px-2 font-mono text-gray-500">10</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Sanessa Velbst</td>
+        <td class="text-right px-2 font-mono text-gray-300">$982</td>
+        <td class="text-right px-2 font-mono text-red-400">$-3018</td>
+        <td class="text-right px-2 font-mono text-gray-500">19</td>
+      </tr><tr class="border-b border-gray-800/50">
+        <td class="py-1.5 px-2 text-white">Ncotty Sguyen</td>
+        <td class="text-right px-2 font-mono text-gray-300">$202</td>
+        <td class="text-right px-2 font-mono text-red-400">$-3398</td>
+        <td class="text-right px-2 font-mono text-gray-500">17</td>
       </tr></tbody></table>
 </section>
 
@@ -177,105 +177,101 @@ useHead({ title: 'Bot Analysis Report' })
 <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm text-gray-300 space-y-3">
 <p>All hands export in <strong class="text-white">PokerStars format</strong> &mdash; compatible with PokerTracker, HEM, Equilab.</p>
 <p class="text-gray-500"><a href="/sample-hands.txt" class="text-blue-400 hover:text-blue-300 underline underline-offset-2" download>Download the full 1000-hand simulation file</a></p>
-<details class="mt-3" open><summary class="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-wider">Sample Hand 1</summary><div class="bg-gray-950 rounded-lg p-4 mt-2 overflow-x-auto"><pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400">PokerStars Hand #2: Hold'em No Limit ($1/$2) - 2026-04-01 13:39:17 ET
-Table 'Bot Simulation' 8-max Seat #2 is the button
-Seat 1: Tight Tony ($200 in chips)
-Seat 2: Loose Lucy ($194 in chips)
-Seat 3: Aggressive Alex ($197 in chips)
-Seat 4: Mike the Mouth ($212 in chips)
-Seat 5: Utu Sngar ($194 in chips)
-Seat 6: Bean-Robert Jellande ($198 in chips)
-Seat 7: Mhris Coneymaker ($204 in chips)
-Seat 8: Dom Twan ($198 in chips)
-Aggressive Alex: posts small blind $1
-Mike the Mouth: posts big blind $2
+<details class="mt-3" open><summary class="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-wider">Sample Hand 1</summary><div class="bg-gray-950 rounded-lg p-4 mt-2 overflow-x-auto"><pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400">PokerStars Hand #1: Hold'em No Limit ($1/$2) - 2026-04-01 13:42:26 ET
+Table 'Bot Simulation' 8-max Seat #1 is the button
+Seat 1: Aatrik Pantonius ($200 in chips)
+Seat 2: Naniel Degreanu ($199 in chips)
+Seat 3: Boyle Drunson ($185 in chips)
+Seat 4: Cohnny Jhan ($200 in chips)
+Seat 5: Kabe Gaplan ($200 in chips)
+Seat 6: Lhil Paak ($200 in chips)
+Seat 7: Sanessa Velbst ($231 in chips)
+Seat 8: Ncotty Sguyen ($185 in chips)
+Naniel Degreanu: posts small blind $1
+Boyle Drunson: posts big blind $2
 *** HOLE CARDS ***
-Utu Sngar: calls $2
-Bean-Robert Jellande: calls $2
-Mhris Coneymaker: calls $2
-Dom Twan: folds
-Tight Tony: folds
-Loose Lucy: folds
-Aggressive Alex: folds
-Mike the Mouth: checks
-*** FLOP *** [5s 7d Ac]
-Mike the Mouth: checks
-Utu Sngar: checks
-Bean-Robert Jellande: checks
-Mhris Coneymaker: raises to $4
-Mike the Mouth: calls $4
-Utu Sngar: calls $4
-Bean-Robert Jellande: folds
-*** TURN *** [5s 7d Ac] [3d]
-Mike the Mouth: checks
-Utu Sngar: checks
-Mhris Coneymaker: checks
-*** RIVER *** [5s 7d Ac 3d] [9d]
-Mike the Mouth: checks
-Utu Sngar: checks
-Mhris Coneymaker: checks
+Cohnny Jhan: folds
+Kabe Gaplan: folds
+Lhil Paak: folds
+Sanessa Velbst: raises to $4
+Ncotty Sguyen: calls $4
+Aatrik Pantonius: folds
+Naniel Degreanu: folds
+Boyle Drunson: calls $2
+*** FLOP *** [5c 8h Jc]
+Boyle Drunson: checks
+Sanessa Velbst: raises to $11
+Ncotty Sguyen: calls $11
+Boyle Drunson: calls $11
+*** TURN *** [5c 8h Jc] [5d]
+Boyle Drunson: checks
+Sanessa Velbst: checks
+Ncotty Sguyen: checks
+*** RIVER *** [5c 8h Jc 5d] [9c]
+Boyle Drunson: checks
+Sanessa Velbst: raises to $37
+Ncotty Sguyen: folds
+Boyle Drunson: folds
 *** SHOW DOWN ***
-Mike the Mouth: shows [Ah 2c]
-Utu Sngar: shows [Jh Qd]
-Mhris Coneymaker: shows [4c 4d]
-Mike the Mouth collected $21 from pot
+Sanessa Velbst: shows [7d 5h]
+Sanessa Velbst collected $83 from pot
 *** SUMMARY ***
-Total pot $21 | Rake $0
-Board [5s 7d Ac 3d 9d]
-Seat 1: Tight Tony  folded
-Seat 2: Loose Lucy (button) folded
-Seat 3: Aggressive Alex (small blind) folded
-Seat 4: Mike the Mouth (big blind) showed [Ah 2c] and won ($21)
-Seat 5: Utu Sngar  showed [Jh Qd] and lost
-Seat 6: Bean-Robert Jellande  folded
-Seat 7: Mhris Coneymaker  showed [4c 4d] and lost
-Seat 8: Dom Twan  folded</pre></div></details>
-<details class="mt-3"><summary class="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-wider">Sample Hand 2</summary><div class="bg-gray-950 rounded-lg p-4 mt-2 overflow-x-auto"><pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400">PokerStars Hand #3: Hold'em No Limit ($1/$2) - 2026-04-01 13:39:17 ET
+Total pot $83 | Rake $0
+Board [5c 8h Jc 5d 9c]
+Seat 1: Aatrik Pantonius (button) folded
+Seat 2: Naniel Degreanu (small blind) folded
+Seat 3: Boyle Drunson (big blind) folded
+Seat 4: Cohnny Jhan  folded
+Seat 5: Kabe Gaplan  folded
+Seat 6: Lhil Paak  folded
+Seat 7: Sanessa Velbst  showed [7d 5h] and won ($83)
+Seat 8: Ncotty Sguyen  folded</pre></div></details>
+<details class="mt-3"><summary class="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-wider">Sample Hand 2</summary><div class="bg-gray-950 rounded-lg p-4 mt-2 overflow-x-auto"><pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400">PokerStars Hand #3: Hold'em No Limit ($1/$2) - 2026-04-01 13:42:26 ET
 Table 'Bot Simulation' 8-max Seat #3 is the button
-Seat 1: Tight Tony ($400 in chips)
-Seat 2: Loose Lucy ($194 in chips)
-Seat 3: Aggressive Alex ($191 in chips)
-Seat 4: Mike the Mouth ($12 in chips)
-Seat 5: Utu Sngar ($192 in chips)
-Seat 6: Bean-Robert Jellande ($198 in chips)
-Seat 7: Mhris Coneymaker ($204 in chips)
-Seat 8: Dom Twan ($198 in chips)
-Mike the Mouth: posts small blind $1
-Utu Sngar: posts big blind $2
+Seat 1: Aatrik Pantonius ($183 in chips)
+Seat 2: Naniel Degreanu ($199 in chips)
+Seat 3: Boyle Drunson ($201 in chips)
+Seat 4: Cohnny Jhan ($200 in chips)
+Seat 5: Kabe Gaplan ($198 in chips)
+Seat 6: Lhil Paak ($200 in chips)
+Seat 7: Sanessa Velbst ($231 in chips)
+Seat 8: Ncotty Sguyen ($185 in chips)
+Cohnny Jhan: posts small blind $1
+Kabe Gaplan: posts big blind $2
 *** HOLE CARDS ***
-Bean-Robert Jellande: folds
-Mhris Coneymaker: folds
-Dom Twan: folds
-Tight Tony: raises to $6
-Loose Lucy: folds
-Aggressive Alex: calls $6
-Mike the Mouth: raises to $22
-Utu Sngar: folds
-Tight Tony: calls $16
-Aggressive Alex: folds
-*** FLOP *** [9h 2h 5s]
-Mike the Mouth: raises to $41
-Tight Tony: calls $41
-*** TURN *** [9h 2h 5s] [9d]
-Mike the Mouth: raises to $112
-Tight Tony: bets $137 and is all-in
-Mike the Mouth: bets $149 and is all-in
-*** RIVER *** [9h 2h 5s 9d] [2d]
+Lhil Paak: folds
+Sanessa Velbst: folds
+Ncotty Sguyen: folds
+Aatrik Pantonius: raises to $6
+Naniel Degreanu: folds
+Boyle Drunson: calls $6
+Cohnny Jhan: folds
+Kabe Gaplan: folds
+*** FLOP *** [Qd 9d Qc]
+Aatrik Pantonius: checks
+Boyle Drunson: checks
+*** TURN *** [Qd 9d Qc] [7s]
+Aatrik Pantonius: checks
+Boyle Drunson: checks
+*** RIVER *** [Qd 9d Qc 7s] [Ks]
+Aatrik Pantonius: checks
+Boyle Drunson: raises to $11
+Aatrik Pantonius: calls $11
 *** SHOW DOWN ***
-Tight Tony: shows [Ac Ks]
-Mike the Mouth: shows [Th Qs]
-Tight Tony collected $420 from pot
+Aatrik Pantonius: shows [Jc As]
+Boyle Drunson: shows [9h 7h]
+Boyle Drunson collected $37 from pot
 *** SUMMARY ***
-Total pot $420 | Rake $0
-Board [9h 2h 5s 9d 2d]
-Seat 1: Tight Tony  showed [Ac Ks] and won ($420)
-Seat 2: Loose Lucy  folded
-Seat 3: Aggressive Alex (button) folded
-Seat 4: Mike the Mouth (small blind) showed [Th Qs] and lost
-Seat 5: Utu Sngar (big blind) folded
-Seat 6: Bean-Robert Jellande  folded
-Seat 7: Mhris Coneymaker  folded
-Seat 8: Dom Twan  folded</pre></div></details>
+Total pot $37 | Rake $0
+Board [Qd 9d Qc 7s Ks]
+Seat 1: Aatrik Pantonius  showed [Jc As] and lost
+Seat 2: Naniel Degreanu  folded
+Seat 3: Boyle Drunson (button) showed [9h 7h] and won ($37)
+Seat 4: Cohnny Jhan (small blind) folded
+Seat 5: Kabe Gaplan (big blind) folded
+Seat 6: Lhil Paak  folded
+Seat 7: Sanessa Velbst  folded
+Seat 8: Ncotty Sguyen  folded</pre></div></details>
 </div></section>
 
 <footer class="border-t border-gray-800 pt-6 mt-10 text-center text-xs text-gray-600">
