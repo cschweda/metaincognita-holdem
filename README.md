@@ -24,7 +24,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
 - **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
 - **Hand replay** -- re-live any hand with different decisions, compare outcomes
-- **Live commentary** -- two modes: Hero POV (first-person, public info only) and TV Broadcast (Norman Chad & Lon McEachern dual-voice with all cards face-up, bluff callouts, foreshadowing, and 150+ unique quips)
+- **Live text commentary** -- two modes: Hero POV (first-person, public info only) and TV Broadcast (Norman Chad & Lon McEachern style dual-voice text with all cards face-up, bluff callouts, foreshadowing, and 400+ unique quips). Text only, no audio.
 - **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth
 
 ## Table of Contents
@@ -227,11 +227,13 @@ The app has three persistence tiers depending on configuration:
 - **Comparison panel** at showdown: Original result vs Replay result with profit difference
 - **"Replay Again"** button to try the same hand multiple times
 
-### Live Commentary
+### Live Text Commentary
 
-If you've ever watched the World Series of Poker on ESPN, you know the magic of Lon McEachern and Norman Chad calling the action. Lon delivers the smooth play-by-play -- who raised, who folded, what hit the board. Norman provides the color commentary -- the jokes, the self-deprecating humor, the ex-wife references, the absurd analogies. Together they turned poker broadcasts into appointment television. This feature is a love letter to that experience.
+**Note: this is text commentary, not audio.** Lines appear in a scrolling panel to the left of the table -- there is no voice synthesis, no audio, and no sound. Think of it as reading a live transcript of a poker broadcast, not listening to one.
 
-The commentary panel sits to the left of the table and provides a constant stream of real-time reactions to every action in every hand. Two modes run simultaneously in the background, so switching between them is instant -- you never miss a line.
+If you've ever watched the World Series of Poker on ESPN, you know the magic of Lon McEachern and Norman Chad calling the action. Lon delivers the smooth play-by-play -- who raised, who folded, what hit the board. Norman provides the color commentary -- the jokes, the self-deprecating humor, the ex-wife references, the absurd analogies. Together they turned poker broadcasts into appointment television. This feature is a text-based love letter to that experience -- you read the banter as the hand plays out, line by line, in real time.
+
+The commentary panel sits to the left of the table and provides a constant stream of real-time text reactions to every action in every hand. Two modes run simultaneously in the background, so switching between them is instant -- you never miss a line.
 
 #### Hero POV (default)
 
