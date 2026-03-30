@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.16.1] - 2026-03-29
 
+### Fixed
+- **River draws/outs suppressed everywhere** — Three places incorrectly referenced draws and outs after the river was dealt (no more cards to come):
+  - Stats panel recommendation said "9 outs to improve. Check to see a free card" on the river. `recommend()` now zeros out draw outs on the river street.
+  - Mon said "Hero has 9 outs to the flush draw" on the river. `onHeroTurn()` now skips `detectDraws()` entirely on the river.
+  - Mon said a player was "chasing the flush draw" when calling on the river. `onAction()` call handler now skips draw detection on the river.
+
 ### Added (Commentary Overhaul — Variety & Banter)
 Comprehensive assessment found Mon's pools too thin (61 phrases, repeats within a session), Norman's thin pools (4-8 quips each for common triggers), no inter-voice dialogue, and strategic generators too shallow. All fixed:
 
