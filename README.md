@@ -1132,6 +1132,17 @@ Deployed via `netlify.toml`:
 - **Multiplayer**: WebSocket-based real players (would require a server)
 - **Advanced board texture reasoning**: Blocker analysis, range narrowing by street, turn/river card categorization (scare cards, blanks)
 
+## Influences
+
+This project draws inspiration from the poker software and communities that shaped how a generation learned the game:
+
+- **Poker Academy Pro** -- The gold standard of poker training simulators. No longer available, but its card-aware bot AI, hand analysis, and replay features set the bar for what a poker learning tool should be. This project is, in many ways, an attempt to build something in that spirit for the browser era.
+- **PokerStars** -- The hand history format used throughout this app is the PokerStars standard. The look, feel, and pace of online poker as popularized by PokerStars influenced the table design, blind structure, and overall game flow.
+- **Full Tilt Poker** -- Full Tilt's pro roster and the era of "learn from the pros" shaped the pro-inspired bot personas. The idea that you could sit at a table with recognizable playstyles and learn by observation comes directly from Full Tilt's DNA.
+- **Doyle's Room** -- Doyle Brunson's online poker room and his *Super/System* books were foundational to the bot personality system. The concept of distinct player archetypes (tight-aggressive, loose-passive, etc.) that this simulator models comes from the Brunson school of poker thinking.
+- **Two Plus Two Forums** (2+2) -- The poker strategy community that shaped modern poker thinking. Chen scoring, hand range charts, pot odds math, GTO concepts, and the idea that poker can be studied systematically -- all of this lives in the 2+2 DNA. The hand analysis panel, equity calculations, and range displays in this app owe a debt to thousands of 2+2 strategy posts.
+- **ESPN World Series of Poker broadcasts** -- The Lon McEachern and Norman Chad commentary that made poker entertaining for millions. The TV Broadcast commentary mode (Chorman Nad & Mon LeEachern) is a direct homage to their chemistry, humor, and the way they made watching poker feel like appointment television.
+
 ## License
 
 Private project.
