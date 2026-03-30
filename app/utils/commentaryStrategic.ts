@@ -45,6 +45,35 @@ export function strategicFlopObs(heroCards: [Card, Card] | null, community: Card
     obs.push(`Ace on board and we don't have one. If someone bets, they're likely representing it.`)
   }
 
+  // Multi-street awareness
+  if (hand && hand.rank >= HAND_RANKS.ONE_PAIR && hand.rank <= HAND_RANKS.TWO_PAIR && numActive >= 4) {
+    obs.push(`One pair in a multiway pot is vulnerable. Be ready to let it go if the action gets heavy.`)
+  }
+
+  if (hand && hand.rank >= HAND_RANKS.FLUSH) {
+    obs.push(`A made flush or better on the flop. The priority now is extracting maximum value without scaring opponents away.`)
+  }
+
+  // Board-specific
+  const uniqueRanks = [...new Set(boardRanks)].sort((a, b) => a - b)
+  if (uniqueRanks.length === 3 && uniqueRanks[2] - uniqueRanks[0] <= 4) {
+    obs.push(`Very connected board. Straights are extremely likely — anyone with two cards in this range could have one.`)
+  }
+
+  if (boardMax <= 8) {
+    obs.push(`Low board. The preflop raiser missed most of their range. Expect either a c-bet bluff or a check.`)
+  }
+
+  // Hero critique
+  if (hand && hand.rank === HAND_RANKS.HIGH_CARD && draws.length === 0) {
+    obs.push(`Hero missed completely with no draw. Folding to any significant bet is the disciplined play.`)
+  }
+
+  if (draws.length >= 2) {
+    const totalOuts = draws.reduce((s, d) => s + d.outs, 0)
+    if (totalOuts >= 12) obs.push(`A combo draw with ${totalOuts} outs. This is actually a favorite over most one-pair hands.`)
+  }
+
   return obs.length > 0 ? pick(obs) : null
 }
 
@@ -60,6 +89,16 @@ export function strategicActionObs(playerName: string, actionType: string, amoun
 
   if (actionType === 'call' && community.length >= 3) {
     obs.push(`A call here means they've got something — a pair, a draw, or they're floating to steal later.`)
+  }
+
+  if (actionType === 'raise' || actionType === 'bet') {
+    if (community.length >= 4) obs.push(`Betting on the turn after betting the flop. That's a double barrel — representing real strength.`)
+    if (community.length >= 5 && amount > pot * 0.6) obs.push(`A big river bet. This is polarized — it's either the nuts or air. Very little in between.`)
+    if (amount > 0 && pot > 0 && amount < pot * 0.2) obs.push(`A tiny bet into a large pot. That's a probe — testing the waters without risking much.`)
+  }
+
+  if (actionType === 'check' && community.length >= 3) {
+    obs.push(`A check here. Either weakness, or setting a trap for a check-raise. The next action will tell us which.`)
   }
 
   if (actionType === 'all-in') {
@@ -82,10 +121,16 @@ export function strategicShowdownObs(heroWon: boolean, pot: number, heroCards: [
   const obs: string[] = []
   if (heroWon) {
     if (hand.rank >= HAND_RANKS.FLUSH) obs.push(`Big hand holds up. That's the kind of result you build sessions on.`)
+    else if (hand.rank >= HAND_RANKS.TWO_PAIR) obs.push(`Two pair or better takes it down. Solid hand, solid result.`)
     else if (hand.rank === HAND_RANKS.ONE_PAIR) obs.push(`Won with just one pair. Sometimes that's all it takes — especially when the board is dry.`)
+    if (pot > 100) obs.push(`A big pot goes Hero's way. That's a session-defining result.`)
+    if (hand.rank === HAND_RANKS.THREE_OF_A_KIND) obs.push(`Set held up. The hidden monster — hardest hand to read, hardest hand to lay down.`)
   } else {
-    if (hand.rank >= HAND_RANKS.TWO_PAIR) obs.push(`Losing with two pair or better is tough. That's a cooler — nothing you could have done differently.`)
+    if (hand.rank >= HAND_RANKS.FULL_HOUSE) obs.push(`Losing with a full house or better. That's the cruelest kind of beat — you did nothing wrong.`)
+    if (hand.rank >= HAND_RANKS.TWO_PAIR && hand.rank < HAND_RANKS.FULL_HOUSE) obs.push(`Losing with two pair or better is tough. That's a cooler — nothing you could have done differently.`)
     else if (hand.rank === HAND_RANKS.ONE_PAIR) obs.push(`One pair wasn't enough here. On a board this coordinated, stronger hands are out there.`)
+    if (hand.rank === HAND_RANKS.HIGH_CARD) obs.push(`Hero went to showdown with high card. Sometimes the bluff doesn't get through — that's the risk you take.`)
+    if (pot > 100) obs.push(`A big pot slides the wrong way. Those are the ones that test your mental game.`)
   }
 
   return obs.length > 0 ? pick(obs) : null

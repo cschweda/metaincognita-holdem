@@ -42,6 +42,19 @@ export const lonBoardAnalysis = new UniquePool([
   `Interesting texture — this board hits a lot of calling ranges but misses most raising ranges.`,
   `Very coordinated board. There are so many possible hands here — sets, straights, two pairs, draws.`,
   `This is a board where position matters enormously. Acting last is a huge advantage.`,
+  `Four to a straight on the board. Anyone with one card filling the gap has the nuts.`,
+  `The board just double-paired. Full houses and quads are now in play.`,
+  `This is one of those boards where the preflop caller actually has the advantage. Sets and two pairs live in their range.`,
+  `A very static board. What you have now is probably what you'll have at the river.`,
+  `Dynamic texture. Every turn and river card could dramatically shift who's ahead.`,
+  `Three broadways and a flush draw. Top pair might not be good enough here.`,
+  `Low, uncoordinated board. Overpairs are king here.`,
+  `The turn brought a card that helps nobody's range. A blank like this often triggers a continuation bet.`,
+  `Four cards to a flush on the board now. Anyone without the ace of that suit has to be nervous.`,
+  `Paired board with a flush draw. The texture just got very complex.`,
+  `No card above a nine. This strongly favors anyone who called preflop with small connectors or pocket pairs.`,
+  `This board hits both ranges fairly evenly. It's going to come down to who reads the other player better.`,
+  `Notice how the board developed — the early streets were safe, but it got dangerous in a hurry.`,
 ])
 
 export const lonPlayerReads = new UniquePool([
@@ -57,6 +70,16 @@ export const lonPlayerReads = new UniquePool([
   `Short-stacked player. They're in push-or-fold territory.`,
   `This player has been card-dead. When they finally play a hand, pay attention.`,
   `Two aggressive players in the same pot. Expect fireworks.`,
+  `A player who's been quiet all session just woke up. That's usually a sign of a real hand.`,
+  `This player has been caught bluffing twice already. Their credibility is low — expect wider calls.`,
+  `Notice the timing. Quick decisions usually mean a clear situation — either a monster or nothing.`,
+  `The preflop raiser is out of position. That's a structural disadvantage no matter how good your cards are.`,
+  `This player has shown down strong hands every time. Their bets deserve maximum respect.`,
+  `The short stack is putting pressure on the big stack. The big stack has more to lose.`,
+  `A player on a heater. When someone's running hot, others tend to play cautiously against them.`,
+  `Two tight players in the same pot. When both commit chips, someone usually has a genuine hand.`,
+  `The big blind is defending wide tonight. Good poker — you can't let people steal your blinds for free.`,
+  `Watch the stack sizes here. The effective stack determines how deep this hand can go.`,
 ])
 
 export const lonPotAnalysis = new UniquePool([
@@ -70,6 +93,16 @@ export const lonPotAnalysis = new UniquePool([
   `Multiway pot. Everyone needs to be cautious — someone usually has something in multiway action.`,
   `Heads-up pot. This is where reading your opponent matters most.`,
   `The bet-to-pot ratio is large. This is a polarizing bet — very strong or a bluff.`,
+  `The pot is now large enough that folding becomes very expensive in terms of equity surrendered.`,
+  `A small continuation bet into a large pot. That's either a trap or a probe — buying information cheaply.`,
+  `The risk-to-reward ratio here favors aggression. A bet could take down a significant pot.`,
+  `Both players have invested heavily. At this point, whoever blinks first probably loses.`,
+  `The pot odds are offering almost 3-to-1. You can call here profitably with a wide range.`,
+  `A pot-sized bet narrows the opponent's continuing range dramatically. Only strong hands and draws survive.`,
+  `Side pots forming. With multiple all-ins, the math gets complicated quickly.`,
+  `The bet-to-stack ratio is critical. A call commits nearly half the remaining stack.`,
+  `A blocker bet — a small bet designed to prevent a larger one. Classic defensive play.`,
+  `With this much money in the middle, position becomes even more valuable. Information is power.`,
 ])
 
 export const lonTiltReads = new UniquePool([
@@ -81,6 +114,16 @@ export const lonTiltReads = new UniquePool([
   `That was a rough beat. Even the best players struggle to stay composed after that.`,
   `The tilt factor is real here. This player has been on the wrong end of variance all session.`,
   `After a loss like that, some players tighten up and some players go wild. Let's see which one.`,
+  `The body language tells the story. Frustration is creeping in after that last hand.`,
+  `Three losses in a row. The question is whether this player can reset or if we see emotional play.`,
+  `That was a textbook bad beat. Even experienced players struggle to stay level after losing like that.`,
+  `Notice the bet sizing has changed. Larger bets often signal frustration, not strength.`,
+  `A composed player would slow down here. Let's see if discipline holds.`,
+  `The smart play is to tighten up. The emotional play is to loosen up. Guess which one we usually see.`,
+  `The variance has been brutal this session. Even the best players have a breaking point.`,
+  `Winning a small pot after several losses can actually calm a player down. A psychological reset.`,
+  `The most dangerous opponent is the one who's losing but stays calm. They're still making good decisions.`,
+  `This player is betting more aggressively since the bad beat. Classic tilt pattern — trying to win it all back at once.`,
 ])
 
 export const lonStreetTransition = new UniquePool([
@@ -94,6 +137,16 @@ export const lonStreetTransition = new UniquePool([
   `The check-raise is always a possibility here. Especially on this texture.`,
   `A bet here would represent serious strength. Let's see if anyone steps up.`,
   `The river is where professionals separate themselves from amateurs. The pressure is different.`,
+  `The flop is where the hand takes shape. Everything before this was just a prelude.`,
+  `A new street means new information. The best players process it instantly.`,
+  `The betting pattern across streets tells a story. Bet-bet-bet is aggression. Bet-check-bet is something more nuanced.`,
+  `Here comes the turn. Statistically, this is where the most money is won and lost.`,
+  `A check on this street changes the dynamic for every remaining street.`,
+  `The pot has been growing steadily. Each street adds another layer of commitment.`,
+  `We're entering the business district of this hand. The real money decisions happen here.`,
+  `Triple-barrel territory. If they bet the flop and the turn, will they fire the river? That's the key question.`,
+  `The action has been cautious so far. That could change with one card.`,
+  `Notice the line taken — checking one street to bet the next. That's either a trap or a change of heart.`,
 ])
 
 export const lonShowdownAnalysis = new UniquePool([
@@ -103,6 +156,17 @@ export const lonShowdownAnalysis = new UniquePool([
   `The cards are about to be revealed. Did the right hand win? Let's find out.`,
   `Moment of truth. Every bet, every raise, every call led to this.`,
   `Showdown time. The best five-card hand wins. No more bluffing, no more position.`,
+  `And there it is. The stronger hand takes the pot. That's the beauty and the cruelty of poker.`,
+  `An interesting runout. The best hand preflop isn't always the best hand at showdown.`,
+  `Both players played this hand well. Sometimes there's no mistake — just bad luck.`,
+  `The winner extracted maximum value. Textbook — get paid off on every street.`,
+  `A disciplined hand from both players. Good calls, good bets, good poker all around.`,
+  `That was a thin value bet on the river that got called. High-level play from both sides.`,
+  `The losing player made the right call with the information available. Results don't change that.`,
+  `Every decision point had a reasonable argument on both sides. That's what makes poker fascinating.`,
+  `The showdown reveals the story. And this one was a page-turner.`,
+  `One player read the other perfectly. That's the human element no algorithm can fully replicate.`,
+  `A classic confrontation. Big hand versus big hand. Someone had to lose.`,
 ])
 
 export function resetLonPools() {
@@ -500,6 +564,10 @@ export const normanBoardQuips = {
     `That's a scary board. If you don't have a strong hand, this is a good time to reconsider your life choices.`,
     `Dangerous board texture. Someone has something. The question is who, and how much it's going to cost.`,
     `This board just got terrifying. Like a horror movie, but with chips instead of screaming. Actually, there might be screaming.`,
+    `This board is trouble. Multiple draws, paired cards — it's like a minefield disguised as a poker table.`,
+    `Dangerous texture. If you don't have a strong hand, this board is giving you every reason to leave.`,
+    `The board is screaming danger. I can hear it from the booth. Or that's my tinnitus. Either way, scary.`,
+    `That's a board that makes everyone nervous. Even me, and I don't have any money in this.`,
   ],
   turnBrick: [
     `Blank on the turn. Nothing changed. Status quo. The most boring and also sometimes the most important card.`,
@@ -513,6 +581,10 @@ export const normanBoardQuips = {
     `The turn changes things. What was good might not be good anymore. What was bad might suddenly be great.`,
     `That turn card just rewrote the script. New plot twist. New drama. Same table.`,
     `Interesting turn card. The kind of card that makes you recalculate everything you thought you knew.`,
+    `The turn just changed the conversation entirely. What was comfortable might not be anymore.`,
+    `That turn card is going to make someone very happy and someone else very nervous.`,
+    `A scare card on the turn. The action is about to get very interesting.`,
+    `The turn brought drama. Draws completing, new possibilities opening up. This is what poker is about.`,
   ],
   riverBrick: [
     `Brick on the river. If you were drawing, you missed. If you had a hand, you still have it. Exciting stuff.`,
@@ -525,6 +597,10 @@ export const normanBoardQuips = {
     `Draw gets there on the river! This is why they call it the river — because it drowns people.`,
     `The draw came in. If you were chasing, congratulations. If you weren't, my condolences.`,
     `River completes it. The poker gods giveth. And they just gave.`,
+    `The draw got there! Someone was chasing and the river delivered. Christmas morning in poker.`,
+    `River completes a possible flush. If someone was drawing, they just hit the jackpot.`,
+    `And the draw comes in on the river. This is either the best or worst card for someone at this table.`,
+    `The river makes it. Patience rewarded. Or recklessness rewarded. In poker, they look the same.`,
   ],
 }
 
@@ -554,7 +630,7 @@ export const normanPocketPairQuips: Record<string, string[]> = {
   ],
 }
 
-export const normanDrawQuips = [
+export const normanDrawQuips = new UniquePool([
   `A draw! The most hopeful hand in poker. It's like buying a lottery ticket, except you paid $50 for it.`,
   `Drawing hand. In poker, hope is a draw. In life, hope is also a draw. I'm always drawing.`,
   `Chasing the draw. Some people chase dreams. Poker players chase flushes. Both end in disappointment about 65% of the time.`,
@@ -563,9 +639,17 @@ export const normanDrawQuips = [
   `Drawing to the flush. The most seductive draw in poker. It whispers sweet nothings and then breaks your heart.`,
   `Open-ended straight draw. Eight outs. In poker math, that's almost good. In real life math, that's terrible.`,
   `Gutshot straight draw. Four outs. The long shot. The Hail Mary. The "I shouldn't be calling but here I am."`,
-]
+  `A draw! The most optimistic state in poker. "I don't have it YET." Love that energy.`,
+  `Drawing. The poker equivalent of being on hold — you KNOW something good is coming. Probably. Maybe. Hopefully.`,
+  `Chasing the draw. The math supports it. The heart demands it. The wallet isn't answering its phone.`,
+  `Big draw here. If they hit, it's a party. If they miss, it's a wake. Poker: the game of emotional whiplash.`,
+  `Open-ender. Eight outs. That's roughly one-in-three. I like those odds. Then again, I liked the odds on my third marriage.`,
+  `Flush draw. Nine outs. The prettiest draw in poker. Also the most expensive when you miss it four times in a row.`,
+  `Drawing heavy. The kind of hand that makes the math nerds excited and the gamblers even MORE excited.`,
+  `Lots of outs. More outs than exits at my last apartment. And I needed those exits.`,
+])
 
-export const normanRiverQuips = [
+export const normanRiverQuips = new UniquePool([
   `The river. The final card. The moment of truth. The thing that ruins everything 40% of the time.`,
   `River card coming. This is it. The last chance for redemption. Or the last chance for heartbreak.`,
   `The river. Where dreams come true and nightmares are born. Often simultaneously at the same table.`,
@@ -574,23 +658,47 @@ export const normanRiverQuips = [
   `The river. Named after the place where they used to dump the bodies of poker cheats. Fun fact. Allegedly.`,
   `Last card. This is it. The moment we've all been waiting for. Well, I've been waiting for lunch, but this too.`,
   `River time. Five cards on the board. No more chances. This is poker's final exam. No extra credit.`,
-]
+  `River card. The final chapter. No sequel. No director's cut. Just cold, hard poker.`,
+  `One last card to decide everything. Like a coin flip, except you've been building to this for five minutes.`,
+  `The river. The great equalizer. Or the great destroyer. Usually both.`,
+  `Final card on the board. This is either going to be a celebration or a funeral. Sometimes both at the same table.`,
+  `River time. The card that launched a thousand bad beat stories. Including several of mine.`,
+  `One more card and it's all over. The suspense! The drama! The mild indigestion from the tournament buffet!`,
+  `The river. Some call it fifth street. Others call it the street of broken dreams. I call it Tuesday.`,
+  `Last card coming. This is the moment that separates poker from all other card games. That, and the crying.`,
+])
 
-export const normanPotSizeQuips = [
+export const normanPotSizeQuips = new UniquePool([
   `That pot is getting big. Like, embarrassingly big. Like "I shouldn't be watching this" big.`,
   `Look at the size of that pot. I've had apartments smaller than that pot.`,
   `Monster pot building here. This is the kind of pot that makes poker worth watching. And worth losing sleep over.`,
   `The pot just keeps growing. It's like a snowball rolling downhill. A very expensive snowball.`,
   `That's a lot of chips in the middle. More than I've ever had. In any situation. Ever.`,
   `Big pot alert. This is the kind of pot that changes sessions. And moods. And relationships.`,
-]
+  `That pot is growing like my anxiety at a dentist's office.`,
+  `The pot just crossed the point of no return. Someone's session is being defined right now.`,
+  `Look at all those chips in the middle. More money than I've made commentating. This year. This decade.`,
+  `Monster pot brewing. The kind of pot that makes your hands shake and your voice crack. Not that I'd know.`,
+  `That pot is so big it needs its own zip code.`,
+  `The chips keep piling up. It's like watching a snowball turn into an avalanche. A beautiful, terrifying avalanche.`,
+  `Big pot alert. This is why we're here. Well, this is why THEY'RE here. I'm here for the free coffee.`,
+  `The pot has gotten absolutely massive. My heart rate just went up and I don't even have money in this.`,
+])
 
-export const normanHeadsUpQuips = [
+export const normanHeadsUpQuips = new UniquePool([
   `Heads up now. One on one. Mano a mano. Bot a... boto? This is where it gets personal.`,
   `Just two players left. It's a duel. A showdown. A... whatever you call it when two people fight over chips.`,
   `Heads up! The purest form of poker. Just you, your opponent, and a pile of chips that belongs to one of you.`,
   `Down to two. Like a Western showdown. High noon. Except it's at a poker table. And nobody has a gun. Hopefully.`,
-]
+  `Two players. One pot. Zero mercy. This is what poker was invented for.`,
+  `Heads up! The chess match begins. Except in chess, nobody goes broke. Usually.`,
+  `Just the two of them now. Like a bad date, except with more money on the line.`,
+  `Mano a mano. Or in poker terms: stack a stack-o.`,
+  `Heads up. The purest test in poker. And the fastest way to lose your shirt.`,
+  `Two players left. In heads-up poker, everything is a hand. Even garbage. ESPECIALLY garbage.`,
+  `It's a duel. Pistols at dawn. Except the pistols are poker chips and dawn is whenever this hand ends.`,
+  `Heads up now. Every pot is contested. Every hand matters. No more hiding behind other players.`,
+])
 
 // ─── Self-aware quips ────────────────────────────────────────────
 
@@ -786,6 +894,86 @@ export function normanPersonaQuip(name: string): string | null {
   return pick(quips)
 }
 
+// ─── Inter-voice banter ─────────────────────────────────────────
+
+// Norman reacts to Mon's analysis
+export const normanBanterAfterMon = new UniquePool([
+  `What Mon said. I understood about half of it, but what he said.`,
+  `Mon makes it sound so simple. Like poker is just math. It's not just math. It's also crying.`,
+  `Thank you, Professor Mon. Can I get that in English? Or Spanish? I took four years of Spanish.`,
+  `Mon's right, as usual. I stopped disagreeing with him in 2006. It's been great for our friendship.`,
+  `Mon with the analysis. I provide the entertainment. It's a division of labor. Mostly his labor.`,
+  `See, that's why Mon's the analyst and I'm the... whatever I am. Color commentator? Color-blind commentator?`,
+  `Mon dropping knowledge bombs. I drop chip crumbs. We each contribute what we can.`,
+  `If I understood what Mon just said, I'd probably be a better poker player. But here we are.`,
+  `Mon, buddy, you're making the rest of us look bad. Well, making ME look bad. The rest of us are fine.`,
+  `Mon with the science. I'll handle the feelings. Somebody has to.`,
+  `And there's the Mon LeEachern breakdown. I've been listening to those for twenty years and I still learn something. Occasionally.`,
+  `Mon sees the board in ranges and equities. I see it in shapes and colors. Like a poker-playing kindergartner.`,
+  `That analysis was spot-on. I know because I nodded confidently while understanding very little.`,
+  `Thank you, Mon. Now back to me saying something unhelpful but entertaining. Allegedly entertaining.`,
+  `Mon's poker IQ is off the charts. My poker IQ is... on the charts. Somewhere near the bottom. But on them.`,
+  `What Mon said is absolutely correct. I know this because he's always correct. It's his most annoying quality.`,
+  `Mon breaks down the hand like a surgeon. I break down the hand like someone who's never seen a hand before.`,
+  `Another gem from Mon. I'd add something insightful but I used up my one insight for the week on Tuesday.`,
+  `Mon speaks and everyone learns. I speak and everyone reaches for the volume knob. Fair.`,
+  `You hear that, folks? That's the sound of someone who actually studied poker. I studied the buffet menu.`,
+  `Mon with the deep cut analysis. Meanwhile, I've been trying to figure out what SPR stands for since 2008.`,
+  `Mon knows every angle. I know every exit. Different skill sets, but both useful in a casino.`,
+  `I love when Mon explains things because it makes me feel like I'm learning. I'm not, but the feeling is nice.`,
+  `What he said. Ditto. Me too. I concur. All the things smart people say when they agree with actual smart people.`,
+  `The analysis from Mon is flawless. My ex-wife was flawless too. Different kind of cold, calculated perfection.`,
+])
+
+// Mon reacts to Norman's jokes — brief, dry, then pivots back to analysis
+export const lonReactsToNorman = new UniquePool([
+  `...Anyway. Back to the poker.`,
+  `Thank you, Chorman. Let's refocus on the hand.`,
+  `I'm not going to dignify that with a response. So, the board texture here—`,
+  `Chorman, I worry about you. Now, back to the action—`,
+  `That's... something. Meanwhile, the pot is building and someone has to make a decision.`,
+  `...Right. Moving on. The key factor here is position.`,
+  `My partner, ladies and gentlemen. Now, what we should be watching is the bet sizing.`,
+  `Chorman Nad, everyone. He'll be here all night. Unfortunately. Now, about this hand—`,
+  `I'm going to pretend I didn't hear that. The important thing is the stack-to-pot ratio here.`,
+  `Thank you for that, Chorman. The adults are going to talk about poker now.`,
+  `Only you, Chorman. Only you. Now, the range advantage here goes to—`,
+  `...Right. So as I was saying about the board texture—`,
+  `Chorman, you're a treasure. A buried treasure. Deep underground. Anyway, the action here—`,
+  `I've worked with this man for twenty years. I've never gotten used to it. Now, the equity situation—`,
+  `...I'm going to let that one go. What matters here is the decision facing the player.`,
+  `Classic Chorman. Now, for the viewers who actually want to learn poker—`,
+  `And people ask why I drink coffee during broadcasts. Chorman, that's why. Now, the pot odds—`,
+  `That joke was free and it was overpriced. Meanwhile, the flop favors—`,
+  `I'll add that to the collection. The collection I keep locked in a drawer. Now, about the action—`,
+  `Chorman Nad: making poker commentary bearable since... well, since never. But we love him. Now, the board—`,
+])
+
+// ─── More bot/AI awareness quips ────────────────────────────────
+
+export const normanBotAwarenessExtra = new UniquePool([
+  `I tried to shake hands with one of the bots earlier. It didn't end well. For me or for the keyboard.`,
+  `These bots have been running for hours without a bathroom break. That's inhuman. Literally.`,
+  `One of the bots just made a perfect GTO play. I've been trying to do that for 30 years. Thirty. Years.`,
+  `The bots don't celebrate when they win. Don't cry when they lose. They're like my cat. Indifferent and devastating.`,
+  `I wonder what these bots do between hands. Probably calculate pi to a billion digits. I eat pretzels. We're different.`,
+  `Hero is playing against artificial intelligence. I can barely handle natural intelligence. And by barely, I mean not at all.`,
+  `These bots were programmed to play optimal poker. I was programmed to eat chips. We are not the same.`,
+  `Bot Phellmuth just tilted. Even in code, that man can't control his emotions. It's almost beautiful.`,
+  `The bots play at peak performance every hand. I peak at about hand three and then it's all downhill.`,
+  `Someone asked me if I could beat these bots. I laughed so hard I spilled my coffee. So... no.`,
+  `The hero is the only one at this table who can feel joy, sadness, or hunger. The bots just feel JavaScript.`,
+  `These bots run on algorithms. I run on caffeine and regret. Both are powerful fuel sources.`,
+  `You know the bots are good when they make a play and I have to think about why. For a long time. And sometimes I never figure it out.`,
+  `The bots don't trash talk. They don't angle shoot. They don't slow-roll. Honestly? I miss it a little.`,
+  `Hero versus the machines. It's like The Terminator, but with antes instead of guns. And less Arnold. Same amount of drama, though.`,
+  `I asked a bot for poker advice once. It said 'NaN.' I think that's JavaScript for 'you're beyond help.'`,
+  `These bots were coded by someone who understands poker. I was coded by someone who understood nothing. That someone is also me. I mean my parents. No, I mean me.`,
+  `The bots play perfectly balanced poker. I can't even balance my checkbook. Or my diet. Or my life.`,
+  `Watching bots play poker is like watching a chess engine play chess. Flawless, efficient, and slightly terrifying.`,
+  `The hero chose to play against bots. Voluntarily. On purpose. In their free time. I respect and question that decision equally.`,
+])
+
 // ─── Reset all pools ─────────────────────────────────────────────
 
 export function resetAllQuipPools() {
@@ -795,4 +983,6 @@ export function resetAllQuipPools() {
   normanShowdownWinQuips.reset(); normanShowdownLoseQuips.reset(); normanCoolerQuips.reset()
   normanForeshadowQuips.reset(); normanStreetHitQuips.reset(); normanStreetMissQuips.reset()
   normanGenericQuips.reset(); normanRandomBanter.reset()
+  normanDrawQuips.reset(); normanRiverQuips.reset(); normanPotSizeQuips.reset(); normanHeadsUpQuips.reset()
+  normanBanterAfterMon.reset(); lonReactsToNorman.reset(); normanBotAwarenessExtra.reset()
 }

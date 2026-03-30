@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2026-03-29
+
+### Added (Commentary Overhaul — Variety & Banter)
+Comprehensive assessment found Mon's pools too thin (61 phrases, repeats within a session), Norman's thin pools (4-8 quips each for common triggers), no inter-voice dialogue, and strategic generators too shallow. All fixed:
+
+- **Mon pools doubled** — 61 → 126 static analytical phrases across 6 pools. lonShowdownAnalysis: 6 → 18. lonTiltReads: 8 → 19. lonPotAnalysis: 10 → 20. lonStreetTransition: 10 → 21. lonPlayerReads: 12 → 22. lonBoardAnalysis: 15 → 29. No more repeats within a typical session.
+- **Norman thin pools padded & converted to UniquePool** — normanHeadsUpQuips: 4 → 12. normanPotSizeQuips: 6 → 14. normanRiverQuips: 8 → 16. normanDrawQuips: 8 → 16. Board subcategories: scary 3→7, turnScare 4→8, riverComplete 4→8. All converted from plain arrays to UniquePool for no-repeat guarantees.
+- **Inter-voice banter (Norman → Mon)** — 25 new quips where Norman reacts to Mon's analysis: "What Mon said. I understood about half of it, but what he said." / "Mon makes it sound so simple. Like poker is just math. It's not just math. It's also crying." Fires ~20% of the time after Mon delivers board analysis.
+- **Inter-voice banter (Mon → Norman)** — 20 new quips where Mon briefly reacts to Norman's jokes then pivots back to analysis: "...Anyway. Back to the poker." / "That joke was free and it was overpriced. Meanwhile, the flop favors—" / "My partner, ladies and gentlemen. He'll be here all night. Unfortunately." Fires ~12-15% after Norman's board texture quips.
+- **20 new bot/AI awareness quips** — "I tried to shake hands with one of the bots earlier. It didn't end well." / "Bot Phellmuth just tilted. Even in code, that man can't control his emotions." / "These bots run on algorithms. I run on caffeine and regret." Added to deal-time rotation alongside existing self-aware pool.
+- **Strategic generators expanded** — `commentaryStrategic.ts` grew from ~16 to ~30 observation templates. New: multi-street narrative ("double barrel — representing real strength"), hero critique ("Hero missed completely — folding to any bet is disciplined"), combo draw awareness ("combo draw with 15 outs is actually a favorite"), card-specific board reads, session-context showdown analysis.
+- **Draw quips wired in** — normanDrawQuips pool (16 entries) now fires when hero has a drawing hand on hero's turn. Previously used inline text with only 2 variations.
+
+### Pool inventory after expansion
+| Category | Before | After |
+|----------|--------|-------|
+| Mon static phrases | 61 | 126 |
+| Mon strategic generators | ~16 | ~30 |
+| Norman action pools | ~140 | ~140 |
+| Norman situation pools | ~89 | ~89 |
+| Norman thin pools | 26 | 58 |
+| Norman board texture | ~51 | ~63 |
+| Norman banter/bot-aware | ~38 | 103 |
+| Norman persona quips | ~85 | ~85 |
+| **Total commentary lines** | **~506** | **~694** |
+
 ## [0.16.0] - 2026-03-29
 
 ### Fixed (Poker Rules — Engine Audit)

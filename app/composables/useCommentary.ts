@@ -20,6 +20,7 @@ import {
   normanPersonaQuip, resetAllQuipPools,
   lonBoardAnalysis, lonPlayerReads, lonPotAnalysis, lonTiltReads,
   lonStreetTransition, lonShowdownAnalysis, resetLonPools,
+  normanBanterAfterMon, lonReactsToNorman, normanBotAwarenessExtra,
 } from '~/utils/commentaryQuips'
 import { strategicFlopObs, strategicActionObs, strategicShowdownObs } from '~/utils/commentaryStrategic'
 
@@ -207,9 +208,9 @@ export function useCommentary(gs: GS) {
       addTV(`${cards} for Hero.`, 'deal', 'lon')
     }
 
-    // Occasional self-aware quip (knows this is a simulation)
-    if (Math.random() < 0.08) {
-      addTV(pick(normanSelfAwareQuips), 'aside', 'norman')
+    // Occasional self-aware / bot-awareness quip (knows this is a simulation)
+    if (Math.random() < 0.10) {
+      addTV(Math.random() < 0.5 ? pick(normanSelfAwareQuips) : normanBotAwarenessExtra.pick(), 'aside', 'norman')
     }
 
     // Opponent hands
@@ -320,9 +321,9 @@ export function useCommentary(gs: GS) {
     // Occasional pot size or heads-up quip
     const activeCount = activePl().length
     if (activeCount === 2 && Math.random() < 0.15) {
-      addTV(pick(normanHeadsUpQuips), 'aside', 'norman')
+      addTV(normanHeadsUpQuips.pick(), 'aside', 'norman')
     } else if (gs.pot.value > 200 && Math.random() < 0.1) {
-      addTV(pick(normanPotSizeQuips), 'aside', 'norman')
+      addTV(normanPotSizeQuips.pick(), 'aside', 'norman')
     }
 
     // ── ALL-IN ──
@@ -532,7 +533,11 @@ export function useCommentary(gs: GS) {
       // TV stream
       addTV(`Flop comes ${boardStr}.`, 'street', 'lon')
       // Mon's board analysis (alongside Chorman's board texture quip)
-      if (lonWantsToAnalyze()) addTV(lonBoardAnalysis.pick(), 'street', 'lon')
+      let monSpokeOnFlop = false
+      if (lonWantsToAnalyze()) {
+        addTV(lonBoardAnalysis.pick(), 'street', 'lon')
+        monSpokeOnFlop = true
+      }
 
       // Board texture quip from Norman
       const flopCards = community.slice(0, 3)
@@ -563,6 +568,15 @@ export function useCommentary(gs: GS) {
       } else {
         // Generic scary/interesting board
         if (normanFeelsLikeIt()) addTV(pick(normanBoardQuips.scary), 'street', 'norman')
+      }
+
+      // Inter-voice banter: Mon reacts to Norman's joke, or Norman responds to Mon's analysis
+      if (monSpokeOnFlop && Math.random() < 0.20) {
+        // Norman responds to Mon's analysis with banter
+        addTV(normanBanterAfterMon.pick(), 'aside', 'norman')
+      } else if (!monSpokeOnFlop && normanFeelsLikeIt() && Math.random() < 0.15) {
+        // Mon briefly reacts to Norman's joke, then pivots back to analysis
+        addTV(lonReactsToNorman.pick(), 'aside', 'lon')
       }
 
       // Analyze all players
@@ -669,7 +683,8 @@ export function useCommentary(gs: GS) {
       }
 
       addTV(`Turn: ${turnCard}.`, 'street', 'lon')
-      if (lonWantsToAnalyze() && Math.random() < 0.4) addTV(lonStreetTransition.pick(), 'street', 'lon')
+      let monSpokeOnTurn = false
+      if (lonWantsToAnalyze() && Math.random() < 0.4) { addTV(lonStreetTransition.pick(), 'street', 'lon'); monSpokeOnTurn = true }
       // Turn board texture quip
       if (normanFeelsLikeIt()) {
         const turnC = community[3]
@@ -677,6 +692,11 @@ export function useCommentary(gs: GS) {
         const flushPossible = flopSuits.filter(s => s === turnC.suit).length >= 2
         if (flushPossible) addTV(pick(normanBoardQuips.turnScare), 'street', 'norman')
         else addTV(pick(normanBoardQuips.turnBrick), 'street', 'norman')
+        // Mon reacts to Norman's turn quip, then pivots to analysis
+        if (!monSpokeOnTurn && Math.random() < 0.12) addTV(lonReactsToNorman.pick(), 'aside', 'lon')
+      } else if (monSpokeOnTurn && Math.random() < 0.18) {
+        // Norman responds to Mon's turn analysis with banter
+        addTV(normanBanterAfterMon.pick(), 'aside', 'norman')
       }
       for (const p of players) {
         if (!p.holeCards) continue
@@ -760,7 +780,7 @@ export function useCommentary(gs: GS) {
       } else if (normanFeelsLikeIt()) {
         // Random choice: river quip, brick quip, or random banter
         const r = Math.random()
-        if (r < 0.4) addTV(pick(normanRiverQuips), 'street', 'norman')
+        if (r < 0.4) addTV(normanRiverQuips.pick(), 'street', 'norman')
         else if (r < 0.7) addTV(pick(normanBoardQuips.riverBrick), 'street', 'norman')
         else addTV(normanRandomBanter.pick(), 'aside', 'norman')
       }
@@ -791,8 +811,11 @@ export function useCommentary(gs: GS) {
     if (heroWon) {
       addHero(pick([`We take it down! $${amount} pot.`, `$${amount} coming our way. Nice hand.`, `We win $${amount}. Good result.`]), 'showdown')
       addTV(`Hero wins $${amount}!`, 'showdown', 'lon')
-      if (lonWantsToAnalyze()) addTV(lonShowdownAnalysis.pick(), 'showdown', 'lon')
-      tryStrategicNorman(
+      const monAnalyzedShowdown = lonWantsToAnalyze()
+      if (monAnalyzedShowdown) addTV(lonShowdownAnalysis.pick(), 'showdown', 'lon')
+      if (monAnalyzedShowdown && Math.random() < 0.25) {
+        addTV(normanBanterAfterMon.pick(), 'showdown', 'norman')
+      } else tryStrategicNorman(
         () => normanShowdownWinQuips.pick(), 'showdown',
         () => normanStrategicShowdownObs(true, gs.pot.value, hero().holeCards, gs.visibleCommunity.value),
       )
@@ -843,7 +866,7 @@ export function useCommentary(gs: GS) {
       } else if (draws.length > 0 && draws[0].outs >= 8) {
         addHero(pick([`Big draw — ${draws[0].outs} outs. The math might justify chasing.`, `${draws[0].type}. Interesting spot.`]), 'aside')
         addTV(`Hero has ${draws[0].outs} outs to the ${draws[0].type.toLowerCase()}.`, 'aside', 'lon')
-        addTV(pick([`A draw. The most hopeful hand in poker. And the most heartbreaking.`, `Drawing hand. Hope springs eternal. So does disappointment.`]), 'aside', 'norman')
+        addTV(normanDrawQuips.pick(), 'aside', 'norman')
       }
     } else if (gs.street.value === 'preflop' && chen >= 12) {
       addHero(pick([`Premium hand. Let's raise.`, `Strong preflop. Time to build a pot.`]), 'aside')

@@ -50,8 +50,10 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **TV pause button** -- freeze the action in TV Broadcast mode to study bet sizing, board texture, and hand strength. Resume when ready. Only in TV mode.
 - **Hero POV** -- first-person analysis commentary, straight play-by-play from your perspective
 - **TV Broadcast** -- Chorman Nad & Mon LeEachern style dual-voice (homage to Norman Chad & Lon McEachern). All bot cards shown face-up, like watching WSOP on TV. Confirmation alert before enabling.
-- **400+ unique Chorman Nad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
-- **Self-aware moments** -- Chorman knows he's commentating a simulation with bots
+- **500+ unique Chorman Nad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
+- **60+ bot/AI awareness quips** -- Chorman knows he's commentating a simulation against bots running JavaScript
+- **120+ Mon LeEachern analytical phrases** -- board texture, player reads, pot dynamics, tilt detection, street transitions, showdown analysis
+- **Inter-voice banter** -- Norman reacts to Mon's analysis ("What Mon said. I understood about half of it."), Mon reacts to Norman's jokes ("...Anyway. Back to the poker.") — just like the real WSOP broadcasts
 - **Mon/Chorman voice sliders** -- dial analysis depth, quip frequency, and Chorman's serious/funny balance independently
 - **Chorman strategic mode** -- slide "Chorman Style" toward strategy and he drops real poker analysis: outs math, bet-sizing reads, board danger alerts, equity calls. Slide toward quips for pure comedy. Default 30% serious.
 - Text only, no audio
