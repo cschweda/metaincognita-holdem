@@ -199,12 +199,13 @@ function formatAmount(n: number): string {
         <span class="text-[0.65rem] text-gray-500 w-12">{{ formatAmount(maxRaise) }}</span>
       </div>
 
-      <!-- Current raise display + custom input toggle -->
+      <!-- Current raise display + min-raise indicator + custom input toggle -->
       <div class="flex items-center justify-between">
         <div class="text-sm">
           <span class="text-gray-400">Raise to: </span>
           <span class="text-green-400 font-bold font-mono">{{ formatAmount(raiseAmount) }}</span>
           <span v-if="isAllIn" class="text-amber-400 text-xs ml-1">(all-in)</span>
+          <span class="text-gray-600 text-[0.6rem] ml-2">min {{ formatAmount(minRaise) }}</span>
         </div>
         <button
           class="text-xs text-gray-400 hover:text-gray-200 underline underline-offset-2 transition-colors"

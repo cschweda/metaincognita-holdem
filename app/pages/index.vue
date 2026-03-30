@@ -122,7 +122,10 @@ const toCall = computed(() => {
   if (!hero.value) return 0
   return Math.max(0, currentBet.value - hero.value.betThisRound)
 })
-const minRaise = computed(() => Math.max(currentBet.value + bb.value, currentBet.value * 2))
+const minRaise = computed(() => {
+  if (currentBet.value === 0) return bb.value // no bet yet — min bet is 1 BB
+  return currentBet.value + bb.value // min raise = current bet + at least 1 BB
+})
 const maxRaise = computed(() => hero.value?.chips || 0)
 const heroTurn = computed(() => waitingForHero.value && !hero.value?.folded && street.value !== 'showdown')
 
