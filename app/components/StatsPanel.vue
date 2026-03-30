@@ -29,6 +29,8 @@ const props = defineProps<{
   playerStats?: PlayerStat[]
   heroTurn?: boolean
   heroFolded?: boolean
+  heroWon?: boolean
+  winAmount?: number
   sessionStats?: {
     handsPlayed: number
     handsWon: number
@@ -333,8 +335,26 @@ function afLabel(af: number): string {
             <div v-else class="text-xs text-gray-500 italic">No active draws</div>
           </div>
 
-          <!-- Recommendation (hidden after hero folds) -->
-          <div v-if="!heroFolded" class="border-t border-gray-700/50 pt-3">
+          <!-- Win/Loss result (showdown) -->
+          <div v-if="street === 'showdown' && !heroFolded" class="border-t border-gray-700/50 pt-3">
+            <div
+              class="rounded-lg px-3 py-3 text-center"
+              :class="heroWon ? 'bg-green-600/30 border border-green-500/30' : 'bg-red-600/20 border border-red-500/20'"
+            >
+              <div class="text-2xl font-bold" :class="heroWon ? 'text-green-400' : 'text-red-400'">
+                {{ heroWon ? 'YOU WIN' : 'YOU LOSE' }}
+              </div>
+              <div v-if="heroWon && winAmount" class="text-lg font-mono font-semibold text-green-300 mt-1">
+                +${{ winAmount }}
+              </div>
+              <div v-else-if="!heroWon && winAmount" class="text-lg font-mono font-semibold text-red-300 mt-1">
+                -${{ winAmount }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Recommendation (hidden after fold or showdown) -->
+          <div v-if="!heroFolded && street !== 'showdown'" class="border-t border-gray-700/50 pt-3">
             <div class="text-xs text-gray-400 mb-1.5">Recommendation</div>
             <button
               class="w-full rounded-lg px-3 py-2 text-center transition-all"

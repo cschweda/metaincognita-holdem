@@ -76,6 +76,8 @@ interface PlayerState {
 }
 
 const playerStates = ref<PlayerState[]>([])
+const heroWonHand = ref(false)
+const heroWinAmount = ref(0)
 const dealerSeat = ref(0)
 const street = ref<'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('preflop')
 const dealt = ref(false)
@@ -212,6 +214,8 @@ function dealNewHand() {
   waitingForHero.value = false
   street.value = 'preflop'
   dealt.value = true
+  heroWonHand.value = false
+  heroWinAmount.value = 0
   handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
 
   // Rotate dealer
@@ -507,6 +511,10 @@ function endHand() {
     winnerId = winner.id
     winner.chips += pot.value
   }
+
+  // Track hero result for stats panel
+  heroWonHand.value = winnerId === 0
+  heroWinAmount.value = pot.value
 
   // Update tilt state for all non-hero players
   for (const p of playerStates.value) {
@@ -850,6 +858,8 @@ function formatPot(n: number): string {
           :player-stats="opponentStats"
           :hero-turn="heroTurn"
           :hero-folded="hero?.folded || false"
+          :hero-won="heroWonHand"
+          :win-amount="heroWinAmount"
           :session-stats="session"
           :supabase-connected="supabaseReady"
           @fold="handleFold"
