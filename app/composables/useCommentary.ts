@@ -423,7 +423,7 @@ export function useCommentary(gs: GS) {
             addTV(normanCallQuips.pick(), 'action', 'norman') // always comment on slow-plays
             return
           }
-          const draws = detectDraws(Array.from(pl.holeCards!), community)
+          const draws = gs.street.value !== 'river' ? detectDraws(Array.from(pl.holeCards!), community) : []
           if (draws.length > 0) {
             addTV(lonWantsToAnalyze() ? `${name} calls $${amount}, chasing the ${draws[0].type.toLowerCase()}.` : `${name} calls $${amount}.`, 'action', 'lon')
             if (normanFeelsLikeIt()) addTV(normanCallQuips.pick(), 'action', 'norman')
@@ -854,7 +854,9 @@ export function useCommentary(gs: GS) {
 
     if (community.length >= 3) {
       const hand = bestHand(Array.from(h.holeCards), community)
-      const draws = detectDraws(Array.from(h.holeCards), community)
+      // No draws on the river — all cards are dealt, no more outs
+      const isRiver = gs.street.value === 'river'
+      const draws = isRiver ? [] : detectDraws(Array.from(h.holeCards), community)
       if (hand && hand.rank >= HAND_RANKS.FLUSH) {
         addHero(pick([`We have ${HAND_RANK_NAMES[hand.rank]}. Bet for value.`, `${HAND_RANK_NAMES[hand.rank]}. Time to build the pot.`]), 'aside')
         addTV(`Hero has ${HAND_RANK_NAMES[hand.rank]}. Decision time.`, 'aside', 'lon')
