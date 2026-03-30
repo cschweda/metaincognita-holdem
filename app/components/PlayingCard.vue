@@ -18,9 +18,9 @@ const props = withDefaults(defineProps<{
 
 const sizeClasses = computed(() => {
   switch (props.size) {
-    case 'sm': return { card: 'w-16 h-[5.5rem]', rank: 'text-base', suit: 'text-2xl', corner: 'text-[0.6rem]' }
-    case 'lg': return { card: 'w-28 h-[10rem]', rank: 'text-3xl', suit: 'text-5xl', corner: 'text-sm' }
-    default: return { card: 'w-20 h-[7rem]', rank: 'text-xl', suit: 'text-3xl', corner: 'text-xs' }
+    case 'sm': return { card: 'w-16 h-[5.5rem]', rank: 'text-base', suit: 'text-2xl', corner: 'text-xs' }
+    case 'lg': return { card: 'w-28 h-[10rem]', rank: 'text-3xl', suit: 'text-5xl', corner: 'text-base' }
+    default: return { card: 'w-20 h-[7rem]', rank: 'text-xl', suit: 'text-3xl', corner: 'text-sm' }
   }
 })
 

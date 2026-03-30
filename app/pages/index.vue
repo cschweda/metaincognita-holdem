@@ -79,7 +79,6 @@ const playerStates = ref<PlayerState[]>([])
 const heroWonHand = ref(false)
 const heroWinAmount = ref(0)
 const heroTotalWagered = ref(0)   // total chips hero put in this hand
-const heroChipsAtStart = ref(0)   // hero's stack at start of hand
 const dealerSeat = ref(0)
 const street = ref<'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('preflop')
 const dealt = ref(false)
@@ -90,6 +89,7 @@ const waitingForHero = ref(false)
 const allCommunity = ref<Card[]>([])
 const animating = ref(false)
 const handActionLog = ref<string[]>([]) // play-by-play for current hand
+const streetAtEnd = ref<string>('preflop') // street when hand ended (for community card display)
 
 // ─── Computed ──────────────────────────────────────────────────
 const stake = computed(() => config.stakes.find(s => s.level === (settings.value?.stakeLevel || 3))!)
@@ -107,12 +107,13 @@ const hero = computed(() => playerStates.value[0])
 const heroHoleCards = computed(() => hero.value?.holeCards || null)
 
 const visibleCommunity = computed(() => {
-  switch (street.value) {
+  // At showdown, only show cards that were actually dealt (not future streets)
+  const s = street.value === 'showdown' ? streetAtEnd.value : street.value
+  switch (s) {
     case 'preflop': return []
     case 'flop': return allCommunity.value.slice(0, 3)
     case 'turn': return allCommunity.value.slice(0, 4)
-    case 'river':
-    case 'showdown': return allCommunity.value.slice(0, 5)
+    case 'river': return allCommunity.value.slice(0, 5)
     default: return []
   }
 })
@@ -200,7 +201,6 @@ function dealNewHand() {
     })
   }
   playerStates.value = states
-  heroChipsAtStart.value = states[0]?.chips || startingStack.value
 
   idx++ // burn
   const community = [deck[idx++], deck[idx++], deck[idx++]]
@@ -220,7 +220,7 @@ function dealNewHand() {
   heroWonHand.value = false
   heroWinAmount.value = 0
   heroTotalWagered.value = 0
-  heroChipsAtStart.value = 0 // set after player states are created
+  streetAtEnd.value = 'preflop'
   handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
 
   // Rotate dealer
@@ -246,6 +246,7 @@ function postBlindsAndStartBetting() {
     p.lastAction = 'sb'
     p.currentBetAmount = amt
     pot.value += amt
+    if (p.id === 0) heroTotalWagered.value += amt
   }
 
   if (bbSeat >= 0) {
@@ -255,6 +256,7 @@ function postBlindsAndStartBetting() {
     p.betThisRound = amt
     p.lastAction = 'bb'
     p.currentBetAmount = amt
+    if (p.id === 0) heroTotalWagered.value += amt
     pot.value += amt
   }
 
@@ -354,6 +356,7 @@ function applyAction(p: PlayerState, action: { type: string; amount?: number }) 
     const callAmt = Math.min(currentBet.value - p.betThisRound, p.chips)
     p.chips -= callAmt
     p.betThisRound += callAmt
+    if (p.id === 0) heroTotalWagered.value += callAmt
     pot.value += callAmt
     p.lastAction = 'call'
     p.currentBetAmount = callAmt
@@ -365,6 +368,7 @@ function applyAction(p: PlayerState, action: { type: string; amount?: number }) 
     p.betThisRound = raiseTotal
     pot.value += toAdd
     currentBet.value = raiseTotal
+    if (p.id === 0) heroTotalWagered.value += toAdd
     p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
     p.currentBetAmount = raiseTotal
     handActionLog.value.push(p.chips <= 0 ? `${p.name} goes ALL-IN $${raiseTotal}` : `${p.name} raises to $${raiseTotal}`)
@@ -504,6 +508,7 @@ function advanceStreet() {
 function endHand() {
   activeSeat.value = -1
   waitingForHero.value = false
+  streetAtEnd.value = street.value // remember what street we were on
   street.value = 'showdown'
 
   // Determine winner
@@ -520,11 +525,7 @@ function endHand() {
   // Track hero result for stats panel
   heroWonHand.value = winnerId === 0
   heroWinAmount.value = pot.value
-  // Hero's chips BEFORE pot was awarded = current chips minus pot (if won)
-  const heroChipsBeforeAward = playerStates.value[0]
-    ? playerStates.value[0].chips - (winnerId === 0 ? pot.value : 0)
-    : 0
-  heroTotalWagered.value = heroChipsAtStart.value - heroChipsBeforeAward
+  // heroTotalWagered is already tracked incrementally via applyAction + blinds
 
   // Update tilt state for all non-hero players
   for (const p of playerStates.value) {
