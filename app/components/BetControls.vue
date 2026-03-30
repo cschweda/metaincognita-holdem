@@ -56,6 +56,12 @@ function setRaise(amount: number) {
   showCustom.value = false
 }
 
+function raisePreset(amount: number) {
+  const clamped = Math.min(Math.max(amount, props.minRaise), props.maxRaise)
+  raiseAmount.value = clamped
+  emit('raise', clamped)
+}
+
 function applyCustom() {
   const val = parseFloat(customInput.value)
   if (!isNaN(val) && val >= props.minRaise) {
@@ -150,7 +156,7 @@ function formatAmount(n: number): string {
           :class="raiseAmount === preset.amount
             ? 'bg-green-700/60 text-green-100 border-green-500/50'
             : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60'"
-          @click="setRaise(preset.amount)"
+          @click="raisePreset(preset.amount)"
         >
           {{ preset.label }}
           <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(preset.amount) }}</span>
@@ -163,7 +169,7 @@ function formatAmount(n: number): string {
           :class="raiseAmount === maxRaise
             ? 'bg-amber-700/60 text-amber-100 border-amber-500/50'
             : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60'"
-          @click="setRaise(maxRaise)"
+          @click="raisePreset(maxRaise)"
         >
           All-In
           <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(maxRaise) }}</span>
