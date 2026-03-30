@@ -31,15 +31,15 @@ const sizeClasses = computed(() => {
 })
 
 const isCourtCard = computed(() => {
-  return props.card && props.card.rank >= 11
+  return props.card && props.card.rank >= 11 && props.card.rank <= 13
 })
 
 const courtSymbol = computed(() => {
   if (!props.card) return ''
   switch (props.card.rank) {
-    case 11: return '♞' // Jack
-    case 12: return '♛' // Queen
-    case 13: return '♚' // King
+    case 11: return '♞'
+    case 12: return '♛'
+    case 13: return '♚'
     default: return ''
   }
 })
@@ -51,108 +51,164 @@ const pips = computed(() => {
 </script>
 
 <template>
-  <div
-    class="relative preserve-3d transition-transform duration-500"
-    :class="[sizeClasses, { 'rotate-y-180': faceUp && card }]"
-    style="perspective: 600px;"
-  >
-    <!-- Card face -->
+  <!-- Perspective wrapper -->
+  <div :class="sizeClasses" class="card-perspective">
+    <!-- Inner container that flips -->
     <div
-      class="absolute inset-0 backface-hidden rounded-lg border shadow-md rotate-y-180 flex flex-col overflow-hidden"
-      :class="[
-        'bg-white dark:bg-gray-50 border-gray-200',
-      ]"
+      class="card-inner"
+      :class="{ 'is-flipped': faceUp && card }"
     >
-      <template v-if="card">
-        <!-- Top-left rank + suit -->
-        <div
-          class="absolute top-0.5 left-1 flex flex-col items-center leading-none"
-          :class="SUIT_COLORS[card.suit]"
-        >
-          <span class="font-bold">{{ RANK_DISPLAY[card.rank] }}</span>
-          <span class="-mt-0.5">{{ SUIT_SYMBOLS[card.suit] }}</span>
+      <!-- Card back (default visible side) -->
+      <div class="card-face card-back">
+        <div class="card-back-pattern">
+          <div class="card-back-inset">
+            <div class="card-back-center">
+              <span>♠</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <!-- Center area -->
-        <div class="flex-1 flex items-center justify-center" :class="SUIT_COLORS[card.suit]">
-          <template v-if="isCourtCard">
-            <div class="text-3xl leading-none" :class="{ 'text-2xl': size === 'sm', 'text-4xl': size === 'lg' }">
-              {{ courtSymbol }}
-            </div>
-          </template>
-          <template v-else-if="card.rank === 14">
-            <div class="text-3xl leading-none" :class="{ 'text-2xl': size === 'sm', 'text-4xl': size === 'lg' }">
-              {{ SUIT_SYMBOLS[card.suit] }}
-            </div>
-          </template>
-          <template v-else>
-            <!-- Number card pip layout -->
-            <div class="grid grid-cols-3 grid-rows-5 gap-0 w-full h-full p-1.5">
-              <template v-for="row in 5" :key="row">
-                <template v-for="col in 3" :key="`${row}-${col}`">
-                  <div class="flex items-center justify-center text-[0.55em]">
-                    <span v-if="pips.some(([r, c]) => r === row - 1 && c === col - 1)">
-                      {{ SUIT_SYMBOLS[card.suit] }}
-                    </span>
-                  </div>
+      <!-- Card face (hidden until flipped) -->
+      <div class="card-face card-front">
+        <template v-if="card">
+          <!-- Top-left rank + suit -->
+          <div class="card-corner card-corner-top" :class="SUIT_COLORS[card.suit]">
+            <span class="font-bold leading-none">{{ RANK_DISPLAY[card.rank] }}</span>
+            <span class="leading-none -mt-0.5">{{ SUIT_SYMBOLS[card.suit] }}</span>
+          </div>
+
+          <!-- Center area -->
+          <div class="flex-1 flex items-center justify-center" :class="SUIT_COLORS[card.suit]">
+            <template v-if="isCourtCard">
+              <div class="text-3xl leading-none" :class="{ 'text-2xl': size === 'sm', 'text-4xl': size === 'lg' }">
+                {{ courtSymbol }}
+              </div>
+            </template>
+            <template v-else-if="card.rank === 14">
+              <div class="text-3xl leading-none" :class="{ 'text-2xl': size === 'sm', 'text-4xl': size === 'lg' }">
+                {{ SUIT_SYMBOLS[card.suit] }}
+              </div>
+            </template>
+            <template v-else>
+              <div class="grid grid-cols-3 grid-rows-5 gap-0 w-full h-full p-1.5">
+                <template v-for="row in 5" :key="row">
+                  <template v-for="col in 3" :key="`${row}-${col}`">
+                    <div class="flex items-center justify-center text-[0.55em]">
+                      <span v-if="pips.some(([r, c]) => r === row - 1 && c === col - 1)">
+                        {{ SUIT_SYMBOLS[card.suit] }}
+                      </span>
+                    </div>
+                  </template>
                 </template>
-              </template>
-            </div>
-          </template>
-        </div>
+              </div>
+            </template>
+          </div>
 
-        <!-- Bottom-right rank + suit (rotated) -->
-        <div
-          class="absolute bottom-0.5 right-1 flex flex-col items-center leading-none rotate-180"
-          :class="SUIT_COLORS[card.suit]"
-        >
-          <span class="font-bold">{{ RANK_DISPLAY[card.rank] }}</span>
-          <span class="-mt-0.5">{{ SUIT_SYMBOLS[card.suit] }}</span>
-        </div>
-      </template>
-    </div>
-
-    <!-- Card back -->
-    <div
-      class="absolute inset-0 backface-hidden rounded-lg border border-gray-600 shadow-md overflow-hidden"
-      style="
-        background:
-          repeating-linear-gradient(
-            45deg,
-            #8b1a1a 0px,
-            #8b1a1a 4px,
-            #1a1a5c 4px,
-            #1a1a5c 8px
-          );
-      "
-    >
-      <!-- Gold border inset -->
-      <div
-        class="absolute inset-1 rounded border-2 border-yellow-600/60 flex items-center justify-center"
-        style="background: repeating-linear-gradient(
-          -45deg,
-          #8b1a1a 0px,
-          #8b1a1a 3px,
-          #1a1a5c 3px,
-          #1a1a5c 6px
-        );"
-      >
-        <div class="w-6 h-6 rounded-full border border-yellow-600/50 bg-yellow-900/30 flex items-center justify-center">
-          <span class="text-yellow-500/60 text-[0.5rem]">♠</span>
-        </div>
+          <!-- Bottom-right rank + suit (rotated) -->
+          <div class="card-corner card-corner-bottom" :class="SUIT_COLORS[card.suit]">
+            <span class="font-bold leading-none">{{ RANK_DISPLAY[card.rank] }}</span>
+            <span class="leading-none -mt-0.5">{{ SUIT_SYMBOLS[card.suit] }}</span>
+          </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.preserve-3d {
+.card-perspective {
+  perspective: 800px;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
   transform-style: preserve-3d;
+  transition: transform 0.5s ease;
 }
-.backface-hidden {
-  backface-visibility: hidden;
-}
-.rotate-y-180 {
+
+.card-inner.is-flipped {
   transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.card-front {
+  transform: rotateY(180deg);
+  background: white;
+  border-color: #d1d5db;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-back {
+  border-color: #4b5563;
+}
+
+.card-back-pattern {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    #8b1a1a 0px, #8b1a1a 4px,
+    #1a1a5c 4px, #1a1a5c 8px
+  );
+  padding: 4px;
+}
+
+.card-back-inset {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.25rem;
+  border: 2px solid rgba(202, 138, 4, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    -45deg,
+    #8b1a1a 0px, #8b1a1a 3px,
+    #1a1a5c 3px, #1a1a5c 6px
+  );
+}
+
+.card-back-center {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid rgba(202, 138, 4, 0.4);
+  background: rgba(120, 53, 15, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(234, 179, 8, 0.5);
+  font-size: 0.5rem;
+}
+
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-corner-top {
+  top: 2px;
+  left: 4px;
+}
+
+.card-corner-bottom {
+  bottom: 2px;
+  right: 4px;
+  transform: rotate(180deg);
 }
 </style>
