@@ -4,6 +4,7 @@
  * and bot personas before starting a game.
  */
 import config from '@config'
+import { isGitHubUser } from '~/composables/useSupabase'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
@@ -35,6 +36,12 @@ const stackBB = ref(config.stackRange.defaultBB)
 const heroName = ref(config.betting.defaultHeroName)
 const showAdvanced = ref(false)
 const guestMode = ref(false)
+const isLoggedIn = ref(false)
+const showGuestWarning = ref(false)
+
+onMounted(async () => {
+  isLoggedIn.value = await isGitHubUser()
+})
 
 // Bot configurations
 const botConfigs = ref<BotConfig[]>(
@@ -377,6 +384,17 @@ function handleStart() {
         <div class="text-xs text-gray-500">Play without saving — no stats tracked, no Supabase</div>
       </div>
       <USwitch v-model="guestMode" />
+    </div>
+
+    <!-- Guest warning for logged-in users -->
+    <div
+      v-if="guestMode && isLoggedIn"
+      class="bg-yellow-900/20 border border-yellow-700/30 rounded-lg px-4 py-3"
+    >
+      <div class="text-sm text-yellow-300">You're signed in with GitHub.</div>
+      <div class="text-xs text-yellow-400/70 mt-0.5">
+        Guest mode won't save any hands or session data. Your existing stats are safe — this session just won't be tracked.
+      </div>
     </div>
 
     <!-- Start Button -->
