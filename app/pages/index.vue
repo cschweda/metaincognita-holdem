@@ -93,6 +93,7 @@ const allCommunity = ref<Card[]>([])
 const animating = ref(false)
 const handActionLog = ref<string[]>([]) // play-by-play for current hand
 const streetAtEnd = ref<string>('preflop') // street when hand ended (for community card display)
+const queuedAction = ref<string | null>(null) // pre-queued action before hero's turn
 
 // ─── Computed ──────────────────────────────────────────────────
 const stake = computed(() => config.stakes.find(s => s.level === (settings.value?.stakeLevel || 3))!)
@@ -232,6 +233,7 @@ function dealNewHand() {
   handWinnerId.value = -1
   handWinnerName.value = ''
   streetAtEnd.value = 'preflop'
+  queuedAction.value = null
   // Build the hand log with player cards at the top
   const playerCards = states
     .filter(p => !p.eliminated)
@@ -286,8 +288,8 @@ function postBlindsAndStartBetting() {
   currentBet.value = bb.value
 
   // Preflop: action starts left of BB (UTG)
-  const startSeat = (bbSeat + 1) % playerStates.value.length
-  setTimeout(() => runBettingRound(startSeat), 600)
+  const preflopStart = (bbSeat + 1) % playerStates.value.length
+  setTimeout(() => runBettingRound(preflopStart), 600)
 }
 
 // ─── Betting Round ─────────────────────────────────────────────
@@ -327,12 +329,21 @@ async function runBettingRound(startSeat: number, resume: boolean = false) {
     activeSeat.value = seat
 
     if (p.isHero) {
+      // Check for queued action
+      if (queuedAction.value) {
+        const action = queuedAction.value
+        queuedAction.value = null
+        if (action === 'fold') { handleFold(); return }
+        if (action === 'check' && toCall.value === 0) { handleCheck(); return }
+        if (action === 'call' && toCall.value > 0) { handleCall(toCall.value); return }
+      }
       waitingForHero.value = true
       return // Hero takes over; resumes via resumeBettingAfterHero
     }
 
-    // Bot decision with thinking delay
-    await sleep(800 + Math.random() * 1200)
+    // Bot decision — fast if hero already folded, normal speed otherwise
+    const heroOut = playerStates.value[0]?.folded
+    await sleep(heroOut ? 150 + Math.random() * 200 : 800 + Math.random() * 1200)
     const action = makeBotDecision(p)
 
     applyAction(p, action)
@@ -360,12 +371,12 @@ async function runBettingRound(startSeat: number, resume: boolean = false) {
   waitingForHero.value = false
 
   if (activePlayers.value.length <= 1) {
-    setTimeout(() => endHand(), 1000)
+    setTimeout(() => endHand(), playerStates.value[0]?.folded ? 300 : 1000)
     return
   }
 
-  // Street complete — advance
-  setTimeout(() => advanceStreet(), 800)
+  // Street complete — advance (fast if hero folded)
+  setTimeout(() => advanceStreet(), playerStates.value[0]?.folded ? 200 : 800)
 }
 
 function applyAction(p: PlayerState, action: { type: string; amount?: number }) {
@@ -478,12 +489,12 @@ function handleRaise(amount: number) {
 
 function resumeBettingAfterHero() {
   if (activePlayers.value.length <= 1) {
-    setTimeout(() => endHand(), 1000)
+    setTimeout(() => endHand(), playerStates.value[0]?.folded ? 300 : 1000)
     return
   }
 
   if (needsToAct.value.size === 0) {
-    setTimeout(() => advanceStreet(), 800)
+    setTimeout(() => advanceStreet(), playerStates.value[0]?.folded ? 200 : 800)
     return
   }
 
@@ -528,7 +539,7 @@ function advanceStreet() {
     if (!p.folded && !p.eliminated && p.chips > 0) break
     startSeat = (startSeat + 1) % count
   }
-  setTimeout(() => runBettingRound(startSeat), 600)
+  setTimeout(() => runBettingRound(startSeat), playerStates.value[0]?.folded ? 150 : 600)
 }
 
 function endHand() {
@@ -834,6 +845,44 @@ function formatPot(n: number): string {
                 <span class="text-gray-400 font-normal">is thinking</span>
               </span>
             </div>
+          </div>
+
+          <!-- Queued action (before hero's turn) -->
+          <div
+            v-if="queuedAction && !heroTurn && !hero?.folded && street !== 'showdown'"
+            class="flex justify-center"
+          >
+            <div class="inline-flex items-center gap-3 bg-gray-800/60 border border-gray-600/40 rounded-full px-5 py-2">
+              <span class="text-xs text-gray-400">Queued:</span>
+              <span class="text-sm font-semibold uppercase" :class="{
+                'text-red-400': queuedAction === 'fold',
+                'text-gray-300': queuedAction === 'check',
+                'text-blue-400': queuedAction === 'call',
+              }">{{ queuedAction }}</span>
+              <button
+                class="text-xs text-gray-500 hover:text-white underline underline-offset-2 transition-colors"
+                @click="queuedAction = null"
+              >
+                cancel
+              </button>
+            </div>
+          </div>
+
+          <!-- Pre-action buttons (when not hero's turn yet) -->
+          <div
+            v-if="!heroTurn && !hero?.folded && street !== 'showdown' && dealt && !queuedAction"
+            class="flex justify-center gap-2"
+          >
+            <UTooltip text="Queue a fold — will execute when it's your turn. Click cancel to change your mind.">
+              <UButton size="xs" variant="ghost" color="error" @click="queuedAction = 'fold'">
+                Pre-fold
+              </UButton>
+            </UTooltip>
+            <UTooltip :text="toCall > 0 ? 'Queue a call — will execute when it\'s your turn' : 'Queue a check — will execute when it\'s your turn'">
+              <UButton size="xs" variant="ghost" color="neutral" @click="queuedAction = toCall > 0 ? 'call' : 'check'">
+                Pre-{{ toCall > 0 ? 'call' : 'check' }}
+              </UButton>
+            </UTooltip>
           </div>
 
           <!-- Hero's turn indicator -->
