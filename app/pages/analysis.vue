@@ -10,8 +10,7 @@ defineOptions({ name: 'analysis' })
 useHead({ title: 'Bot Analysis Report' })
 
 const running = ref(false)
-const progress = ref(0)
-const currentHand = ref(0)
+const runPhase = ref('')
 const result6p = ref<SimResult | null>(null)
 const result8p = ref<SimResult | null>(null)
 const runTimestamp = ref<string | null>(null)
@@ -19,20 +18,15 @@ const runDuration = ref<number>(0)
 
 async function runAnalysis() {
   running.value = true
-  progress.value = 0
   result6p.value = null
   result8p.value = null
   const startTime = Date.now()
 
-  result6p.value = await runSimulation(1000, 6, (pct, hand) => {
-    progress.value = pct * 0.5
-    currentHand.value = hand
-  })
+  runPhase.value = 'Running 6-player simulation...'
+  result6p.value = await runSimulation(1000, 6, () => {})
 
-  result8p.value = await runSimulation(1000, 8, (pct, hand) => {
-    progress.value = 0.5 + pct * 0.5
-    currentHand.value = 1000 + hand
-  })
+  runPhase.value = 'Running 8-player simulation...'
+  result8p.value = await runSimulation(1000, 8, () => {})
 
   runDuration.value = Math.round((Date.now() - startTime) / 1000)
   runTimestamp.value = new Date().toLocaleString('en-US', {
@@ -40,7 +34,21 @@ async function runAnalysis() {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
   running.value = false
-  progress.value = 1
+}
+
+function downloadHandHistory() {
+  if (!result6p.value && !result8p.value) return
+  const parts = []
+  if (result6p.value) parts.push(result6p.value.allHandsPS)
+  if (result8p.value) parts.push(result8p.value.allHandsPS)
+  const content = parts.join('\n\n')
+  const blob = new Blob([content], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `holdem-analysis-${new Date().toISOString().slice(0, 10)}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function pct(n: number, total: number): string {
@@ -68,7 +76,7 @@ const allInteresting = computed(() => {
           <p class="text-gray-500 text-sm mt-1">Live simulation — pro personas only, $1/$2 Medium stakes</p>
         </div>
         <NuxtLink to="/">
-          <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back to Table</UButton>
+          <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back</UButton>
         </NuxtLink>
       </div>
 
@@ -85,28 +93,33 @@ const allInteresting = computed(() => {
           {{ running ? 'Running Simulation...' : result6p ? 'Run New Simulation' : 'Run 2,000-Hand Simulation' }}
         </button>
 
-        <!-- Progress -->
-        <div v-if="running" class="mt-4 space-y-2">
-          <div class="flex items-center justify-between text-xs text-gray-500">
-            <span>Hand {{ currentHand.toLocaleString() }} / 2,000</span>
-            <span>{{ Math.round(progress * 100) }}%</span>
+        <!-- Spinner -->
+        <div v-if="running" class="mt-4 flex items-center gap-3">
+          <div class="flex gap-1.5">
+            <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
+            <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
+            <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
           </div>
-          <div class="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-green-500 rounded-full transition-all duration-100"
-              :style="{ width: `${progress * 100}%` }"
-            />
-          </div>
+          <span class="text-sm text-gray-400">{{ runPhase }}</span>
         </div>
       </div>
 
-      <!-- Timestamp -->
-      <div v-if="runTimestamp && !running" class="mb-6 flex items-center gap-3 text-xs text-gray-600">
-        <span>{{ runTimestamp }}</span>
-        <span>&middot;</span>
-        <span>{{ runDuration }}s runtime</span>
-        <span>&middot;</span>
-        <span>2,000 total hands (1,000 per table size)</span>
+      <!-- Timestamp + Download -->
+      <div v-if="runTimestamp && !running" class="mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-3 text-xs text-gray-600">
+          <span>{{ runTimestamp }}</span>
+          <span>&middot;</span>
+          <span>{{ runDuration }}s runtime</span>
+          <span>&middot;</span>
+          <span>2,000 total hands</span>
+        </div>
+        <button
+          class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+          @click="downloadHandHistory"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PokerStars Hand History
+        </button>
       </div>
 
       <template v-if="result6p && result8p && !running">

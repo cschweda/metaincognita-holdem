@@ -48,6 +48,7 @@ export interface SimResult {
   showdowns: number; threeBetPots: number; allInHands: number
   botStats: SimBotStat[]
   interestingHands: SimHandRecord[]
+  allHandsPS: string // full PokerStars hand history for all hands
 }
 
 function displayCard(c: Card): string { return `${RANK_DISPLAY[c.rank]}${SUIT_SYMBOLS[c.suit]}` }
@@ -313,5 +314,6 @@ export async function runSimulation(
     preflopFoldOuts, flopsSeen, turnsSeen, riversSeen, showdowns, threeBetPots, allInHands,
     botStats: [...botStats.values()],
     interestingHands: interesting,
+    allHandsPS: allHands.map(h => h.psFormat).join('\n\n'),
   }
 }
