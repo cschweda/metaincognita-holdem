@@ -589,11 +589,13 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             :enabled="commentary.enabled.value"
             :mode="commentary.mode.value"
             :norman-silence="commentary.normanSilence.value"
+            :norman-serious="commentary.normanSerious.value"
             :lon-analysis="commentary.lonAnalysis.value"
             :hand-over="gs.street.value === 'showdown'"
             @update:enabled="commentary.enabled.value = $event"
             @update:mode="commentary.mode.value = $event"
             @update:norman-silence="commentary.normanSilence.value = $event"
+            @update:norman-serious="commentary.normanSerious.value = $event"
             @update:lon-analysis="commentary.lonAnalysis.value = $event"
           />
         </div>

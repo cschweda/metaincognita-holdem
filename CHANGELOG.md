@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-03-29
+
+### Added
+- **Hand history replay viewer** (`/replay-hand`) — Paste any PokerStars hand history and watch it play out step-by-step on the visual poker table. All cards face-up. Play/pause, speed control (0.5x-3x), step forward/back, keyboard shortcuts, action log, multi-hand support. "Replay on Table" button on analysis interesting hands.
+- **PokerStars parser** (`pokerStarsParser.ts`) — Inverse of the exporter. Parses seats, blinds, hole cards (from Dealt/Shows/Summary), actions per street, community cards, showdown, winners. Validates format with clear error messages.
+- **Chorman strategic analysis mode** — Chorman now alternates between quips and genuine poker observations based on a "Style" slider (0 = all jokes, 100 = all strategy, default 30). Strategic observations are generated dynamically from actual cards/board/pot:
+  - Flop: outs math with hit percentages, position analysis ("Protect it — bet to charge draws"), board danger ("Monotone board and we don't have a card of that suit"), ace-high warnings
+  - Actions: bet-sizing analysis ("Overbet — very strong hand or big bluff"), pot-odds equity against all-ins, blocking bet detection
+  - Showdown: session-building commentary, cooler acknowledgment ("Nothing you could have done differently")
+- **Hero POV board texture analysis** — Flop/turn/river now show detailed objective notes: board texture (monotone/two-tone/paired/connected), equity vs opponents, draw outs, ace-on-low-board alerts, flush-completing warnings, paired-board full-house-draw alerts, player count.
+- **Detailed hand descriptions with kickers** — Two Pair shows "Ks and Js, T-kicker" (was just "Ks and Js"). Trips/Flush/Straight/Full House all show kicker or high card. Winner section explains kicker losses ("Same hand type — wins on kicker").
+- **Recommendation shows ALL-IN** when hero can't meaningfully raise (stack ≤ 1.5x call amount).
+- **Winner's hand description** shown in stats panel at showdown (e.g., "Top Pair, Ace-kicker").
+- **Hand insights in analysis** — Each interesting hand shows color-coded analysis: Leak (red), Good Play (green), Note (amber), Info (blue). Leaks include weak hands from EP, calling all-ins with marginal holdings. Good plays include disciplined folds under pressure.
+- **Raise defaults to half-pot** instead of minimum raise. On a $248 pot, shows $124 instead of $2.
+
+### Changed
+- **Commentary always generates** regardless of enabled state — switching from Off to Hero POV mid-hand shows full history.
+- **3-way Off/Hero/TV tabs** in both setup screen and commentary panel for consistency.
+- **Commentary defaults to Off** — user must explicitly choose Hero POV or TV Broadcast.
+- **Tooltip layout shift fixed** — CSS `[data-state="delayed-open"]` was styling the trigger element, not just the popup. Scoped to portal wrapper.
+- **480+ unique Chorman quips** across 20+ pools including 7 board texture categories, random banter, and strategic observations.
+- **Stake selector on analysis page** with tooltip explaining stakes don't affect bot behavior.
+- **Analysis runs 3 sims** — heads-up, 6-player, 8-player with per-sim download links.
+
 ## [0.14.0] - 2026-03-29
 
 ### Added (Solver-Adjacent Improvements)

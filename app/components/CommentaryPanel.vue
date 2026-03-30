@@ -10,6 +10,7 @@ const props = defineProps<{
   enabled: boolean
   mode: CommentaryMode
   normanSilence: number
+  normanSerious: number
   lonAnalysis: number
   handOver?: boolean
 }>()
@@ -18,6 +19,7 @@ const emit = defineEmits<{
   'update:enabled': [value: boolean]
   'update:mode': [value: CommentaryMode]
   'update:normanSilence': [value: number]
+  'update:normanSerious': [value: number]
   'update:lonAnalysis': [value: number]
 }>()
 
@@ -125,6 +127,28 @@ const typeStyles: Record<string, string> = {
                    [&::-webkit-slider-thumb]:cursor-pointer"
             @input="emit('update:normanSilence', 100 - parseInt(($event.target as HTMLInputElement).value))"
           />
+        </div>
+        <div class="space-y-0.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[0.55rem] text-amber-400/70">Chorman Style</span>
+            <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSerious <= 10 ? 'All jokes' : normanSerious >= 90 ? 'All strategy' : normanSerious <= 30 ? 'Mostly fun' : normanSerious >= 70 ? 'Mostly serious' : 'Balanced' }}</span>
+          </div>
+          <input
+            type="range"
+            :value="normanSerious"
+            min="0"
+            max="100"
+            step="5"
+            class="w-full h-1 appearance-none rounded-full bg-gray-700 cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500
+                   [&::-webkit-slider-thumb]:cursor-pointer"
+            @input="emit('update:normanSerious', parseInt(($event.target as HTMLInputElement).value))"
+          />
+          <div class="flex justify-between text-[0.45rem] text-gray-700">
+            <span>Quips</span>
+            <span>Strategy</span>
+          </div>
         </div>
       </div>
     </div>

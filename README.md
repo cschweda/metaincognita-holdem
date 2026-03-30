@@ -41,7 +41,8 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **TV Broadcast** -- Chorman Nad & Mon LeEachern style dual-voice (homage to Norman Chad & Lon McEachern). All bot cards shown face-up, like watching WSOP on TV. Confirmation alert before enabling.
 - **400+ unique Chorman Nad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
 - **Self-aware moments** -- Chorman knows he's commentating a simulation with bots
-- **Mon/Chorman voice sliders** -- dial analysis depth and quip frequency independently (right = more)
+- **Mon/Chorman voice sliders** -- dial analysis depth, quip frequency, and Chorman's serious/funny balance independently
+- **Chorman strategic mode** -- slide "Chorman Style" toward strategy and he drops real poker analysis: outs math, bet-sizing reads, board danger alerts, equity calls. Slide toward quips for pure comedy. Default 30% serious.
 - Text only, no audio
 
 ### Tools & Export
@@ -50,7 +51,8 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
 - **Hand replay** -- re-live any hand with different decisions, compare outcomes
 - **Hand detail modal** -- click any hand for PokerStars history, copy to clipboard, replay, analyze
-- **Interactive bot analysis** (`/analysis`) -- run a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with metrics, bot stats, auto-selected interesting hands, and downloadable PokerStars hand histories per table size
+- **Interactive bot analysis** (`/analysis`) -- run a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with metrics, bot stats, auto-selected interesting hands with insights (leaks, good plays, teaching moments), and downloadable PokerStars hand histories per table size
+- **Hand history replay viewer** (`/replay-hand`) -- paste any PokerStars hand history and watch it play out on the visual table. All cards face-up. Play/pause, speed control (0.5x-3x), step forward/back, keyboard shortcuts, action log. Click "Replay on Table" from analysis interesting hands.
 - **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth (optional)
 
 ## Table of Contents
