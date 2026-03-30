@@ -28,13 +28,10 @@ const emit = defineEmits<{
 const scrollContainer = ref<HTMLElement | null>(null)
 const userScrolled = ref(false)
 
-// Combined Chorman slider: maps single 0-100 value to both serious ratio and quip frequency
-// Left (0) = all quips, lots of talking. Right (100) = all strategy, less chatter.
-function onChormanSlider(value: number) {
+// Chorman style slider: purely controls quips vs strategy ratio
+// Frequency is now a separate slider (normanSilence)
+function onChormanStyleSlider(value: number) {
   emit('update:normanSerious', value)
-  // As strategy increases, reduce quip frequency slightly (more thoughtful, less chatter)
-  // 0 → silence 20 (talks a lot), 50 → silence 40 (balanced), 100 → silence 60 (selective)
-  emit('update:normanSilence', Math.round(20 + value * 0.4))
 }
 
 function switchToTV() {
@@ -135,7 +132,7 @@ const typeStyles: Record<string, string> = {
         </div>
         <div class="space-y-0.5">
           <div class="flex items-center justify-between">
-            <span class="text-[0.55rem] text-amber-400/70">Chorman</span>
+            <span class="text-[0.55rem] text-amber-400/70">Chorman Style</span>
             <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSerious <= 10 ? 'All quips' : normanSerious >= 90 ? 'All strategy' : normanSerious <= 30 ? 'Mostly fun' : normanSerious >= 70 ? 'Mostly serious' : 'Balanced' }}</span>
           </div>
           <input
@@ -148,11 +145,33 @@ const typeStyles: Record<string, string> = {
                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
                    [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500
                    [&::-webkit-slider-thumb]:cursor-pointer"
-            @input="onChormanSlider(parseInt(($event.target as HTMLInputElement).value))"
+            @input="onChormanStyleSlider(parseInt(($event.target as HTMLInputElement).value))"
           />
           <div class="flex justify-between text-[0.45rem] text-gray-700">
             <span>Quips</span>
             <span>Strategy</span>
+          </div>
+        </div>
+        <div class="space-y-0.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[0.55rem] text-amber-400/70">Chorman Frequency</span>
+            <span class="text-[0.55rem] text-gray-500 tabular-nums">{{ normanSilence >= 80 ? 'Rare' : normanSilence >= 60 ? 'Selective' : normanSilence >= 40 ? 'Regular' : normanSilence >= 20 ? 'Chatty' : 'Nonstop' }}</span>
+          </div>
+          <input
+            type="range"
+            :value="normanSilence"
+            min="0"
+            max="90"
+            step="5"
+            class="w-full h-1 appearance-none rounded-full bg-gray-700 cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500
+                   [&::-webkit-slider-thumb]:cursor-pointer"
+            @input="emit('update:normanSilence', parseInt(($event.target as HTMLInputElement).value))"
+          />
+          <div class="flex justify-between text-[0.45rem] text-gray-700">
+            <span>Every play</span>
+            <span>Rare</span>
           </div>
         </div>
       </div>

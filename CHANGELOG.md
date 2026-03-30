@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mon said a player was "chasing the flush draw" when calling on the river. `onAction()` call handler now skips draw detection on the river.
 
 ### Changed
-- **Chorman slider accuracy** — The serious slider now fully controls Chorman's tone. When set high (50%+), Chorman prefers strategic observations first, Mon-banter second ("What Mon said. I understood about half of it."), and quips only as fallback. When set low, pure quips dominate. Previously many quip paths bypassed the slider entirely.
+- **Dedicated Chorman Frequency slider** — New independent slider controls how often Chorman speaks (Nonstop → Every play → Regular → Selective → Rare). Decoupled from the Style slider which now purely controls quips↔strategy. ALL Chorman speech is gated through the frequency check — previously many paths (all-ins, bluffs, hero folds, board texture, showdowns) bypassed it entirely, making Chorman comment after every single play.
+- **Chorman Style slider accuracy** — When set high (50%+), Chorman prefers strategic observations first, Mon-banter second, quips only as fallback. When set low, pure quips dominate.
 - **Player names in action quips** — Chorman now occasionally names the player when commenting on their play (~35%): "Degreanu there. Another one bites the dust." / "Oh, Hero. Fold. The most underrated play in poker." Only on action-specific quips — generic banter stays impersonal.
 - **TV commentary color-coded by speaker** — All Mon lines are blue, all Chorman lines are amber. Previously text color varied by type (green/cyan/amber/gray) regardless of speaker.
 

@@ -176,7 +176,19 @@ export function useCommentary(gs: GS) {
    * Uses normanSerious slider: high = more strategic/banter, low = more quips.
    * name is optional — when provided, quips are sometimes personalized.
    */
+  /**
+   * Gated Chorman speech — respects the frequency slider.
+   * Use for ALL Norman lines except slider reactions and banter responses.
+   * Returns true if Norman actually spoke.
+   */
+  function normanSays(text: string, type: CommentaryLine['type'] = 'action'): boolean {
+    if (!normanFeelsLikeIt()) return false
+    addTV(text, type, 'norman')
+    return true
+  }
+
   function tryStrategicNorman(fallbackQuip: () => string, type: CommentaryLine['type'] = 'action', strategicFn?: () => string | null): boolean {
+    if (!normanFeelsLikeIt()) return false  // frequency gate — Chorman might skip this one
     // High serious: prefer strategic obs first, banter second, quip last
     if (normanWantsToBeSerious() && strategicFn) {
       const obs = strategicFn()
@@ -334,7 +346,7 @@ export function useCommentary(gs: GS) {
         addTV(chen >= 10
           ? pick([`Hero folds ${cardStr(pl.holeCards)}.`, `Hero lays down ${cardStr(pl.holeCards)}. Big fold.`])
           : `Hero folds.`, 'action', 'lon')
-        addTV(personalizeQuip(chen >= 10 ? normanBigFoldQuips.pick() : normanFoldQuips.pick(), 'Hero'), 'action', 'norman')
+        normanSays(personalizeQuip(chen >= 10 ? normanBigFoldQuips.pick() : normanFoldQuips.pick(), 'Hero'), 'action')
         return
       }
 
@@ -351,23 +363,23 @@ export function useCommentary(gs: GS) {
           const hand = handStr(pl, community)
           if (hand && ['Two Pair', 'Three of a Kind', 'Straight', 'Flush'].includes(hand)) {
             addTV(`${name} folds ${hand}!`, 'action', 'lon')
-            addTV(personalizeQuip(normanBigFoldQuips.pick(), name), 'action', 'norman')
+            normanSays(personalizeQuip(normanBigFoldQuips.pick(), name), 'action')
           } else {
             addTV(`${name} folds.`, 'action', 'lon')
-            if (normanFeelsLikeIt()) addTV(personalizeQuip(normanFoldQuips.pick(), name), 'action', 'norman')
+            normanSays(personalizeQuip(normanFoldQuips.pick(), name), 'action')
           }
         } else if (chen >= 8 || (chen <= 4 && pos)) {
           // Interesting preflop fold — Mon gives position-aware assessment, Chorman reacts
           const assessment = lonFoldAssessment(name, cardStr(pl.holeCards), pos, chen, gs.street.value, facingRaise)
           addTV(assessment, 'action', 'lon')
           if (chen >= 10) {
-            addTV(normanBigFoldQuips.pick(), 'action', 'norman')
+            normanSays(normanBigFoldQuips.pick(), 'action')
           } else {
-            addTV(normanFoldReactionQuips.pick(), 'action', 'norman')
+            normanSays(normanFoldReactionQuips.pick(), 'action')
           }
         } else {
           addTV(`${name} folds ${cardStr(pl.holeCards)}.`, 'action', 'lon')
-          if (normanFeelsLikeIt()) addTV(personalizeQuip(normanFoldQuips.pick(), name), 'action', 'norman')
+          normanSays(personalizeQuip(normanFoldQuips.pick(), name), 'action')
         }
       }
       return
@@ -424,19 +436,19 @@ export function useCommentary(gs: GS) {
         const hand = community.length >= 3 ? handStr(pl, community) : null
         if (hand && ['Straight', 'Flush', 'Full House', 'Four of a Kind', 'Straight Flush'].includes(hand)) {
           addTV(`${name} shoves $${amount} with ${hand}!`, 'action', 'lon')
-          addTV(personalizeQuip(normanAllinQuips.pick(), name), 'action', 'norman')
+          normanSays(personalizeQuip(normanAllinQuips.pick(), name), 'action')
         } else if (pl.holeCards && chenScore(pl.holeCards) <= 4 && gs.street.value === 'preflop') {
           addTV(`${name} goes all-in with ${cardStr(pl.holeCards)}.`, 'action', 'lon')
           if (lonWantsToAnalyze()) addTV(lonTiltReads.pick(), 'action', 'lon')
-          addTV(personalizeQuip(normanAllinJunkQuips.pick(), name), 'action', 'norman')
+          normanSays(personalizeQuip(normanAllinJunkQuips.pick(), name), 'action')
         } else {
           addTV(`ALL-IN from ${name}! $${amount}.`, 'action', 'lon')
           if (lonWantsToAnalyze()) addTV(lonPotAnalysis.pick(), 'action', 'lon')
-          addTV(personalizeQuip(normanAllinQuips.pick(), name), 'action', 'norman')
+          normanSays(personalizeQuip(normanAllinQuips.pick(), name), 'action')
         }
       } else {
         addTV(`${name} shoves for $${amount}!`, 'action', 'lon')
-        addTV(personalizeQuip(normanAllinQuips.pick(), name), 'action', 'norman')
+        normanSays(personalizeQuip(normanAllinQuips.pick(), name), 'action')
       }
       return
     }
@@ -555,21 +567,21 @@ export function useCommentary(gs: GS) {
           const hands = activePl().filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.score[0] - a.result!.score[0])
           if (hands.length > 0 && hands[0].player.name === name) {
             addTV(`${name} just calls with the best hand.`, 'action', 'lon')
-            addTV(personalizeQuip(normanCallQuips.pick(), name), 'action', 'norman') // always comment on slow-plays
+            normanSays(personalizeQuip(normanCallQuips.pick(), name), 'action')
             return
           }
           const draws = gs.street.value !== 'river' ? detectDraws(Array.from(pl.holeCards!), community) : []
           if (draws.length > 0) {
             addTV(lonWantsToAnalyze() ? `${name} calls $${amount}, chasing the ${draws[0].type.toLowerCase()}.` : `${name} calls $${amount}.`, 'action', 'lon')
-            if (normanFeelsLikeIt()) addTV(personalizeQuip(normanCallQuips.pick(), name), 'action', 'norman')
+            normanSays(personalizeQuip(normanCallQuips.pick(), name), 'action')
             return
           }
         }
         addTV(lonWantsToAnalyze() ? `${name} calls $${amount} with ${cardStr(pl.holeCards)}.` : `${name} calls $${amount}.`, 'action', 'lon')
-        if (normanFeelsLikeIt()) addTV(personalizeQuip(normanCallQuips.pick(), name), 'action', 'norman')
+        normanSays(personalizeQuip(normanCallQuips.pick(), name), 'action')
       } else {
         addTV(`${name} calls $${amount}.`, 'action', 'lon')
-        if (normanFeelsLikeIt()) addTV(personalizeQuip(normanCallQuips.pick(), name), 'action', 'norman')
+        normanSays(personalizeQuip(normanCallQuips.pick(), name), 'action')
       }
       return
     }
@@ -579,10 +591,8 @@ export function useCommentary(gs: GS) {
       const name = checkM[1]
       addHero(pick([`${name} checks.`, `Check from ${name}.`, `${name} taps the table.`]), 'action')
       addTV(`${name} checks.`, 'action', 'lon')
-      if (normanFeelsLikeIt()) {
-        // Randomly pick between action-specific quip (personalized) and random banter (not personalized)
-        addTV(Math.random() < 0.85 ? personalizeQuip(normanCheckQuips.pick(), name) : normanRandomBanter.pick(), 'action', 'norman')
-      }
+      // Randomly pick between action-specific quip (personalized) and random banter (not personalized)
+      normanSays(Math.random() < 0.85 ? personalizeQuip(normanCheckQuips.pick(), name) : normanRandomBanter.pick(), 'action')
     }
   }
 
@@ -687,22 +697,21 @@ export function useCommentary(gs: GS) {
       const isDry = isRainbow && !isConnected && !isPaired
 
       if (isMonotone) {
-        addTV(pick(normanBoardQuips.allOneSuit), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.allOneSuit), 'street')
       } else if (isPaired) {
-        addTV(pick(normanBoardQuips.paired), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.paired), 'street')
       } else if (ranks.every(r => r >= 11)) {
-        addTV(pick(normanBoardQuips.allBroadway), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.allBroadway), 'street')
       } else if (ranks.every(r => r <= 9)) {
-        addTV(pick(normanBoardQuips.allLow), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.allLow), 'street')
       } else if (isConnected) {
-        addTV(pick(normanBoardQuips.connected), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.connected), 'street')
       } else if (isDry) {
-        addTV(pick(normanBoardQuips.dry), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.dry), 'street')
       } else if (ranks.includes(14)) {
-        addTV(pick(normanBoardQuips.ace), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.ace), 'street')
       } else {
-        // Generic scary/interesting board
-        if (normanFeelsLikeIt()) addTV(pick(normanBoardQuips.scary), 'street', 'norman')
+        normanSays(pick(normanBoardQuips.scary), 'street')
       }
 
       // Inter-voice banter: Mon reacts to Norman's joke, or Norman responds to Mon's analysis
@@ -821,17 +830,18 @@ export function useCommentary(gs: GS) {
       let monSpokeOnTurn = false
       if (lonWantsToAnalyze() && Math.random() < 0.4) { addTV(lonStreetTransition.pick(), 'street', 'lon'); monSpokeOnTurn = true }
       // Turn board texture quip
-      if (normanFeelsLikeIt()) {
+      {
         const turnC = community[3]
         const flopSuits = community.slice(0, 3).map(c => c.suit)
         const flushPossible = flopSuits.filter(s => s === turnC.suit).length >= 2
-        if (flushPossible) addTV(pick(normanBoardQuips.turnScare), 'street', 'norman')
-        else addTV(pick(normanBoardQuips.turnBrick), 'street', 'norman')
+        if (flushPossible) normanSays(pick(normanBoardQuips.turnScare), 'street')
+        else normanSays(pick(normanBoardQuips.turnBrick), 'street')
         // Mon reacts to Norman's turn quip, then pivots to analysis
         if (!monSpokeOnTurn && Math.random() < 0.12) addTV(lonReactsToNorman.pick(), 'aside', 'lon')
-      } else if (monSpokeOnTurn && Math.random() < 0.18) {
+      }
+      if (monSpokeOnTurn && Math.random() < 0.18) {
         // Norman responds to Mon's turn analysis with banter
-        addTV(normanBanterAfterMon.pick(), 'aside', 'norman')
+        normanSays(normanBanterAfterMon.pick(), 'aside')
       }
       for (const p of players) {
         if (!p.holeCards) continue
@@ -960,9 +970,9 @@ export function useCommentary(gs: GS) {
       // Chorman comments on the winner, not on folding (hero already folded earlier)
       const winnerQuip = normanPersonaQuip(winner)
       if (winnerQuip) {
-        addTV(winnerQuip, 'showdown', 'norman')
-      } else if (normanFeelsLikeIt()) {
-        addTV(personalizeQuip(pick([
+        normanSays(winnerQuip, 'showdown')
+      } else {
+        normanSays(personalizeQuip(pick([
           `Takes it down without a fight. Nice.`,
           `Scoops the pot. Everyone else decided they had better things to do.`,
           `Collects the chips. Easiest money at the table.`,
