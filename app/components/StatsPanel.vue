@@ -28,6 +28,7 @@ const props = defineProps<{
   heroChips?: number
   playerStats?: PlayerStat[]
   heroTurn?: boolean
+  heroFolded?: boolean
   sessionStats?: {
     handsPlayed: number
     handsWon: number
@@ -300,8 +301,8 @@ function afLabel(af: number): string {
             <div v-else class="text-xs text-gray-500 italic">No active draws</div>
           </div>
 
-          <!-- Recommendation -->
-          <div class="border-t border-gray-700/50 pt-3">
+          <!-- Recommendation (hidden after hero folds) -->
+          <div v-if="!heroFolded" class="border-t border-gray-700/50 pt-3">
             <div class="text-xs text-gray-400 mb-1.5">Recommendation</div>
             <button
               class="w-full rounded-lg px-3 py-2 text-center transition-all"

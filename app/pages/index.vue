@@ -849,6 +849,7 @@ function formatPot(n: number): string {
           :hero-chips="hero?.chips || 0"
           :player-stats="opponentStats"
           :hero-turn="heroTurn"
+          :hero-folded="hero?.folded || false"
           :session-stats="session"
           :supabase-connected="supabaseReady"
           @fold="handleFold"
