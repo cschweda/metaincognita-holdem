@@ -2,6 +2,13 @@
 
 ![No Limit Hold'em Simulator](app/public/og-image.png)
 
+| | |
+|---|---|
+| ![Setup Screen](app/public/screenshot01.jpg) | ![Showdown with Hero POV Commentary](app/public/screenshot02.jpg) |
+| *Setup: choose opponents, stakes, stack depth, and commentary mode* | *Showdown: Hero POV commentary, winner comparison, session stats* |
+| ![TV Broadcast Mode](app/public/screenshot03.jpg) | ![Bot Analysis Report](app/public/screenshot04.jpg) |
+| *TV Broadcast: Mon & Chorman call the action, all cards face-up* | *Bot Analysis: 3,000-hand simulation with observed vs target stats* |
+
 A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits with 21 realism fixes. River polarization, MDF defense, pre-computed ranges, hero bet-sizing exploitation.
 
 ### Bot AI (16 realism fixes from professional audit)
