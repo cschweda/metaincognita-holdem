@@ -25,13 +25,15 @@ const scrollContainer = ref<HTMLElement | null>(null)
 const userScrolled = ref(false)
 
 function switchToTV() {
-  if (props.mode === 'tv') return
+  if (props.enabled && props.mode === 'tv') return
   // No warning needed if the hand is over (showdown) — cards are already revealed
   if (props.handOver) {
+    emit('update:enabled', true)
     emit('update:mode', 'tv')
     return
   }
   if (confirm('TV Broadcast mode flips all bot cards face-up — like watching the WSOP on TV. You still make all your own decisions.\n\nEnable TV mode?')) {
+    emit('update:enabled', true)
     emit('update:mode', 'tv')
   }
 }
@@ -60,36 +62,30 @@ const typeStyles: Record<string, string> = {
 
 <template>
   <div class="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-clip text-sm h-[min(calc(100vh-6rem),800px)] flex flex-col">
-    <!-- Header with toggle -->
+    <!-- Header with 3-way mode selector (matches setup screen) -->
     <div class="px-4 py-2.5 border-b border-gray-700/50 shrink-0 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Commentary</span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Commentary</span>
+      <div class="flex rounded-lg overflow-hidden border border-gray-700/50">
         <button
-          class="relative w-9 h-5 rounded-full transition-colors"
-          :class="enabled ? 'bg-green-600' : 'bg-gray-700'"
-          @click="emit('update:enabled', !enabled)"
+          class="flex-1 py-1.5 text-[0.6rem] font-semibold uppercase tracking-wider transition-colors"
+          :class="!enabled ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+          @click="emit('update:enabled', false); emit('update:mode', 'hero')"
         >
-          <div
-            class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-            :class="enabled ? 'translate-x-[1.1rem]' : 'translate-x-0.5'"
-          />
+          Off
         </button>
-      </div>
-      <!-- Mode selector -->
-      <div v-if="enabled" class="flex rounded-md overflow-hidden border border-gray-700/50">
         <button
-          class="flex-1 py-1 text-[0.6rem] font-semibold uppercase tracking-wider transition-colors"
-          :class="mode === 'hero' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
-          @click="emit('update:mode', 'hero')"
+          class="flex-1 py-1.5 text-[0.6rem] font-semibold uppercase tracking-wider transition-colors"
+          :class="enabled && mode === 'hero' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+          @click="emit('update:enabled', true); emit('update:mode', 'hero')"
         >
           Hero POV
         </button>
         <button
-          class="flex-1 py-1 text-[0.6rem] font-semibold uppercase tracking-wider transition-colors"
-          :class="mode === 'tv' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+          class="flex-1 py-1.5 text-[0.6rem] font-semibold uppercase tracking-wider transition-colors"
+          :class="enabled && mode === 'tv' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
           @click="switchToTV"
         >
-          TV Broadcast
+          TV
         </button>
       </div>
       <!-- Voice sliders (TV mode only) -->

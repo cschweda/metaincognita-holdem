@@ -583,7 +583,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
       <!-- Main layout -->
       <div class="flex flex-col xl:flex-row gap-4 max-w-[110rem] mx-auto items-start">
         <!-- Commentary column (left) -->
-        <div v-if="commentary.enabled.value" class="hidden xl:block w-80 shrink-0 xl:sticky xl:top-4">
+        <div class="hidden xl:block w-80 shrink-0 xl:sticky xl:top-4">
           <CommentaryPanel
             :lines="commentary.lines.value"
             :enabled="commentary.enabled.value"
