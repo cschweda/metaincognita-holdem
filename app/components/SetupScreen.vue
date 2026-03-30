@@ -225,20 +225,19 @@ function handleStart() {
 
 <template>
   <div class="max-w-2xl mx-auto p-6 space-y-6">
+    <!-- Top status bar -->
+    <div class="flex items-center justify-between py-2 px-1 mb-4 border-b border-gray-800/40 text-xs text-gray-500">
+      <div class="flex items-center gap-3">
+        <NuxtLink to="/stats" class="hover:text-gray-300 transition-colors">Stats</NuxtLink>
+        <NuxtLink to="/analysis" class="hover:text-gray-300 transition-colors">Bot Analysis</NuxtLink>
+      </div>
+      <SupabaseStatus />
+    </div>
+
     <h1 class="text-3xl font-bold text-center text-white">
       No Limit Hold'em Simulator
     </h1>
-    <div class="flex items-center justify-center gap-4">
-      <p class="text-gray-400 text-sm">Configure your table and start playing</p>
-      <NuxtLink to="/stats">
-        <UButton variant="ghost" color="neutral" size="xs" icon="i-lucide-bar-chart-2">
-          View Stats
-        </UButton>
-      </NuxtLink>
-    </div>
-    <div class="flex justify-end">
-      <SupabaseStatus />
-    </div>
+    <p class="text-gray-400 text-sm text-center">Configure your table and start playing</p>
 
     <!-- Hero Name -->
     <div>
