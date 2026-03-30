@@ -59,7 +59,7 @@ const passwordValidation = computed(() => validatePassword(passwordInput.value))
 // Commentary toggle — syncs with the same localStorage key the composable reads
 const commentaryEnabled = ref(
   typeof localStorage !== 'undefined'
-    ? localStorage.getItem('holdem-commentary-enabled') === 'true'
+    ? localStorage.getItem('holdem-commentary-enabled') !== 'false'
     : true,
 )
 watch(commentaryEnabled, (v) => {

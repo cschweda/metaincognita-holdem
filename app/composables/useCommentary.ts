@@ -625,7 +625,7 @@ interface GS {
 export function useCommentary(gs: GS) {
   const heroLines = ref<CommentaryLine[]>([])
   const tvLines = ref<CommentaryLine[]>([])
-  const enabled = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-enabled') === 'true' : false)
+  const enabled = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-enabled') !== 'false' : true)
   const mode = ref<CommentaryMode>((typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-mode') as CommentaryMode : null) || 'hero')
 
   const normanSilence = ref(

@@ -23,6 +23,13 @@ const emit = defineEmits<{
 const scrollContainer = ref<HTMLElement | null>(null)
 const userScrolled = ref(false)
 
+function switchToTV() {
+  if (props.mode === 'tv') return
+  if (confirm('TV Broadcast mode flips all bot cards face-up — like watching the WSOP on TV. You still make all your own decisions.\n\nEnable TV mode?')) {
+    emit('update:mode', 'tv')
+  }
+}
+
 function onScroll() {
   if (!scrollContainer.value) return
   const { scrollTop, scrollHeight, clientHeight } = scrollContainer.value
@@ -74,7 +81,7 @@ const typeStyles: Record<string, string> = {
         <button
           class="flex-1 py-1 text-[0.6rem] font-semibold uppercase tracking-wider transition-colors"
           :class="mode === 'tv' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
-          @click="emit('update:mode', 'tv')"
+          @click="switchToTV"
         >
           TV Broadcast
         </button>
