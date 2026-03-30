@@ -1,6 +1,6 @@
 [build]
   command = "yarn generate"
-  publish = ".output/public"
+  publish = "dist"
 
 # Static files served directly (before SPA catch-all)
 [[redirects]]
