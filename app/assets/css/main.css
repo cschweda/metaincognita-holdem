@@ -50,10 +50,12 @@
   border: none !important;
 }
 
-/* Tooltip overrides — slightly lighter dark background for contrast */
-[role="tooltip"],
-[data-state="delayed-open"],
-[data-state="instant-open"] {
+/* Tooltip content overrides — scoped to the portal wrapper only (NOT the trigger).
+ * Reka UI adds data-state="delayed-open" to BOTH the trigger AND content elements.
+ * Using [role="tooltip"] and the popper wrapper to target only the popup. */
+[data-radix-popper-content-wrapper] [role="tooltip"],
+[data-radix-popper-content-wrapper] [data-state="delayed-open"],
+[data-radix-popper-content-wrapper] [data-state="instant-open"] {
   max-width: 280px !important;
   white-space: normal !important;
   word-wrap: break-word !important;
