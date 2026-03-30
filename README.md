@@ -4,6 +4,17 @@
 
 A browser-based No-Limit Texas Hold'em poker simulator with intelligent bot opponents, real-time hand analysis, and a comprehensive stats panel. Built for learning poker strategy through practice and observation.
 
+- **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
+- **Monte Carlo equity engine** -- 300-500 adaptive iterations against opponent ranges
+- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, set draws with exact hit probability
+- **Pot odds + implied odds** with pass/fail verdict against your live equity
+- **Authentic 6-max ranges** -- 169 hands ranked by EV, position-aware from UTG (15%) to BTN (42%)
+- **7 bot personas** with distinct VPIP/PFR/aggression profiles and exploitable leaks
+- **Opponent HUD** -- live VPIP, PFR, Aggression Factor, WTSD with strategic reads
+- **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
+- **SPR guidance** -- stack-to-pot ratio advice for commitment decisions
+- **Click-to-peek** -- flip any opponent's cards to study hand-vs-action correlation
+
 ## Features
 
 ### Poker Table
