@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-03-29
+
+### Added
+- **"Your Turn" indicator** above stats panel — amber pulsing dot with call amount or check hint
+
+### Changed
+- **Thinking indicator** moved from under the table to above the stats panel (right column) — larger dots, bot name prominent, animated progress bar
+- **Game state preserved** when navigating to `/stats` via KeepAlive — "Back to Table" returns to exact game state (cards, bets, street all intact)
+- Timeout timer pauses while on stats page, resumes on return
+- Added `@vue/devtools-core` and `@vue/devtools-kit` to Vite optimizeDeps
+
 ## [0.7.0] - 2026-03-29
 
 GitHub OAuth, guest mode, hand replay, action logging, and auth UI improvements.
@@ -400,6 +411,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.7.1]: https://github.com/cschweda/holdem-simulator/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/cschweda/holdem-simulator/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/cschweda/holdem-simulator/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/cschweda/holdem-simulator/compare/v0.5.0...v0.5.1

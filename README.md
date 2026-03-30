@@ -113,6 +113,11 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 - **Auto-save**: Session saved to Supabase every 60 seconds and on tab close (via `sendBeacon`)
 - **Session stats tab**: Hands played, W/L/F breakdown, bankroll (current/peak/start), win rate, Supabase sync indicator
 - **Export**: Download session as JSON or CSV
+- **Stats navigation preserves game state**: Click Stats mid-hand, view your analytics, click "Back to Table" — cards, bets, and street are exactly as you left them
+
+### Action Status Indicators
+- **Bot thinking**: Displayed above the stats panel — bot name, bouncing dots, animated progress bar. Large and visible.
+- **Your Turn**: Amber pulsing indicator with call amount or "Check or bet" hint above the stats panel
 
 ### Authentication
 - **Guest mode**: Play without saving — no Supabase, no stats tracking. Toggle on setup screen.
