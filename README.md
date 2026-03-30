@@ -161,7 +161,7 @@ Each decision path uses an independent random roll, so bluffFreq has a direct, m
 
 ### Why It's Accurate
 
-The engine is tested with 1,500-hand simulations per persona using `simulateBotStats()`. This function runs a bot through realistic preflop and postflop scenarios (facing raises ~60% of the time preflop, facing bets ~50% of the time postflop) and measures observed VPIP, PFR, fold rate, raise rate, and bluff rate.
+The engine is tested with 100,000-hand simulations per persona using `simulateBotStats()`. This function runs a bot through realistic preflop and postflop scenarios (facing raises ~60% of the time preflop, facing bets ~50% of the time postflop) and measures observed VPIP, PFR, fold rate, raise rate, and bluff rate.
 
 **What the tests verify:**
 - **Absolute alignment**: Each persona's observed VPIP and PFR fall within a tolerance band of their configured values (e.g., Tight Tony's observed VPIP is within 12% of his configured 14%)
@@ -308,7 +308,7 @@ Run all tests: `yarn test`
 - Tilt: reasonable trigger threshold, decays in 3-5 hands, max aggression < 2.0
 
 ### Phase 4 -- Bot Behavior Statistical Alignment (`phase4-bot-behavior.test.ts`)
-- **Per-persona (1,500 hands each)**: Tight Tony (low VPIP/PFR, folds more than Lucy, bluffs less than Wendy), Loose Lucy (high VPIP, plays more than Tony), Aggressive Alex (raises more than Carl, bluff rate matches config), Calling Carl (low fold rate, low raise rate), Wild Wendy (highest bluff rate of all personas, high raise rate), Solid Sam (moderate VPIP, healthy PFR/VPIP ratio)
+- **Per-persona (100,000 hands each)**: Tight Tony (low VPIP/PFR, folds more than Lucy, bluffs less than Wendy), Loose Lucy (high VPIP, plays more than Tony), Aggressive Alex (raises more than Carl, bluff rate matches config), Calling Carl (low fold rate, low raise rate), Wild Wendy (highest bluff rate of all personas, high raise rate), Solid Sam (moderate VPIP, healthy PFR/VPIP ratio)
 - **Comparative ordering**: Configured VPIP order matches observed VPIP order; configured bluffFreq order matches observed bluff order; tight bots fold more, loose bots play more, aggressive bots raise more
 - **Preset archetypes**: Nit folds most, Maniac plays most, Loose-Passive has high VPIP but low raise rate, TAG has high PFR/VPIP ratio
 - **Bluff sensitivity**: Low bluffFreq produces lower bluff rate than high bluffFreq; increasing bluffFreq measurably increases observed rate; high aggression + high bluffFreq produces most betting into unchallenged pots

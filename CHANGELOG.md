@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-03-29
+
+### Changed
+- Bot behavior tests now simulate 100,000 hands per persona (was 1,500). Runs in 146ms total. Confidence intervals are within ~1% of configured values at this sample size.
+- Updated README and CHANGELOG to reflect 100K sample size
+
 ## [0.3.0] - 2026-03-29
 
 Bot decision engine with statistical alignment, bluff awareness, and 46 behavioral tests.
@@ -225,6 +231,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.3.1]: https://github.com/cschweda/holdem-simulator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cschweda/holdem-simulator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cschweda/holdem-simulator/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cschweda/holdem-simulator/releases/tag/v0.1.0
