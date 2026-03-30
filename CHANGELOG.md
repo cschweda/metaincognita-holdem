@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.2] - 2026-03-29
+
+### Refactored (Code Quality — C+ → B+)
+Codebase audit identified organizational debt from rapid feature development. Three high-impact refactorings applied:
+
+- **useCommentary.ts split** — 1,622 → 877 LOC (46% reduction). Extracted 480+ quip pools to `commentaryQuips.ts` (678 LOC) and strategic observation generators to `commentaryStrategic.ts` (92 LOC). Composable retains only state management and generation wiring.
+- **Shared simulation utilities** — `gameSimulation.ts` consolidates `shuffleDeck()`, `displayCard()`, and `findSeat()` that were duplicated between `scripts/simulate.ts` and `app/utils/simulateBrowser.ts` (~300 LOC of identical code eliminated).
+- **Card parser utility** — `cardParser.ts` extracts display-format card parsing (e.g., "A♠" → Card object) that was duplicated in `replay.vue`. Functions: `parseDisplayCard()`, `parseDisplayCards()`, `parseDisplayHoleCards()`.
+- **35 regression tests** — New test file covering HandResult.score (the .values crash), PS parser, kicker descriptions, range lookup, Chen scores, equity estimation, draw detection. Total: **800 tests across 18 files**.
+
+### Added
+- **`.values` → `.score` fix** in 5 locations across commentary and simulation — HandResult uses `score`, not `values`. Was causing crashes when sorting hands at showdown.
+
 ## [0.15.1] - 2026-03-29
 
 ### Added

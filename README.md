@@ -72,7 +72,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 765 tests across 17 files
+- [Test Suites](#test-suites) -- 800 tests across 18 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- audit results, defense-in-depth, CSP headers, credential validation
 - [Roadmap](#roadmap)
