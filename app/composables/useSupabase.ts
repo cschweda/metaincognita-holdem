@@ -1,8 +1,8 @@
 /**
  * Supabase client composable — singleton per app lifecycle.
- * Uses anonymous auth (auto-creates a user per browser).
+ * Supports anonymous auth (default for visitors) and GitHub OAuth (for persistent identity).
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 
 let client: SupabaseClient | null = null
 
@@ -29,15 +29,16 @@ export function useSupabase(): SupabaseClient | null {
 }
 
 /**
- * Ensures an anonymous session exists. Call once at app startup.
+ * Ensures a session exists — either existing GitHub session or anonymous fallback.
  */
-export async function ensureAnonSession(): Promise<string | null> {
+export async function ensureSession(): Promise<string | null> {
   const sb = useSupabase()
   if (!sb) return null
 
   const { data: { session } } = await sb.auth.getSession()
   if (session?.user) return session.user.id
 
+  // No existing session — sign in anonymously
   const { data, error } = await sb.auth.signInAnonymously()
   if (error) {
     console.warn('Anonymous sign-in failed:', error.message)
@@ -45,4 +46,57 @@ export async function ensureAnonSession(): Promise<string | null> {
   }
 
   return data.user?.id || null
+}
+
+// Keep the old name as alias for backward compat
+export const ensureAnonSession = ensureSession
+
+/**
+ * Sign in with GitHub OAuth. Redirects to GitHub, then back to the app.
+ */
+export async function signInWithGitHub(): Promise<void> {
+  const sb = useSupabase()
+  if (!sb) return
+
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'github',
+    options: {
+      redirectTo: window.location.origin,
+    },
+  })
+  if (error) {
+    console.error('GitHub sign-in failed:', error.message)
+  }
+}
+
+/**
+ * Sign out and revert to anonymous.
+ */
+export async function signOut(): Promise<void> {
+  const sb = useSupabase()
+  if (!sb) return
+
+  await sb.auth.signOut()
+  // Sign back in anonymously so the app keeps working
+  await sb.auth.signInAnonymously()
+}
+
+/**
+ * Get the current user (if any).
+ */
+export async function getCurrentUser(): Promise<User | null> {
+  const sb = useSupabase()
+  if (!sb) return null
+
+  const { data: { user } } = await sb.auth.getUser()
+  return user
+}
+
+/**
+ * Check if the current user is authenticated via GitHub (not anonymous).
+ */
+export async function isGitHubUser(): Promise<boolean> {
+  const user = await getCurrentUser()
+  if (!user) return false
+  return !user.is_anonymous
 }
