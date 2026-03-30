@@ -625,8 +625,10 @@ export function recommend(
 
   // Postflop logic
   const handRank = madeHand?.rank ?? 0
-  const hasStrongDraw = draws.some(d => d.outs >= 8)
-  const totalDrawOuts = totalOuts(draws)
+  // On the river, no more cards to come — draws are irrelevant for recommendations
+  const isRiver = street === 'river'
+  const hasStrongDraw = !isRiver && draws.some(d => d.outs >= 8)
+  const totalDrawOuts = isRiver ? 0 : totalOuts(draws)
 
   // Very strong hand
   if (equity >= 75) {
@@ -676,7 +678,9 @@ export function recommend(
   }
 
   if (handRank === 0 && totalDrawOuts === 0) {
-    return { action: 'CHECK', reasoning: `No made hand, no draw — check and hope to improve.` }
+    return isRiver
+      ? { action: 'CHECK', reasoning: `No made hand on the river — check and minimize losses.` }
+      : { action: 'CHECK', reasoning: `No made hand, no draw — check and hope to improve.` }
   }
 
   return { action: 'CHECK', reasoning: `Marginal hand (${Math.round(equity)}% equity) — check and minimize losses.` }
