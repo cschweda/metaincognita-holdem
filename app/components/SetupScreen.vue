@@ -325,23 +325,58 @@ function handleStart() {
     </div>
 
     <!-- Player mix -->
-    <div class="flex items-center justify-between bg-gray-800/30 border border-gray-700/20 rounded-lg px-4 py-3">
-      <div>
-        <div class="text-sm text-gray-200">Opponents</div>
-        <div class="text-xs text-gray-500">
-          {{ activeBots.filter(b => proBots.some(p => p.name === b.name)).length }} pro{{ activeBots.filter(b => proBots.some(p => p.name === b.name)).length !== 1 ? 's' : '' }},
-          {{ activeBots.filter(b => !proBots.some(p => p.name === b.name)).length }} fictional
+    <div class="bg-gray-800/30 border border-gray-700/20 rounded-lg px-4 py-3 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-gray-200">Your Table</div>
+          <div class="text-xs text-gray-500">
+            {{ activeBots.filter(b => proBots.some(p => p.name === b.name)).length }} pro{{ activeBots.filter(b => proBots.some(p => p.name === b.name)).length !== 1 ? 's' : '' }},
+            {{ activeBots.filter(b => !proBots.some(p => p.name === b.name)).length }} fictional
+          </div>
+        </div>
+        <UButton
+          icon="i-lucide-shuffle"
+          color="primary"
+          variant="soft"
+          size="sm"
+          @click="randomizeAll"
+        >
+          Shuffle Players
+        </UButton>
+      </div>
+
+      <!-- Player list -->
+      <div class="grid gap-1.5">
+        <div
+          v-for="(bot, i) in activeBots"
+          :key="i"
+          class="flex items-center justify-between bg-gray-900/40 rounded-lg px-3 py-2"
+        >
+          <div class="flex items-center gap-2.5">
+            <span class="text-[0.6rem] text-gray-600 w-4 text-right">{{ i + 1 }}</span>
+            <span class="text-sm font-medium" :class="proBots.some(p => p.name === bot.name) ? 'text-amber-300' : 'text-gray-200'">
+              {{ bot.name }}
+            </span>
+            <span
+              v-if="proBots.some(p => p.name === bot.name)"
+              class="text-[0.55rem] px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-400/80 border border-amber-700/30"
+            >
+              PRO
+            </span>
+          </div>
+          <div class="flex items-center gap-3 text-[0.65rem] text-gray-500">
+            <span>V:{{ (bot.vpip * 100).toFixed(0) }}%</span>
+            <span>A:{{ bot.aggression.toFixed(1) }}</span>
+            <USelect
+              :model-value="bot.name"
+              :items="allPresetNames"
+              size="2xs"
+              class="w-40"
+              @update:model-value="(v: string) => applyPreset(i, v)"
+            />
+          </div>
         </div>
       </div>
-      <UButton
-        icon="i-lucide-shuffle"
-        color="primary"
-        variant="soft"
-        size="sm"
-        @click="randomizeAll"
-      >
-        Shuffle Players
-      </UButton>
     </div>
 
     <!-- Advanced Bot Config -->
