@@ -3,7 +3,7 @@
  * Main game page — shows setup screen or poker table.
  * Phase 1: Visual foundation with authentic deal sequence, live stats, and bet controls.
  */
-import config from '~/holdem.config'
+import config from '@config'
 import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'

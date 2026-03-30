@@ -3,7 +3,7 @@
  * Game setup screen — configure opponents, stakes, hero name,
  * and bot personas before starting a game.
  */
-import config from '~/holdem.config'
+import config from '@config'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
