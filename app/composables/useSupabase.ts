@@ -70,6 +70,62 @@ export async function signInWithGitHub(): Promise<void> {
 }
 
 /**
+ * Sign up with email and password.
+ */
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const sb = useSupabase()
+  if (!sb) return { success: false, error: 'Supabase not configured' }
+
+  const { error } = await sb.auth.signUp({ email, password })
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+/**
+ * Sign in with email and password.
+ */
+export async function signInWithEmail(
+  email: string,
+  password: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const sb = useSupabase()
+  if (!sb) return { success: false, error: 'Supabase not configured' }
+
+  const { error } = await sb.auth.signInWithPassword({ email, password })
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+/**
+ * Send a password reset email.
+ */
+export async function resetPassword(email: string): Promise<{ success: boolean; error: string | null }> {
+  const sb = useSupabase()
+  if (!sb) return { success: false, error: 'Supabase not configured' }
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/stats`,
+  })
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+/**
+ * Validate password complexity.
+ * Minimum 8 chars, at least one uppercase, one lowercase, one number.
+ */
+export function validatePassword(password: string): { valid: boolean; message: string } {
+  if (password.length < 8) return { valid: false, message: 'At least 8 characters' }
+  if (!/[A-Z]/.test(password)) return { valid: false, message: 'At least one uppercase letter' }
+  if (!/[a-z]/.test(password)) return { valid: false, message: 'At least one lowercase letter' }
+  if (!/[0-9]/.test(password)) return { valid: false, message: 'At least one number' }
+  return { valid: true, message: 'Strong password' }
+}
+
+/**
  * Sign out and revert to anonymous.
  */
 export async function signOut(): Promise<void> {
@@ -77,7 +133,6 @@ export async function signOut(): Promise<void> {
   if (!sb) return
 
   await sb.auth.signOut()
-  // Sign back in anonymously so the app keeps working
   await sb.auth.signInAnonymously()
 }
 
@@ -93,10 +148,19 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 /**
- * Check if the current user is authenticated via GitHub (not anonymous).
+ * Check if the current user is authenticated (not anonymous).
+ * Works for GitHub OAuth, email/password, or any other auth method.
  */
 export async function isGitHubUser(): Promise<boolean> {
   const user = await getCurrentUser()
   if (!user) return false
   return !user.is_anonymous
+}
+
+/**
+ * Check if user is signed in (any method — GitHub, email, etc.)
+ */
+export async function isAuthenticated(): Promise<boolean> {
+  const user = await getCurrentUser()
+  return !!user && !user.is_anonymous
 }

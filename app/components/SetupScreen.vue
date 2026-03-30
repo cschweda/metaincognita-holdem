@@ -4,7 +4,7 @@
  * and bot personas before starting a game.
  */
 import config from '@config'
-import { isGitHubUser, signInWithGitHub } from '~/composables/useSupabase'
+import { isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
@@ -36,10 +36,49 @@ const stackBB = ref(config.stackRange.defaultBB)
 const heroName = ref(config.betting.defaultHeroName)
 const showAdvanced = ref(false)
 const isLoggedIn = ref(false)
+const showEmailAuth = ref(false)
+const isSignUp = ref(false)
+const emailInput = ref('')
+const passwordInput = ref('')
+const authError = ref<string | null>(null)
+const authLoading = ref(false)
+const authSuccess = ref<string | null>(null)
+
+const passwordValidation = computed(() => validatePassword(passwordInput.value))
 
 onMounted(async () => {
   isLoggedIn.value = await isGitHubUser()
 })
+
+async function handleEmailAuth() {
+  authError.value = null
+  authSuccess.value = null
+
+  if (!emailInput.value || !passwordInput.value) {
+    authError.value = 'Email and password are required'
+    return
+  }
+
+  if (isSignUp.value && !passwordValidation.value.valid) {
+    authError.value = passwordValidation.value.message
+    return
+  }
+
+  authLoading.value = true
+  const fn = isSignUp.value ? signUpWithEmail : signInWithEmail
+  const { success, error } = await fn(emailInput.value, passwordInput.value)
+  authLoading.value = false
+
+  if (success) {
+    if (isSignUp.value) {
+      authSuccess.value = 'Account created! Check your email if confirmation is required.'
+    }
+    isLoggedIn.value = true
+    showEmailAuth.value = false
+  } else {
+    authError.value = error
+  }
+}
 
 // Bot configurations
 const botConfigs = ref<BotConfig[]>(
@@ -391,6 +430,8 @@ function handleStart() {
         </div>
         <div class="text-xs text-gray-500 mt-0.5">Stats tracked for this session only. Sign in for lifetime stats across sessions and devices.</div>
       </div>
+
+      <!-- OAuth buttons -->
       <button
         class="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold
                bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 transition-all active:scale-[0.98]"
@@ -399,6 +440,80 @@ function handleStart() {
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
         Sign in with GitHub
       </button>
+
+      <!-- Divider -->
+      <div class="flex items-center gap-3">
+        <div class="flex-1 h-px bg-gray-700" />
+        <span class="text-xs text-gray-600">or</span>
+        <div class="flex-1 h-px bg-gray-700" />
+      </div>
+
+      <!-- Email/Password toggle -->
+      <button
+        v-if="!showEmailAuth"
+        class="w-full py-2 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+        @click="showEmailAuth = true"
+      >
+        Sign in with email and password
+      </button>
+
+      <!-- Email/Password form -->
+      <div v-if="showEmailAuth" class="space-y-2">
+        <div class="flex gap-2 text-xs">
+          <button
+            class="flex-1 py-1.5 rounded-md font-semibold transition-colors"
+            :class="!isSignUp ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+            @click="isSignUp = false; authError = null"
+          >
+            Sign In
+          </button>
+          <button
+            class="flex-1 py-1.5 rounded-md font-semibold transition-colors"
+            :class="isSignUp ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+            @click="isSignUp = true; authError = null"
+          >
+            Create Account
+          </button>
+        </div>
+
+        <UInput
+          v-model="emailInput"
+          type="email"
+          placeholder="Email address"
+          size="sm"
+          @keyup.enter="handleEmailAuth"
+        />
+        <div>
+          <UInput
+            v-model="passwordInput"
+            type="password"
+            placeholder="Password"
+            size="sm"
+            @keyup.enter="handleEmailAuth"
+          />
+          <div v-if="isSignUp && passwordInput" class="mt-1 text-[0.6rem]"
+            :class="passwordValidation.valid ? 'text-green-400' : 'text-gray-500'">
+            {{ passwordValidation.message }}
+          </div>
+        </div>
+
+        <div v-if="authError" class="text-xs text-red-400">{{ authError }}</div>
+        <div v-if="authSuccess" class="text-xs text-green-400">{{ authSuccess }}</div>
+
+        <UButton
+          :loading="authLoading"
+          color="primary"
+          block
+          size="sm"
+          @click="handleEmailAuth"
+        >
+          {{ isSignUp ? 'Create Account' : 'Sign In' }}
+        </UButton>
+
+        <div v-if="isSignUp" class="text-[0.55rem] text-gray-600 text-center">
+          Password must be at least 8 characters with uppercase, lowercase, and a number
+        </div>
+      </div>
     </div>
 
     <!-- Start Button -->
