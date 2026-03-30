@@ -202,7 +202,7 @@ const engine = useGameEngine({
   onHeroActivity: () => onHeroActivity(),
 })
 
-const commentary = useCommentary(gs)
+const commentary = useCommentary({ ...gs, positions })
 
 // ─── Session milestones (derived from hand records) ──────────────
 const sessionMilestones = computed(() => {

@@ -894,6 +894,70 @@ export function normanPersonaQuip(name: string): string | null {
   return pick(quips)
 }
 
+// ─── Mon fold assessments (position + hand aware) ───────────────
+// These are template functions, not static pools — they generate context-aware lines.
+
+/** Mon assesses whether a fold was smart or questionable given position and hand strength. */
+export function lonFoldAssessment(name: string, cards: string, position: string, chen: number, street: string, facingRaise: boolean): string {
+  const latePos = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO'].includes(position)
+  const earlyPos = ['UTG', 'UTG+1'].includes(position)
+  const posLabel = position.replace('D/BTN', 'the button').replace('D/SB', 'the small blind').replace('D', 'the button')
+    .replace('BTN', 'the button').replace('CO', 'the cutoff').replace('MP', 'middle position')
+    .replace('UTG+1', 'under the gun +1').replace('UTG', 'under the gun')
+    .replace('SB', 'the small blind').replace('BB', 'the big blind')
+
+  if (street === 'preflop') {
+    if (chen >= 12 && !facingRaise) {
+      return `${name} folds ${cards} from ${posLabel}. A premium hand thrown away — that's unusual. Must have read something we didn't.`
+    }
+    if (chen >= 12 && facingRaise) {
+      return `${name} lays down ${cards} from ${posLabel} facing a raise. Disciplined. Most players can't fold that.`
+    }
+    if (chen >= 8 && latePos && !facingRaise) {
+      return `${name} folds ${cards} on ${posLabel}. That's a playable hand in late position — surprising fold.`
+    }
+    if (chen >= 8 && earlyPos && facingRaise) {
+      return `${name} folds ${cards} from ${posLabel} facing action. Correct. This hand doesn't play well out of position against a raise.`
+    }
+    if (chen >= 8 && earlyPos) {
+      return `${name} folds ${cards} from ${posLabel}. Tight, but defensible from early position.`
+    }
+    if (chen <= 4 && latePos) {
+      return `${name} folds ${cards} on ${posLabel}. Even in late position, some hands are just trash.`
+    }
+    if (chen <= 4) {
+      return `${name} folds ${cards} from ${posLabel}. Easy decision. No reason to get involved with that.`
+    }
+    // Mid-strength hands
+    if (latePos) {
+      return `${name} folds ${cards} from ${posLabel}. Could have opened that in position, but chose discipline.`
+    }
+    return `${name} folds ${cards} from ${posLabel}. Standard. Position matters, and ${posLabel} isn't ideal for this hand.`
+  }
+
+  // Postflop fold
+  return `${name} folds ${cards} from ${posLabel}. The board didn't cooperate.`
+}
+
+// Chorman reacts to Mon's fold assessment (position-aware)
+export const normanFoldReactionQuips = new UniquePool([
+  `Mon's right. That fold makes sense. I would have called, which is why I'm broke and they're not.`,
+  `Discipline. Something I know nothing about. Ask my three ex-wives.`,
+  `Mon says it's correct. I say it's painful. We're both right.`,
+  `Folding a good hand in position. That takes willpower I simply do not possess.`,
+  `I hear Mon's analysis and I agree, but my heart is screaming "CALL!" My heart is wrong a lot.`,
+  `The smart fold. The boring fold. The profitable fold. All the same fold.`,
+  `Mon breaks it down beautifully. Meanwhile I would have called, lost, and complained about it for three hours.`,
+  `That's the kind of fold that separates winning players from... well, from me.`,
+  `Disciplined fold from ${''} position. I've never folded from any position. That's not a brag, it's a confession.`,
+  `Mon says the position doesn't justify it. When does Mon's position ever justify fun? Never. That's when.`,
+  `See, THIS is why position matters. Lon explains it better than I ever could. Which is why he explains and I joke.`,
+  `Easy fold, Mon says. EASY? Nothing about folding a real hand is easy. But I trust the math. Reluctantly.`,
+  `Textbook fold, according to the textbook. My textbook is mostly coffee stains and doodles.`,
+  `I would have played that. And lost. And learned nothing. And played it again next time.`,
+  `When Mon says "correct fold," that's poker gospel. When I say "correct fold," check my math.`,
+])
+
 // ─── Inter-voice banter ─────────────────────────────────────────
 
 // Norman reacts to Mon's analysis
@@ -985,4 +1049,5 @@ export function resetAllQuipPools() {
   normanGenericQuips.reset(); normanRandomBanter.reset()
   normanDrawQuips.reset(); normanRiverQuips.reset(); normanPotSizeQuips.reset(); normanHeadsUpQuips.reset()
   normanBanterAfterMon.reset(); lonReactsToNorman.reset(); normanBotAwarenessExtra.reset()
+  normanFoldReactionQuips.reset()
 }

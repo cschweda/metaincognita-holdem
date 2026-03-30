@@ -21,6 +21,7 @@ import {
   lonBoardAnalysis, lonPlayerReads, lonPotAnalysis, lonTiltReads,
   lonStreetTransition, lonShowdownAnalysis, resetLonPools,
   normanBanterAfterMon, lonReactsToNorman, normanBotAwarenessExtra,
+  lonFoldAssessment, normanFoldReactionQuips,
 } from '~/utils/commentaryQuips'
 import { strategicFlopObs, strategicActionObs, strategicShowdownObs } from '~/utils/commentaryStrategic'
 
@@ -72,6 +73,7 @@ interface GS {
   heroWinAmount: Ref<number>
   handWinnerName: Ref<string>
   activePlayers: ComputedRef<PlayerState[]>
+  positions?: ComputedRef<string[]> | Ref<string[]>  // position labels by seat index
 }
 
 export function useCommentary(gs: GS) {
@@ -139,6 +141,9 @@ export function useCommentary(gs: GS) {
   function activePl(): PlayerState[] { return gs.playerStates.value.filter(p => !p.folded && !p.eliminated && p.holeCards) }
   function findPl(name: string) { return gs.playerStates.value.find(p => p.name === name) }
   function hero(): PlayerState { return gs.playerStates.value[0] }
+  function playerPos(p: PlayerState): string {
+    return gs.positions?.value[p.id] ?? ''
+  }
   function handStr(p: PlayerState, community: Card[]): string | null {
     if (!p.holeCards || community.length < 3) return null
     const r = bestHand(Array.from(p.holeCards), community)
@@ -298,10 +303,10 @@ export function useCommentary(gs: GS) {
       if (pl.holeCards) {
         const chen = chenScore(pl.holeCards)
         const community = gs.visibleCommunity.value
-        if (chen >= 10 && gs.street.value === 'preflop') {
-          addTV(`${name} folds ${cardStr(pl.holeCards)}.`, 'action', 'lon')
-          addTV(normanBigFoldQuips.pick(), 'action', 'norman')
-        } else if (community.length >= 3) {
+        const pos = playerPos(pl)
+        const facingRaise = gs.street.value === 'preflop' && gs.handActionLog.value.some(e => e.includes('raises'))
+
+        if (community.length >= 3) {
           const hand = handStr(pl, community)
           if (hand && ['Two Pair', 'Three of a Kind', 'Straight', 'Flush'].includes(hand)) {
             addTV(`${name} folds ${hand}!`, 'action', 'lon')
@@ -309,6 +314,15 @@ export function useCommentary(gs: GS) {
           } else {
             addTV(`${name} folds.`, 'action', 'lon')
             if (normanFeelsLikeIt()) addTV(normanFoldQuips.pick(), 'action', 'norman')
+          }
+        } else if (chen >= 8 || (chen <= 4 && pos)) {
+          // Interesting preflop fold — Mon gives position-aware assessment, Chorman reacts
+          const assessment = lonFoldAssessment(name, cardStr(pl.holeCards), pos, chen, gs.street.value, facingRaise)
+          addTV(assessment, 'action', 'lon')
+          if (chen >= 10) {
+            addTV(normanBigFoldQuips.pick(), 'action', 'norman')
+          } else {
+            addTV(normanFoldReactionQuips.pick(), 'action', 'norman')
           }
         } else {
           addTV(`${name} folds ${cardStr(pl.holeCards)}.`, 'action', 'lon')
@@ -372,18 +386,45 @@ export function useCommentary(gs: GS) {
 
       if (pl?.holeCards) {
         const community = gs.visibleCommunity.value
+        const pos = playerPos(pl)
+        const chen = chenScore(pl.holeCards)
         const isBluff = community.length >= 3
           ? (() => { const h = bestHand(Array.from(pl.holeCards!), community); return h ? h.rank <= HAND_RANKS.HIGH_CARD : true })()
-          : chenScore(pl.holeCards) <= 4
+          : chen <= 4
+
+        // Position-aware preflop commentary for notable opens
+        const earlyPos = ['UTG', 'UTG+1'].includes(pos)
+        const latePos = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO'].includes(pos)
+        const posLabel = pos === 'BTN' || pos === 'D' || pos === 'D/BTN' ? 'the button'
+          : pos === 'CO' ? 'the cutoff' : pos === 'UTG' ? 'under the gun'
+          : pos === 'UTG+1' ? 'UTG+1' : pos === 'SB' || pos === 'D/SB' ? 'the small blind' : ''
+
         if (isBluff) {
-          addTV(`${name} ${raiseM ? 'raises to' : 'bets'} $${amount} with ${cardStr(pl.holeCards)}.`, 'action', 'lon')
-          tryStrategicNorman(
-            () => normanBluffQuips.pick(), 'action',
-            () => normanStrategicActionObs(name, 'bet', amount, gs.pot.value, hero().holeCards, gs.visibleCommunity.value),
-          )
+          // Junk raise — Mon includes position when it's notable (EP junk = very notable)
+          const posNote = earlyPos && gs.street.value === 'preflop' && pos
+            ? ` from ${posLabel}` : ''
+          addTV(`${name} ${raiseM ? 'raises to' : 'bets'} $${amount}${posNote} with ${cardStr(pl.holeCards)}.`, 'action', 'lon')
+          if (earlyPos && gs.street.value === 'preflop') {
+            // Mon adds position-aware critique, then Chorman reacts
+            addTV(`Opening that hand from ${posLabel}? That's either a read or a mistake. Probably a mistake.`, 'action', 'lon')
+            addTV(pick([
+              `${posLabel} with THAT? I've seen braver decisions, but not smarter ones.`,
+              `Opening junk from early position. That's either genius or... well, let's go with "creative."`,
+              `From ${posLabel}? With those cards? My ex-wife makes better decisions, and she once bet on a three-legged horse.`,
+              `That's a bold open from early position. Bold. Not good. Bold.`,
+            ]), 'action', 'norman')
+          } else {
+            tryStrategicNorman(
+              () => normanBluffQuips.pick(), 'action',
+              () => normanStrategicActionObs(name, 'bet', amount, gs.pot.value, hero().holeCards, gs.visibleCommunity.value),
+            )
+          }
         } else {
           const hand = community.length >= 3 ? handStr(pl, community) : null
-          addTV(`${name} ${raiseM ? 'raises to' : 'bets'} $${amount}${hand && lonWantsToAnalyze() ? ` with ${hand}` : ''}.`, 'action', 'lon')
+          // Include position for notable preflop raises (premium from late position, etc.)
+          const posNote = gs.street.value === 'preflop' && posLabel && chen >= 10 && lonWantsToAnalyze()
+            ? ` from ${posLabel}` : ''
+          addTV(`${name} ${raiseM ? 'raises to' : 'bets'} $${amount}${posNote}${hand && lonWantsToAnalyze() ? ` with ${hand}` : ''}.`, 'action', 'lon')
           if (normanFeelsLikeIt()) {
             const pq = Math.random() < 0.4 ? normanPersonaQuip(name) : null
             tryStrategicNorman(
