@@ -16,6 +16,7 @@ export interface GameSettings {
   stackBB: number
   heroName: string
   botConfigs: BotConfig[]
+  guestMode: boolean
 }
 
 export interface BotConfig {
@@ -33,6 +34,7 @@ const stakeLevel = ref(config.defaultStakeLevel)
 const stackBB = ref(config.stackRange.defaultBB)
 const heroName = ref(config.betting.defaultHeroName)
 const showAdvanced = ref(false)
+const guestMode = ref(false)
 
 // Bot configurations
 const botConfigs = ref<BotConfig[]>(
@@ -182,6 +184,7 @@ function handleStart() {
     stackBB: stackBB.value,
     heroName: heroName.value,
     botConfigs: activeBots.value,
+    guestMode: guestMode.value,
   })
 }
 </script>
@@ -367,6 +370,15 @@ function handleStart() {
       </div>
     </div>
 
+    <!-- Guest mode toggle -->
+    <div class="flex items-center justify-between bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3">
+      <div>
+        <div class="text-sm text-gray-200">Guest mode</div>
+        <div class="text-xs text-gray-500">Play without saving — no stats tracked, no Supabase</div>
+      </div>
+      <USwitch v-model="guestMode" />
+    </div>
+
     <!-- Start Button -->
     <UButton
       size="xl"
@@ -374,7 +386,7 @@ function handleStart() {
       block
       @click="handleStart"
     >
-      Deal Me In
+      {{ guestMode ? 'Play as Guest' : 'Deal Me In' }}
     </UButton>
   </div>
 </template>
