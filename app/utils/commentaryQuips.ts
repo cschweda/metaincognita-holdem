@@ -1012,6 +1012,79 @@ export const normanFoldReactionQuips = new UniquePool([
   `When Mon says "correct fold," that's poker gospel. When I say "correct fold," check my math.`,
 ])
 
+// ─── Chip-aware commentary ──────────────────────────────────────
+
+/** Mon's chip/stack observations — called with context, returns a line or null. */
+export function lonChipObservation(
+  players: { name: string; chips: number; isHero: boolean; eliminated: boolean }[],
+  bb: number,
+): string | null {
+  const active = players.filter(p => !p.eliminated && p.chips > 0)
+  if (active.length < 2) return null
+
+  const sorted = [...active].sort((a, b) => b.chips - a.chips)
+  const leader = sorted[0]
+  const shortest = sorted[sorted.length - 1]
+  const hero = active.find(p => p.isHero)
+  const avgStack = active.reduce((s, p) => s + p.chips, 0) / active.length
+
+  const obs: string[] = []
+
+  // Chip leader observation
+  if (leader.chips > avgStack * 1.8) {
+    const leaderBBs = Math.round(leader.chips / bb)
+    obs.push(`${leader.isHero ? 'Hero' : leader.name} is the chip leader with $${leader.chips} — ${leaderBBs} big blinds. That stack gives them leverage over the entire table.`)
+    obs.push(`${leader.isHero ? 'Hero' : leader.name} is sitting on $${leader.chips}, well ahead of the field. A big stack can apply pressure that smaller stacks simply can't absorb.`)
+    obs.push(`The big stack belongs to ${leader.isHero ? 'Hero' : leader.name} at $${leader.chips}. When you have chips, you have options.`)
+  }
+
+  // Short stack danger
+  if (shortest.chips < bb * 10) {
+    const shortBBs = Math.round(shortest.chips / bb)
+    obs.push(`${shortest.isHero ? 'Hero' : shortest.name} is down to $${shortest.chips} — only ${shortBBs} big blinds. Push-or-fold territory.`)
+    obs.push(`${shortest.isHero ? 'Hero' : shortest.name} is getting short at $${shortest.chips}. The blinds are going to eat that stack alive if they don't find a hand soon.`)
+    obs.push(`Short stack alert: ${shortest.isHero ? 'Hero' : shortest.name} with just $${shortest.chips}. Every decision is critical now.`)
+  }
+
+  // Hero-specific
+  if (hero) {
+    const heroBBs = Math.round(hero.chips / bb)
+    if (hero.chips > avgStack * 1.5 && hero !== leader) {
+      obs.push(`Hero is sitting comfortably with $${hero.chips} — above the table average. Good position to be selective.`)
+    } else if (hero.chips < avgStack * 0.6 && hero.chips > bb * 15) {
+      obs.push(`Hero's stack has dipped to $${hero.chips}. Below average now — time to look for spots to rebuild.`)
+      obs.push(`Hero at $${hero.chips}, ${heroBBs} big blinds. Not desperate yet, but the window for action is narrowing.`)
+    } else if (hero.chips <= bb * 10) {
+      obs.push(`Hero is down to ${heroBBs} big blinds. This is do-or-die territory — the next playable hand needs to go in.`)
+    }
+  }
+
+  // Big gap between leader and shortest
+  if (leader.chips > shortest.chips * 4 && active.length >= 4) {
+    obs.push(`Big disparity at the table — ${leader.isHero ? 'Hero' : leader.name} has $${leader.chips} while ${shortest.isHero ? 'Hero' : shortest.name} is hanging on with $${shortest.chips}.`)
+  }
+
+  return obs.length > 0 ? pick(obs) : null
+}
+
+// Chorman chip quips — reacts to stack situations
+export const normanChipQuips = new UniquePool([
+  `Look at that chip stack. I haven't seen that many chips since my last trip to the buffet.`,
+  `The chip leader right now could buy everyone else at the table. And probably their lunch.`,
+  `Short stack over there sweating. I know that feeling. That's my Tuesday.`,
+  `The stacks are getting interesting. Some people are thriving, some people are surviving. Just like Thanksgiving dinner.`,
+  `Big stack, small stack. In poker, size matters. That's what my poker coach told me. And my tailor.`,
+  `Someone's running low. The poker equivalent of checking your bank account on a Monday morning.`,
+  `Look at the chip counts. If chips were happiness, someone at this table is very, very sad.`,
+  `The rich get richer and the poor get blinded out. Poker is a lot like life. Except with better snacks.`,
+  `That stack is dangerously low. One bad hand and it's "thanks for playing, here's your jacket."`,
+  `The chip leader is sitting pretty. The short stack is sitting nervously. I'm sitting here talking to myself.`,
+  `Stack sizes tell a story. Right now that story is "one player is winning and everyone else is questioning their life choices."`,
+  `When your stack is that short, every hand feels like a final exam. An exam you didn't study for. In a subject you don't understand.`,
+  `The big stack can afford to wait. The short stack can't afford to wait. I can't afford anything. We all have our problems.`,
+  `That's a healthy stack. Unlike my retirement account. Or my diet. Or my poker career.`,
+])
+
 // ─── Inter-voice banter ─────────────────────────────────────────
 
 // Norman reacts to Mon's analysis
@@ -1103,5 +1176,5 @@ export function resetAllQuipPools() {
   normanGenericQuips.reset(); normanRandomBanter.reset()
   normanDrawQuips.reset(); normanRiverQuips.reset(); normanPotSizeQuips.reset(); normanHeadsUpQuips.reset()
   normanBanterAfterMon.reset(); lonReactsToNorman.reset(); normanBotAwarenessExtra.reset()
-  normanFoldReactionQuips.reset()
+  normanFoldReactionQuips.reset(); normanChipQuips.reset()
 }

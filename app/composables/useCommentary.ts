@@ -22,6 +22,7 @@ import {
   lonStreetTransition, lonShowdownAnalysis, resetLonPools,
   normanBanterAfterMon, lonReactsToNorman, normanBotAwarenessExtra,
   lonFoldAssessment, normanFoldReactionQuips,
+  lonChipObservation, normanChipQuips,
 } from '~/utils/commentaryQuips'
 import { strategicFlopObs, strategicActionObs, strategicShowdownObs } from '~/utils/commentaryStrategic'
 
@@ -74,6 +75,7 @@ interface GS {
   handWinnerName: Ref<string>
   activePlayers: ComputedRef<PlayerState[]>
   positions?: ComputedRef<string[]> | Ref<string[]>  // position labels by seat index
+  bb?: Ref<number> | ComputedRef<number>              // big blind amount
 }
 
 export function useCommentary(gs: GS) {
@@ -249,6 +251,19 @@ export function useCommentary(gs: GS) {
         `My marriage had better odds than that hand.`,
       ]), 'deal', 'norman')
     }
+
+    // Occasional chip-aware commentary (~20% of hands)
+    if (Math.random() < 0.20) {
+      const bbVal = gs.bb?.value || 2
+      const chipObs = lonChipObservation(
+        gs.playerStates.value.map(p => ({ name: p.name, chips: p.chips, isHero: p.isHero, eliminated: p.eliminated })),
+        bbVal,
+      )
+      if (chipObs) {
+        addTV(chipObs, 'aside', 'lon')
+        if (normanFeelsLikeIt()) addTV(normanChipQuips.pick(), 'aside', 'norman')
+      }
+    }
   }
 
   // ─── ACTION ─────────────────────────────────────────────
@@ -332,12 +347,32 @@ export function useCommentary(gs: GS) {
       return
     }
 
-    // Occasional pot size or heads-up quip
+    // Occasional pot size, heads-up, or SPR quip
     const activeCount = activePl().length
+    const bbVal = gs.bb?.value || 2
     if (activeCount === 2 && Math.random() < 0.15) {
       addTV(normanHeadsUpQuips.pick(), 'aside', 'norman')
     } else if (gs.pot.value > 200 && Math.random() < 0.1) {
       addTV(normanPotSizeQuips.pick(), 'aside', 'norman')
+    }
+    // SPR observation on flop/turn when pot is significant
+    if (gs.street.value !== 'preflop' && gs.pot.value > bbVal * 10 && Math.random() < 0.12) {
+      const activePls = activePl()
+      const smallestActive = Math.min(...activePls.map(p => p.chips))
+      const spr = smallestActive / Math.max(gs.pot.value, 1)
+      if (spr < 2) {
+        addTV(pick([
+          `The effective stack-to-pot ratio is below 2. At this depth, someone is likely pot-committed.`,
+          `With this much in the pot relative to the remaining stacks, folding becomes very difficult for anyone still in.`,
+          `Shallow SPR here. The math says if you're still in the hand, you're probably going to the river with it.`,
+        ]), 'aside', 'lon')
+      } else if (spr < 4) {
+        addTV(pick([
+          `Stack-to-pot ratio is getting low. Commitment decisions are coming soon.`,
+          `With the pot this size relative to stacks, one more bet commits someone to the hand.`,
+          `Low SPR territory. The next bet will likely define who's all-in and who's not.`,
+        ]), 'aside', 'lon')
+      }
     }
 
     // ── ALL-IN ──
@@ -347,6 +382,16 @@ export function useCommentary(gs: GS) {
       const pl = findPl(name)
 
       addHero(pick([`${name} goes ALL-IN! $${amount}.`, `ALL-IN from ${name}! $${amount} on the line.`, `${name} shoves $${amount}. Big decision coming.`]), 'action')
+
+      // Chip context for all-in
+      if (pl && amount <= bbVal * 12 && lonWantsToAnalyze()) {
+        const bbs = Math.round(amount / bbVal)
+        addTV(pick([
+          `Only ${bbs} big blinds behind that shove. When you're that short, you take your spot and go with it.`,
+          `A ${bbs}-big-blind all-in. At this stack depth, almost any reasonable hand justifies a shove.`,
+          `${bbs} big blinds is desperation territory. The blinds will eat that stack in a few orbits.`,
+        ]), 'aside', 'lon')
+      }
 
       if (pl?.holeCards) {
         const community = gs.visibleCommunity.value
@@ -398,6 +443,29 @@ export function useCommentary(gs: GS) {
         const posLabel = pos === 'BTN' || pos === 'D' || pos === 'D/BTN' ? 'the button'
           : pos === 'CO' ? 'the cutoff' : pos === 'UTG' ? 'under the gun'
           : pos === 'UTG+1' ? 'UTG+1' : pos === 'SB' || pos === 'D/SB' ? 'the small blind' : ''
+
+        // Occasional range/style observation from Mon (~15% of preflop raises)
+        if (gs.street.value === 'preflop' && per && lonWantsToAnalyze() && Math.random() < 0.15) {
+          const vpipPct = Math.round(per.vpip * 100)
+          if (per.vpip <= 0.18 && earlyPos) {
+            addTV(pick([
+              `${name} only plays about ${vpipPct}% of hands. A raise from ${posLabel} narrows their range to premiums — big pairs, big aces.`,
+              `With a ${vpipPct}% VPIP from ${posLabel}, you're looking at a very strong range. Aces through jacks, ace-king, maybe ace-queen.`,
+              `This is a tight player raising from early position. Their range is narrow and strong. Proceed with caution.`,
+            ]), 'aside', 'lon')
+          } else if (per.vpip >= 0.30 && latePos) {
+            addTV(pick([
+              `${name} plays ${vpipPct}% of hands. From ${posLabel}, their range is very wide — any pair, any suited ace, most broadways, suited connectors.`,
+              `A ${vpipPct}% VPIP player on ${posLabel}. This could be anything from aces to suited junk. Their range is enormous.`,
+              `Loose player in position. That raise could be premium or it could be a steal attempt. Wide range from ${posLabel}.`,
+            ]), 'aside', 'lon')
+          } else if (per.vpip >= 0.30 && earlyPos) {
+            addTV(pick([
+              `A loose player raising from ${posLabel} — ${vpipPct}% VPIP. Even loose players tighten up in early position, but their range is still wider than most.`,
+              `${name} is known to play wide. Even from early position, they could have a lot of hands here.`,
+            ]), 'aside', 'lon')
+          }
+        }
 
         if (isBluff) {
           // Junk raise — Mon includes position when it's notable (EP junk = very notable)
