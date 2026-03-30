@@ -1,7 +1,7 @@
 /**
  * Chip denomination and display utilities.
  */
-import config from '~/holdem.config.js'
+import config from '~/holdem.config'
 
 export interface ChipStack {
   color: string

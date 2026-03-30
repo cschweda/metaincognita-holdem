@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 
-import config from '../holdem.config.js'
+import config from '../app/holdem.config'
 
 describe('VPIP calculation', () => {
   it('VPIP = voluntarily played / total hands dealt', () => {

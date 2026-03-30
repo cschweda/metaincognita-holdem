@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest'
 // Placeholder: replace with actual imports
 // import { createGameState, postBlinds, placeBet, advancePhase } from '~/composables/usePokerStore'
 
-import config from '../holdem.config.js'
+import config from '../app/holdem.config'
 
 describe('Blind posting', () => {
   it('posts correct SB and BB for each stake level', () => {

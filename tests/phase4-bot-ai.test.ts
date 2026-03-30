@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 
-import config from '../holdem.config.js'
+import config from '../app/holdem.config'
 
 describe('Persona configuration', () => {
   it('all personas have valid stat ranges', () => {
