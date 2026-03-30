@@ -87,12 +87,13 @@ const proBots = config.personas.filter(p =>
 )
 const fictionalBots = config.personas.filter(p => !proBots.includes(p))
 
+const maxPros = ref(2)
+
 function generateDefaultBots(count: number): BotConfig[] {
-  // Max 2 pro bots per table, no duplicates of any persona
-  const shuffledPros = [...proBots].sort(() => Math.random() - 0.5).slice(0, 2)
+  const proCount = Math.min(maxPros.value, proBots.length, count)
+  const shuffledPros = [...proBots].sort(() => Math.random() - 0.5).slice(0, proCount)
   const shuffledFictional = [...fictionalBots].sort(() => Math.random() - 0.5)
 
-  // Combine: up to 2 pros first, then fill with fictional (no duplicates)
   const pool = [...shuffledPros, ...shuffledFictional]
   const selected = pool.slice(0, count)
 
@@ -223,6 +224,20 @@ const allPresetNames = computed(() => [
 
 const activeBots = computed(() => botConfigs.value.slice(0, playerCount.value - 1))
 
+const proCountOptions = computed(() => {
+  const maxAllowed = Math.min(playerCount.value - 1, proBots.length)
+  const options = []
+  for (let i = 0; i <= Math.min(3, maxAllowed); i++) {
+    options.push({ value: i, label: String(i) })
+  }
+  if (maxAllowed > 3) {
+    options.push({ value: maxAllowed, label: 'All' })
+  }
+  // Deduplicate
+  const seen = new Set<number>()
+  return options.filter(o => { if (seen.has(o.value)) return false; seen.add(o.value); return true })
+})
+
 // Auto-update bot names when stats drift from preset defaults
 watch(botConfigs, (bots) => {
   for (const bot of bots) {
@@ -343,6 +358,24 @@ function handleStart() {
         >
           Shuffle Players
         </UButton>
+      </div>
+
+      <!-- Pro count selector -->
+      <div class="flex items-center justify-between">
+        <label class="text-xs text-gray-400">Pro players per table</label>
+        <div class="flex items-center gap-1.5">
+          <button
+            v-for="n in proCountOptions"
+            :key="n.value"
+            class="px-2 h-7 rounded-md text-xs font-semibold transition-all"
+            :class="maxPros === n.value
+              ? 'bg-amber-700/60 text-amber-100 border border-amber-500/50'
+              : 'bg-gray-800/60 text-gray-400 border border-gray-700/40 hover:bg-gray-700/60'"
+            @click="maxPros = n.value; randomizeAll()"
+          >
+            {{ n.label }}
+          </button>
+        </div>
       </div>
 
       <!-- Player list -->
