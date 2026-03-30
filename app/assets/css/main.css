@@ -33,19 +33,32 @@
   --chip-orange: #ea580c;
 }
 
-/* Tooltip overrides — solid dark background, readable text */
+/*
+ * Tooltip layout shift prevention.
+ * UTooltip/Reka wraps triggers in elements that can add outline/ring on hover.
+ * Remove all outline/ring from tooltip triggers so they don't cause layout shift.
+ */
 [data-radix-popper-content-wrapper] {
+  position: fixed !important;
   z-index: 9999 !important;
 }
 
+/* Remove outline/ring/border from tooltip trigger elements */
+[data-radix-tooltip-trigger] {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Tooltip overrides — slightly lighter dark background for contrast */
 [role="tooltip"],
 [data-state="delayed-open"],
 [data-state="instant-open"] {
   max-width: 280px !important;
   white-space: normal !important;
   word-wrap: break-word !important;
-  background: #030712 !important;
-  background-color: #030712 !important;
+  background: #1a1f2e !important;
+  background-color: #1a1f2e !important;
   opacity: 1 !important;
   color: #e5e7eb !important;
   padding: 12px 16px !important;
