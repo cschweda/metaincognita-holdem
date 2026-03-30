@@ -22,6 +22,94 @@ export function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// ─── Mon LeEachern analytical observations ──────────────────────
+// Serious, game-aware phrases about board texture, player tendencies,
+// pot dynamics, and strategic situations. Used when lonWantsToAnalyze().
+
+export const lonBoardAnalysis = new UniquePool([
+  `Dry board here. This favors the preflop aggressor — fewer draws to worry about.`,
+  `Very wet texture. Flush draws and straight draws are everywhere on this board.`,
+  `The board has paired. That changes the math significantly — full house draws are now live.`,
+  `Ace-high board. The preflop raiser has a significant range advantage here.`,
+  `Low, connected board. This is where the caller's range connects — small pairs, suited connectors.`,
+  `Monotone flop. Anyone without a card of that suit is in trouble.`,
+  `Broadway-heavy board. Premium hands love this texture.`,
+  `Rainbow and disconnected. About as safe a board as you'll see in poker.`,
+  `Three to a straight on the board. Position is critical on boards like this.`,
+  `Two-tone flop. The turn card in that suit will change everything.`,
+  `High pair on the board. Anyone who hit trips is in a very strong position.`,
+  `The board has four to a flush now. If you don't have it, you have to wonder who does.`,
+  `Interesting texture — this board hits a lot of calling ranges but misses most raising ranges.`,
+  `Very coordinated board. There are so many possible hands here — sets, straights, two pairs, draws.`,
+  `This is a board where position matters enormously. Acting last is a huge advantage.`,
+])
+
+export const lonPlayerReads = new UniquePool([
+  `This player has been very active this session. Wider range than usual.`,
+  `A tight player making a move here. When they bet, they usually have it.`,
+  `Watch the aggression level here. This player has been raising a lot — could be on a run or could be bluffing.`,
+  `This is a player who rarely bluffs. A bet here deserves serious respect.`,
+  `Loose player in the pot. Their range is wide, so top pair is often good enough.`,
+  `This player's VPIP is running high today. They're seeing a lot of flops.`,
+  `Classic tight-aggressive play. Small range, big bets when they enter.`,
+  `The calling station is in the hand. Bluffing them is usually a mistake.`,
+  `Aggressive player with a big stack. They can put maximum pressure on everyone.`,
+  `Short-stacked player. They're in push-or-fold territory.`,
+  `This player has been card-dead. When they finally play a hand, pay attention.`,
+  `Two aggressive players in the same pot. Expect fireworks.`,
+])
+
+export const lonPotAnalysis = new UniquePool([
+  `Pot is getting significant. The decisions from here matter for the entire session.`,
+  `Small pot so far. Both players are playing cautiously — waiting for the right moment.`,
+  `The pot odds are favorable for a draw here. Mathematics supports a call.`,
+  `Pot-committed now. With this much invested, folding is rarely correct.`,
+  `SPR is low. This is going to be a bet-and-commit situation.`,
+  `Deep stacks relative to the pot. Plenty of room to maneuver on later streets.`,
+  `The pot has been building since preflop. Someone built this deliberately.`,
+  `Multiway pot. Everyone needs to be cautious — someone usually has something in multiway action.`,
+  `Heads-up pot. This is where reading your opponent matters most.`,
+  `The bet-to-pot ratio is large. This is a polarizing bet — very strong or a bluff.`,
+])
+
+export const lonTiltReads = new UniquePool([
+  `This player has been losing consistently. Watch for tilt — wider calls, bigger bluffs.`,
+  `After that bad beat, we could see some emotional play here. Tilt is a real factor.`,
+  `Multiple rebuys for this player. The frustration could be affecting their decisions.`,
+  `This player just lost a big pot. The next few hands will tell us if they can reset mentally.`,
+  `Running cold. When players haven't won in a while, they sometimes force the action.`,
+  `That was a rough beat. Even the best players struggle to stay composed after that.`,
+  `The tilt factor is real here. This player has been on the wrong end of variance all session.`,
+  `After a loss like that, some players tighten up and some players go wild. Let's see which one.`,
+])
+
+export const lonStreetTransition = new UniquePool([
+  `Key card coming. The flop is where hands are made — and broken.`,
+  `Turn card now. This is where the second barrel decision matters most.`,
+  `River card. Everything comes down to this — no more draws, no more hope. Just made hands.`,
+  `This is the street where the real money gets committed. Pay attention.`,
+  `The board is developing. Each card narrows the possibilities.`,
+  `We're seeing a lot of action on this street. Someone is confident.`,
+  `Quiet so far. Both players are gathering information before committing chips.`,
+  `The check-raise is always a possibility here. Especially on this texture.`,
+  `A bet here would represent serious strength. Let's see if anyone steps up.`,
+  `The river is where professionals separate themselves from amateurs. The pressure is different.`,
+])
+
+export const lonShowdownAnalysis = new UniquePool([
+  `Let's see what everyone was playing with. The cards don't lie.`,
+  `Time for the truth. All the betting tells us a story — now we see if it was fiction.`,
+  `Showdown. This is where all the strategy comes together — or falls apart.`,
+  `The cards are about to be revealed. Did the right hand win? Let's find out.`,
+  `Moment of truth. Every bet, every raise, every call led to this.`,
+  `Showdown time. The best five-card hand wins. No more bluffing, no more position.`,
+])
+
+export function resetLonPools() {
+  lonBoardAnalysis.reset(); lonPlayerReads.reset(); lonPotAnalysis.reset()
+  lonTiltReads.reset(); lonStreetTransition.reset(); lonShowdownAnalysis.reset()
+}
+
 // ─── Fold quips ──────────────────────────────────────────────────
 
 export const normanFoldQuips = new UniquePool([

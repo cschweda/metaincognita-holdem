@@ -18,6 +18,8 @@ import {
   normanDrawQuips, normanRiverQuips, normanPotSizeQuips, normanHeadsUpQuips,
   normanSelfAwareQuips, normanSliderUpQuips, normanSliderDownQuips,
   normanPersonaQuip, resetAllQuipPools,
+  lonBoardAnalysis, lonPlayerReads, lonPotAnalysis, lonTiltReads,
+  lonStreetTransition, lonShowdownAnalysis, resetLonPools,
 } from '~/utils/commentaryQuips'
 import { strategicFlopObs, strategicActionObs, strategicShowdownObs } from '~/utils/commentaryStrategic'
 
@@ -128,6 +130,7 @@ export function useCommentary(gs: GS) {
   function clear() {
     heroLines.value = []; tvLines.value = []; nextVoice = 'lon'
     resetAllQuipPools()
+    resetLonPools()
   }
 
   // ─── Helpers ─────────────────────────────────────────────
@@ -338,9 +341,11 @@ export function useCommentary(gs: GS) {
           addTV(normanAllinQuips.pick(), 'action', 'norman')
         } else if (pl.holeCards && chenScore(pl.holeCards) <= 4 && gs.street.value === 'preflop') {
           addTV(`${name} goes all-in with ${cardStr(pl.holeCards)}.`, 'action', 'lon')
+          if (lonWantsToAnalyze()) addTV(lonTiltReads.pick(), 'action', 'lon')
           addTV(normanAllinJunkQuips.pick(), 'action', 'norman')
         } else {
           addTV(`ALL-IN from ${name}! $${amount}.`, 'action', 'lon')
+          if (lonWantsToAnalyze()) addTV(lonPotAnalysis.pick(), 'action', 'lon')
           addTV(normanAllinQuips.pick(), 'action', 'norman')
         }
       } else {
@@ -388,6 +393,8 @@ export function useCommentary(gs: GS) {
         }
       } else {
         addTV(`${name} makes it $${amount}.`, 'action', 'lon')
+        // Mon occasionally adds a player read or pot analysis
+        if (lonWantsToAnalyze() && Math.random() < 0.3) addTV(lonPlayerReads.pick(), 'action', 'lon')
         if (normanFeelsLikeIt()) {
           tryStrategicNorman(
             () => normanRaiseQuips.pick(), 'action',
@@ -524,6 +531,8 @@ export function useCommentary(gs: GS) {
 
       // TV stream
       addTV(`Flop comes ${boardStr}.`, 'street', 'lon')
+      // Mon's board analysis (alongside Chorman's board texture quip)
+      if (lonWantsToAnalyze()) addTV(lonBoardAnalysis.pick(), 'street', 'lon')
 
       // Board texture quip from Norman
       const flopCards = community.slice(0, 3)
@@ -660,6 +669,7 @@ export function useCommentary(gs: GS) {
       }
 
       addTV(`Turn: ${turnCard}.`, 'street', 'lon')
+      if (lonWantsToAnalyze() && Math.random() < 0.4) addTV(lonStreetTransition.pick(), 'street', 'lon')
       // Turn board texture quip
       if (normanFeelsLikeIt()) {
         const turnC = community[3]
@@ -781,6 +791,7 @@ export function useCommentary(gs: GS) {
     if (heroWon) {
       addHero(pick([`We take it down! $${amount} pot.`, `$${amount} coming our way. Nice hand.`, `We win $${amount}. Good result.`]), 'showdown')
       addTV(`Hero wins $${amount}!`, 'showdown', 'lon')
+      if (lonWantsToAnalyze()) addTV(lonShowdownAnalysis.pick(), 'showdown', 'lon')
       tryStrategicNorman(
         () => normanShowdownWinQuips.pick(), 'showdown',
         () => normanStrategicShowdownObs(true, gs.pot.value, hero().holeCards, gs.visibleCommunity.value),
