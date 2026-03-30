@@ -81,11 +81,6 @@ async function handleEmailAuth() {
   }
 }
 
-// Bot configurations
-const botConfigs = ref<BotConfig[]>(
-  generateDefaultBots(config.table.maxPlayers - 1)
-)
-
 // Pro bots are real player personas; fictional bots are the originals
 const proBots = config.personas.filter(p =>
   ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly', 'Phil Laak', 'Antonio Esfandiari', 'Gabe Kaplan', 'Jean-Robert Bellande', 'Mike Matusow'].includes(p.name)
@@ -112,6 +107,11 @@ function generateDefaultBots(count: number): BotConfig[] {
     tiltMultiplier: persona.tiltMultiplier ?? 1.0,
   }))
 }
+
+// Bot configurations
+const botConfigs = ref<BotConfig[]>(
+  generateDefaultBots(config.table.maxPlayers - 1)
+)
 
 function applyPreset(botIndex: number, presetName: string) {
   const preset = [...config.personas, ...config.botPresets].find(p => p.name === presetName)
