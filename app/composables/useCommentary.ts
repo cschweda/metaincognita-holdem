@@ -7,7 +7,7 @@
  */
 import type { Card } from '~/utils/cards'
 import { displayCard } from '~/utils/cards'
-import { chenScore, bestHand, HAND_RANK_NAMES, HAND_RANKS, detectDraws } from '~/utils/handAnalysis'
+import { chenScore, bestHand, HAND_RANK_NAMES, HAND_RANKS, detectDraws, estimateEquity, describeHand } from '~/utils/handAnalysis'
 import type { PlayerState } from '~/composables/useGameState'
 import config from '@config'
 
@@ -1071,14 +1071,72 @@ export function useCommentary(gs: GS) {
     if (streetName === 'flop' && community.length >= 3) {
       const boardStr = community.slice(0, 3).map(displayCard).join(' ')
 
-      // Hero stream
+      // Hero stream — hand + board texture + equity + draws
       addHero(pick([`Flop: ${boardStr}.`, `The flop comes ${boardStr}.`]), 'street')
       if (h.holeCards && !h.folded) {
         const hand = bestHand(Array.from(h.holeCards), community)
         const draws = detectDraws(Array.from(h.holeCards), community)
-        if (hand && hand.rank >= HAND_RANKS.TWO_PAIR) addHero(`We flopped ${HAND_RANK_NAMES[hand.rank]}!`, 'street')
-        else if (draws.some(d => d.outs >= 8)) addHero(`We picked up a ${draws[0].type.toLowerCase()} draw — ${draws[0].outs} outs.`, 'street')
-        else if (hand && hand.rank <= HAND_RANKS.HIGH_CARD) addHero(`Missed the flop completely.`, 'street')
+        const handDesc = describeHand(h.holeCards, community)
+        const numOpp = activePl().length - 1
+
+        // What we made
+        if (hand && hand.rank >= HAND_RANKS.TWO_PAIR) {
+          addHero(`We flopped ${handDesc}. Strong hand.`, 'street')
+        } else if (hand && hand.rank === HAND_RANKS.ONE_PAIR) {
+          addHero(`${handDesc}.`, 'street')
+        } else if (hand && hand.rank <= HAND_RANKS.HIGH_CARD) {
+          addHero(`Missed the flop. ${handDesc}.`, 'street')
+        }
+
+        // Draws
+        if (draws.length > 0) {
+          const totalOuts = draws.reduce((sum, d) => sum + d.outs, 0)
+          const drawNames = draws.map(d => d.type.toLowerCase()).join(' + ')
+          addHero(`Draw: ${drawNames} (${totalOuts} outs).`, 'street')
+        }
+
+        // Board texture note
+        const flopCards = community.slice(0, 3)
+        const flopSuits = flopCards.map(c => c.suit)
+        const flopRanks = flopCards.map(c => c.rank)
+        const isMonoFlop = flopSuits[0] === flopSuits[1] && flopSuits[1] === flopSuits[2]
+        const isTwoToneFlop = !isMonoFlop && (flopSuits[0] === flopSuits[1] || flopSuits[1] === flopSuits[2] || flopSuits[0] === flopSuits[2])
+        const isPairedFlop = flopRanks[0] === flopRanks[1] || flopRanks[1] === flopRanks[2] || flopRanks[0] === flopRanks[2]
+        const sortedFlop = [...flopRanks].sort((a, b) => a - b)
+        const isConnectedFlop = sortedFlop[2] - sortedFlop[0] <= 4
+
+        const textures: string[] = []
+        if (isMonoFlop) textures.push('monotone — flush draws likely')
+        else if (isTwoToneFlop) textures.push('two-tone')
+        if (isPairedFlop) textures.push('paired board')
+        if (isConnectedFlop && !isPairedFlop) textures.push('connected — straight draws possible')
+        if (flopRanks.includes(14)) textures.push('ace-high')
+        if (textures.length > 0) addHero(`Board texture: ${textures.join(', ')}.`, 'aside')
+
+        // Quick equity
+        if (numOpp >= 1) {
+          const eq = estimateEquity(h.holeCards, community, numOpp, 200)
+          addHero(`Equity vs ${numOpp} opponent${numOpp > 1 ? 's' : ''}: ~${eq}%.`, 'aside')
+        }
+
+        // Additional board observations
+        if (isPairedFlop) {
+          const pairRank = flopRanks.find((r, i) => flopRanks.indexOf(r) !== i)
+          const heroHasTrips = h.holeCards.some(c => c.rank === pairRank)
+          if (heroHasTrips) addHero(`We have trips with the paired board. Strong.`, 'aside')
+          else addHero(`Paired board — full house draws in play. Be aware of trips.`, 'aside')
+        }
+
+        // High card board with low hero cards
+        const heroMax = Math.max(h.holeCards[0].rank, h.holeCards[1].rank)
+        const boardMax = Math.max(...flopRanks)
+        if (boardMax >= 12 && heroMax <= 10 && hand && hand.rank <= HAND_RANKS.ONE_PAIR) {
+          addHero(`High cards on the board and our cards are low. Proceed carefully.`, 'aside')
+        }
+
+        // Player count
+        const playersLeft = activePl().length
+        if (playersLeft >= 4) addHero(`${playersLeft} players saw this flop — multiway pot.`, 'aside')
       }
 
       // TV stream
@@ -1157,9 +1215,59 @@ export function useCommentary(gs: GS) {
       const turnCard = displayCard(community[3])
       addHero(pick([`Turn: ${turnCard}.`, `The ${turnCard} on the turn.`]), 'street')
       if (h.holeCards && !h.folded) {
+        const turnComm = community.slice(0, 4)
         const flopH = bestHand(Array.from(h.holeCards), community.slice(0, 3))
-        const turnH = bestHand(Array.from(h.holeCards), community.slice(0, 4))
-        if (turnH && flopH && turnH.rank > flopH.rank && turnH.rank >= HAND_RANKS.TWO_PAIR) addHero(`The turn improves us to ${HAND_RANK_NAMES[turnH.rank]}!`, 'street')
+        const turnH = bestHand(Array.from(h.holeCards), turnComm)
+        const turnDesc = describeHand(h.holeCards, turnComm)
+        const turnDraws = detectDraws(Array.from(h.holeCards), turnComm)
+        const numOpp = activePl().length - 1
+
+        if (turnH && flopH && turnH.rank > flopH.rank) {
+          addHero(`Improved to ${turnDesc}.`, 'street')
+        } else {
+          addHero(`${turnDesc}.`, 'street')
+        }
+
+        if (turnDraws.length > 0) {
+          const totalOuts = turnDraws.reduce((sum, d) => sum + d.outs, 0)
+          addHero(`${turnDraws.map(d => d.type.toLowerCase()).join(' + ')} — ${totalOuts} outs to improve.`, 'aside')
+        }
+
+        if (numOpp >= 1) {
+          const eq = estimateEquity(h.holeCards, turnComm, numOpp, 200)
+          addHero(`Equity vs ${numOpp}: ~${eq}%.`, 'aside')
+        }
+
+        // Situational board notes
+        const turnC = community[3]
+        const flopRanks = community.slice(0, 3).map(c => c.rank)
+        const flopMaxRank = Math.max(...flopRanks)
+        // Ace appearing on a low board
+        if (turnC.rank === 14 && flopMaxRank <= 10) {
+          addHero(`Ace on the turn changes everything. Anyone with an ace just took the lead.`, 'aside')
+        }
+        // Flush completing
+        const turnSuits = turnComm.map(c => c.suit)
+        const suitCounts = new Map<string, number>()
+        for (const s of turnSuits) suitCounts.set(s, (suitCounts.get(s) || 0) + 1)
+        if ([...suitCounts.values()].some(c => c >= 3)) {
+          const heroSuited = h.holeCards[0].suit === h.holeCards[1].suit
+          const flushSuit = [...suitCounts.entries()].find(e => e[1] >= 3)?.[0]
+          const heroHasFlushCard = h.holeCards.some(c => c.suit === flushSuit)
+          if (heroHasFlushCard) addHero(`Three ${flushSuit} on the board — we have one. Flush draw possible.`, 'aside')
+          else addHero(`Three of one suit on board. Watch for a flush — we don't have one.`, 'aside')
+        }
+        // Board pairing
+        const allRanks = turnComm.map(c => c.rank)
+        const rankCounts = new Map<number, number>()
+        for (const r of allRanks) rankCounts.set(r, (rankCounts.get(r) || 0) + 1)
+        if ([...rankCounts.values()].some(c => c >= 2) && !flopRanks.some((r, i) => flopRanks.indexOf(r) !== i)) {
+          addHero(`Board paired on the turn. Full house draws are now possible.`, 'aside')
+        }
+
+        // Player count
+        const playersLeft = activePl().length
+        if (playersLeft >= 3) addHero(`${playersLeft} players still in the hand.`, 'aside')
       }
 
       addTV(`Turn: ${turnCard}.`, 'street', 'lon')
@@ -1199,8 +1307,48 @@ export function useCommentary(gs: GS) {
       const riverCard = displayCard(community[4])
       addHero(pick([`River: ${riverCard}.`, `The ${riverCard} on the river. Final card.`]), 'street')
       if (h.holeCards && !h.folded) {
-        const hand = bestHand(Array.from(h.holeCards), community)
-        if (hand && hand.rank >= HAND_RANKS.STRAIGHT) addHero(`We end up with ${HAND_RANK_NAMES[hand.rank]}.`, 'street')
+        const turnH = bestHand(Array.from(h.holeCards), community.slice(0, 4))
+        const riverH = bestHand(Array.from(h.holeCards), community)
+        const riverDesc = describeHand(h.holeCards, community)
+        const numOpp = activePl().length - 1
+
+        if (riverH && turnH && riverH.rank > turnH.rank) {
+          addHero(`River improves us! ${riverDesc}.`, 'street')
+        } else {
+          addHero(`Final hand: ${riverDesc}.`, 'street')
+        }
+
+        if (numOpp >= 1) {
+          const eq = estimateEquity(h.holeCards, community, numOpp, 200)
+          addHero(`Final equity: ~${eq}%.`, 'aside')
+        }
+
+        // Situational river notes
+        const rvCard = community[4]
+        const turnMaxRank = Math.max(...community.slice(0, 4).map(c => c.rank))
+        if (rvCard.rank === 14 && turnMaxRank <= 10) {
+          addHero(`Ace on the river. If you don't have one, be cautious — someone else might.`, 'aside')
+        }
+        // Flush completing on river
+        const rvSuitCount = community.filter(c => c.suit === rvCard.suit).length
+        if (rvSuitCount >= 3) {
+          const heroHasIt = h.holeCards.some(c => c.suit === rvCard.suit)
+          if (heroHasIt && riverH && riverH.rank === HAND_RANKS.FLUSH) addHero(`We made the flush.`, 'aside')
+          else if (!heroHasIt) addHero(`Possible flush on the board. We don't have it.`, 'aside')
+        }
+        // Straight possible (4 to a straight on board)
+        const boardRanks = [...new Set(community.map(c => c.rank))].sort((a, b) => a - b)
+        let maxRun = 1, run = 1
+        for (let i = 1; i < boardRanks.length; i++) {
+          if (boardRanks[i] - boardRanks[i - 1] <= 2) { run++; maxRun = Math.max(maxRun, run) }
+          else run = 1
+        }
+        if (maxRun >= 4 && riverH && riverH.rank !== HAND_RANKS.STRAIGHT) {
+          addHero(`Board is very connected — straights are possible. We don't have one.`, 'aside')
+        }
+
+        const playersLeft = activePl().length
+        if (playersLeft >= 3) addHero(`${playersLeft} players to the river. Pot is $${gs.pot.value}.`, 'aside')
       }
 
       addTV(`River: ${riverCard}.`, 'street', 'lon')
