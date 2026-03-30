@@ -175,6 +175,11 @@ export function useStatsData() {
     return source
   })
 
+  const recentHands = computed(() => {
+    const source = selectedSession.value ? hands.value.filter(h => h.session_id === selectedSession.value!.id) : hands.value
+    return source.slice(0, 20)
+  })
+
   // ─── Helpers ───────────────────────────────────────────
 
   const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Big', 6: 'Nosebleed' }
@@ -242,7 +247,7 @@ export function useStatsData() {
     selectedSession, positionFilter,
     // Computed
     lifetimeStats, winRate, sessionSummary, positionStats, sessionHands,
-    profitTimeline, displayedHands,
+    profitTimeline, displayedHands, recentHands,
     // Actions
     init, loadData, deleteAllData, deleteSession, deleteHand,
     drillIntoPosition,

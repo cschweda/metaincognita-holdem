@@ -9,7 +9,7 @@ import { toPokerStarsFormat } from '~/utils/pokerStarsExport'
 
 const {
   loading, error, sessions, hands, isGitHubAuth, selectedSession, positionFilter,
-  lifetimeStats, winRate, sessionSummary, positionStats, profitTimeline, displayedHands,
+  lifetimeStats, winRate, sessionSummary, positionStats, profitTimeline, displayedHands, recentHands,
   init, deleteAllData, deleteSession, deleteHand, drillIntoPosition,
   exportLifetimeJSON, exportLifetimeCSV, exportLifetimePokerStars,
   exportSessionJSON, exportSessionCSV, exportSessionPokerStars,
