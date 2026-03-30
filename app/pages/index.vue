@@ -9,8 +9,10 @@ import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
 import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState, type TiltState } from '~/utils/botDecision'
+import { displayCard } from '~/utils/cards'
 
 const phase = ref<'setup' | 'table'>('setup')
+const { session, initSession, recordHand, resetSession, saveSessionToSupabase, downloadJSON, downloadCSV, supabaseReady } = useSessionStats()
 const settings = ref<GameSettings | null>(null)
 
 // ─── Per-player state ──────────────────────────────────────────
@@ -91,9 +93,9 @@ const opponentStats = computed(() => {
 // ─── Game Flow ─────────────────────────────────────────────────
 function handleStart(gameSettings: GameSettings) {
   settings.value = gameSettings
-  // Randomize dealer seat
   dealerSeat.value = Math.floor(Math.random() * gameSettings.playerCount)
   phase.value = 'table'
+  initSession(gameSettings.stakeLevel, gameSettings.playerCount, startingStack.value)
   setTimeout(dealNewHand, 300)
 }
 
@@ -447,6 +449,25 @@ function endHand() {
     updateTilt(p.tilt, won, lostBigPot, config.tilt)
   }
 
+  // Record hand for session stats
+  const heroState = playerStates.value[0]
+  if (heroState) {
+    const heroWon = winnerId === 0
+    const heroProfit = heroWon ? pot.value - (startingStack.value - heroState.chips + pot.value) : -(startingStack.value - heroState.chips)
+    const holeStr = heroState.holeCards ? heroState.holeCards.map(c => displayCard(c)).join(' ') : ''
+    const boardStr = visibleCommunity.value.map(c => displayCard(c)).join(' ')
+
+    recordHand({
+      handNumber: session.value.handsPlayed + 1,
+      holeCards: holeStr,
+      board: boardStr,
+      result: heroState.folded ? 'folded' : (heroWon ? 'won' : 'lost'),
+      profit: heroWon ? pot.value : (heroState.folded ? 0 : -pot.value),
+      position: positions.value[0] || '',
+      potSize: pot.value,
+    }, heroState.chips)
+  }
+
   // Eliminate busted players
   for (const p of playerStates.value) {
     if (p.chips <= 0 && !p.eliminated) {
@@ -460,6 +481,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function backToSetup() {
+  saveSessionToSupabase()
   phase.value = 'setup'
   settings.value = null
   playerStates.value = []
@@ -629,9 +651,14 @@ function formatPot(n: number): string {
           :hero-chips="hero?.chips || 0"
           :player-stats="opponentStats"
           :hero-turn="heroTurn"
+          :session-stats="session"
+          :supabase-connected="supabaseReady"
           @fold="handleFold"
           @check="handleCheck"
           @call="handleCall"
+          @export-json="downloadJSON"
+          @export-csv="downloadCSV"
+          @reset-session="resetSession"
         />
       </div>
     </div>

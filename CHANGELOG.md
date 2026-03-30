@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-29
+
+Supabase integration, session stats tracking, and CSV/JSON export.
+
+### Added
+
+#### Supabase Integration
+- Anonymous auth — auto-creates a user per browser, no login required
+- Database tables with Row Level Security:
+  - `sessions`: id, user_id, stake_level, player_count, stacks, hands played/won/lost, profit
+  - `hands`: hole_cards, board, result, profit, position, pot_size, played_at
+- Every hand saved to Supabase in background (localStorage as fallback)
+- Session summary saved on exit or reset
+- Indexes on user_id, session_id, played_at for fast cross-session queries
+- `.env` file for credentials (gitignored), `.env.example` included
+
+#### Session Stats Tab (Stats Panel)
+- Hands played counter (large, prominent)
+- Running profit/loss with color coding (+green / -red)
+- Win/Loss/Fold breakdown with visual progress bars
+- Bankroll tracker: current stack, peak stack, starting stack
+- Win rate percentage
+- Supabase connection indicator (green dot = syncing, gray = local only)
+- Export JSON button — full session data including every hand
+- Export CSV button — tabular hand history for spreadsheet analysis
+- New Session button — saves current to Supabase, resets counters
+
+#### Session Stats Composable (`app/composables/useSessionStats.ts`)
+- `initSession()` — starts a new session with stake/player config
+- `recordHand()` — logs result, updates counters, saves to Supabase
+- `downloadJSON()` / `downloadCSV()` — browser file download
+- `resetSession()` — saves to cloud, starts fresh
+- Auto-saves to localStorage on every change (survives refresh)
+
+### Changed
+- Stats panel now has 4 tabs: Live, Session, Ranges, Table (was 3)
+- `endHand()` records hand results for session tracking
+- `backToSetup()` saves session to Supabase before navigating away
+
 ## [0.4.0] - 2026-03-29
 
 Tilt system — bots go on tilt after consecutive losses or big pot losses.
@@ -271,6 +310,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.5.0]: https://github.com/cschweda/holdem-simulator/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cschweda/holdem-simulator/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/cschweda/holdem-simulator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cschweda/holdem-simulator/compare/v0.2.0...v0.3.0

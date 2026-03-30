@@ -28,12 +28,26 @@ const props = defineProps<{
   heroChips?: number
   playerStats?: PlayerStat[]
   heroTurn?: boolean
+  sessionStats?: {
+    handsPlayed: number
+    handsWon: number
+    handsLost: number
+    handsFolded: number
+    totalProfit: number
+    currentStack: number
+    startingStack: number
+    peakStack: number
+  } | null
+  supabaseConnected?: boolean
 }>()
 
 const emit = defineEmits<{
   fold: []
   check: []
   call: [amount: number]
+  exportJson: []
+  exportCsv: []
+  resetSession: []
 }>()
 
 function handleActionClick() {
@@ -126,7 +140,7 @@ const actionColor = computed(() => {
 })
 
 // ─── Tabs ──────────────────────────────────────────────────────
-const activeTab = ref<'hand' | 'ranges' | 'opponents'>('hand')
+const activeTab = ref<'hand' | 'ranges' | 'opponents' | 'session'>('hand')
 
 function formatHoleCards(cards: [Card, Card]): string {
   return `${displayCard(cards[0])} ${displayCard(cards[1])}`
@@ -167,7 +181,7 @@ function afLabel(af: number): string {
     <!-- Tab bar -->
     <div class="flex border-b border-gray-700/50">
       <button
-        v-for="tab in (['hand', 'ranges', 'opponents'] as const)"
+        v-for="tab in (['hand', 'session', 'ranges', 'opponents'] as const)"
         :key="tab"
         class="flex-1 py-2 text-xs font-semibold uppercase tracking-wider transition-colors"
         :class="activeTab === tab
@@ -175,7 +189,7 @@ function afLabel(af: number): string {
           : 'text-gray-500 hover:text-gray-300'"
         @click="activeTab = tab"
       >
-        {{ tab === 'hand' ? 'Live Hand' : tab === 'ranges' ? 'Ranges' : 'Opponents' }}
+        {{ tab === 'hand' ? 'Live' : tab === 'session' ? 'Session' : tab === 'ranges' ? 'Ranges' : 'Table' }}
       </button>
     </div>
 
@@ -392,6 +406,125 @@ function afLabel(af: number): string {
               <span class="text-red-400 font-mono">~1.5%</span>
             </div>
           </div>
+        </div>
+      </template>
+
+      <!-- ═══ SESSION TAB ═══ -->
+      <template v-if="activeTab === 'session'">
+        <template v-if="sessionStats">
+          <!-- Key metrics -->
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-gray-800/50 rounded-lg px-3 py-2 text-center">
+              <div class="text-2xl font-bold font-mono text-white">{{ sessionStats.handsPlayed }}</div>
+              <div class="text-[0.6rem] text-gray-500 uppercase">Hands Played</div>
+            </div>
+            <div class="bg-gray-800/50 rounded-lg px-3 py-2 text-center">
+              <div
+                class="text-2xl font-bold font-mono"
+                :class="sessionStats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'"
+              >
+                {{ sessionStats.totalProfit >= 0 ? '+' : '' }}${{ sessionStats.totalProfit }}
+              </div>
+              <div class="text-[0.6rem] text-gray-500 uppercase">Profit / Loss</div>
+            </div>
+          </div>
+
+          <!-- Win/Loss/Fold breakdown -->
+          <div class="border-t border-gray-700/50 pt-3">
+            <div class="text-xs text-gray-400 mb-2">Results</div>
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-green-400">Won</span>
+                <div class="flex items-center gap-2">
+                  <div class="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-green-500 rounded-full" :style="{ width: `${sessionStats.handsPlayed ? (sessionStats.handsWon / sessionStats.handsPlayed) * 100 : 0}%` }" />
+                  </div>
+                  <span class="text-white font-mono w-8 text-right">{{ sessionStats.handsWon }}</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-red-400">Lost</span>
+                <div class="flex items-center gap-2">
+                  <div class="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-red-500 rounded-full" :style="{ width: `${sessionStats.handsPlayed ? (sessionStats.handsLost / sessionStats.handsPlayed) * 100 : 0}%` }" />
+                  </div>
+                  <span class="text-white font-mono w-8 text-right">{{ sessionStats.handsLost }}</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-400">Folded</span>
+                <div class="flex items-center gap-2">
+                  <div class="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-gray-500 rounded-full" :style="{ width: `${sessionStats.handsPlayed ? (sessionStats.handsFolded / sessionStats.handsPlayed) * 100 : 0}%` }" />
+                  </div>
+                  <span class="text-white font-mono w-8 text-right">{{ sessionStats.handsFolded }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stack info -->
+          <div class="border-t border-gray-700/50 pt-3">
+            <div class="text-xs text-gray-400 mb-2">Bankroll</div>
+            <div class="grid grid-cols-3 gap-1.5 text-xs">
+              <div class="bg-gray-800/50 rounded px-2 py-1.5 text-center">
+                <div class="text-gray-500 text-[0.6rem]">Current</div>
+                <div class="text-white font-mono font-semibold">${{ sessionStats.currentStack }}</div>
+              </div>
+              <div class="bg-gray-800/50 rounded px-2 py-1.5 text-center">
+                <div class="text-gray-500 text-[0.6rem]">Peak</div>
+                <div class="text-green-400 font-mono font-semibold">${{ sessionStats.peakStack }}</div>
+              </div>
+              <div class="bg-gray-800/50 rounded px-2 py-1.5 text-center">
+                <div class="text-gray-500 text-[0.6rem]">Start</div>
+                <div class="text-gray-300 font-mono font-semibold">${{ sessionStats.startingStack }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Win rate -->
+          <div v-if="sessionStats.handsPlayed > 0" class="border-t border-gray-700/50 pt-3">
+            <div class="text-xs text-gray-400 mb-1">Win Rate</div>
+            <div class="text-lg font-bold font-mono"
+              :class="(sessionStats.handsWon / sessionStats.handsPlayed) >= 0.3 ? 'text-green-400' : 'text-red-400'">
+              {{ ((sessionStats.handsWon / sessionStats.handsPlayed) * 100).toFixed(1) }}%
+            </div>
+          </div>
+
+          <!-- Supabase status -->
+          <div class="border-t border-gray-700/50 pt-3">
+            <div class="flex items-center gap-1.5 text-[0.6rem]">
+              <div class="w-1.5 h-1.5 rounded-full" :class="supabaseConnected ? 'bg-green-500' : 'bg-gray-600'" />
+              <span class="text-gray-500">{{ supabaseConnected ? 'Syncing to cloud' : 'Local only' }}</span>
+            </div>
+          </div>
+
+          <!-- Export & Reset -->
+          <div class="border-t border-gray-700/50 pt-3 space-y-2">
+            <div class="flex gap-2">
+              <button
+                class="flex-1 py-1.5 rounded-md text-xs font-semibold bg-gray-800/60 text-gray-300 border border-gray-700/40 hover:bg-gray-700/60 transition-all"
+                @click="emit('exportJson')"
+              >
+                Export JSON
+              </button>
+              <button
+                class="flex-1 py-1.5 rounded-md text-xs font-semibold bg-gray-800/60 text-gray-300 border border-gray-700/40 hover:bg-gray-700/60 transition-all"
+                @click="emit('exportCsv')"
+              >
+                Export CSV
+              </button>
+            </div>
+            <button
+              class="w-full py-1.5 rounded-md text-xs font-semibold bg-red-900/30 text-red-400 border border-red-800/30 hover:bg-red-900/50 transition-all"
+              @click="emit('resetSession')"
+            >
+              New Session
+            </button>
+          </div>
+        </template>
+        <div v-else class="text-center text-gray-500 text-xs py-8">
+          Play a hand to start tracking...
         </div>
       </template>
 
