@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-03-29
+
+Hero timeout, bust-out handling, re-buy, and data deletion.
+
+### Added
+
+#### Hero Timeout (5 min configurable)
+- 5-minute inactivity timer resets on every hero action (fold/check/call/raise)
+- On timeout: auto-folds current hand, saves session, shows pause screen
+- Pause screen shows session summary (hands, stack, profit) with Resume or End Session buttons
+- Timeout duration configurable via `config.session.heroTimeoutMs`
+
+#### Bust-Out & Re-Buy
+- Hero reaching 0 chips triggers bust-out screen
+- Session saved automatically on bust-out
+- Re-buy button: starts a new session at original starting stack
+- Re-buy is a separate session — bust-out P&L tracked independently
+- Multiple bust-outs + re-buys show as separate sessions in lifetime stats
+- Lifetime profit = sum of all session profits (including negative bust-out sessions)
+
+#### Data Deletion (Stats Page)
+- **Delete All**: Removes all sessions and hands from Supabase with confirmation dialog
+- **Delete Session**: Per-session delete with inline confirmation
+- Lifetime stats recalculate automatically after deletion (computed from remaining data)
+- localStorage also cleared on full delete
+
+#### Session Tests (19 new tests in `phase5-session.test.ts`)
+- Timeout: fires after 5 min, resets on activity, doesn't fire with continuous play, no duplicate timers
+- Bust-out: detected at 0 chips, not triggered with positive chips, all-in loss vs win
+- Re-buy: fresh stack, new session ID, independent P&L, multiple bust-outs tracked
+- Session recording: all fields captured, folded = 0 profit, stats accumulate, peak stack tracked
+- Data deletion: session + hands removed together, delete all empties everything, lifetime stats zero after delete
+
+### Changed
+- Game phase now includes 'timeout' and 'busted' states
+- `config.session` section added with `heroTimeoutMs`, `autoSaveIntervalMs`, `rebuyEnabled`
+
 ## [0.5.1] - 2026-03-29
 
 ### Added
@@ -322,6 +359,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.6.0]: https://github.com/cschweda/holdem-simulator/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/cschweda/holdem-simulator/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/cschweda/holdem-simulator/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cschweda/holdem-simulator/compare/v0.3.1...v0.4.0

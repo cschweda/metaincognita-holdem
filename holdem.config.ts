@@ -195,6 +195,14 @@ export default {
     profitHistorySize: 20,               // sparkline shows last N hands
   },
 
+  // ─── Session & Bankroll ───────────────────────────────────────
+  session: {
+    heroTimeoutMs: 5 * 60 * 1000,        // 5 minutes of inactivity = session pause
+    autoSaveIntervalMs: 60 * 1000,        // save to Supabase every 60s
+    rebuyEnabled: true,                    // allow re-buy after bust-out
+    // Re-buy starts a new session (separate P&L from the bust-out session)
+  },
+
   // ─── Persistence ─────────────────────────────────────────────
   storage: {
     localStorageKey: 'holdem-simulator-session',

@@ -11,9 +11,45 @@ import type { GameSettings } from '~/components/SetupScreen.vue'
 import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState, type TiltState } from '~/utils/botDecision'
 import { displayCard } from '~/utils/cards'
 
-const phase = ref<'setup' | 'table'>('setup')
+const phase = ref<'setup' | 'table' | 'timeout' | 'busted'>('setup')
 const { session, initSession, recordHand, resetSession, saveSessionToSupabase, downloadJSON, downloadCSV, supabaseReady } = useSessionStats()
 const settings = ref<GameSettings | null>(null)
+
+// ─── Hero Timeout ──────────────────────────────────────────────
+let timeoutTimer: ReturnType<typeof setTimeout> | null = null
+
+function resetTimeout() {
+  if (timeoutTimer) clearTimeout(timeoutTimer)
+  if (phase.value !== 'table') return
+  timeoutTimer = setTimeout(() => {
+    handleTimeout()
+  }, config.session.heroTimeoutMs)
+}
+
+function handleTimeout() {
+  if (phase.value !== 'table') return
+  // Auto-fold hero if in a hand
+  const heroState = playerStates.value[0]
+  if (heroState && !heroState.folded && waitingForHero.value) {
+    heroState.folded = true
+    heroState.lastAction = 'fold'
+    waitingForHero.value = false
+  }
+  // Save session and show timeout screen
+  saveSessionToSupabase()
+  phase.value = 'timeout'
+}
+
+function resumeFromTimeout() {
+  phase.value = 'table'
+  resetTimeout()
+  dealNewHand()
+}
+
+// Reset timeout on any hero interaction
+function onHeroActivity() {
+  resetTimeout()
+}
 
 // ─── Per-player state ──────────────────────────────────────────
 interface PlayerState {
@@ -96,6 +132,7 @@ function handleStart(gameSettings: GameSettings) {
   dealerSeat.value = Math.floor(Math.random() * gameSettings.playerCount)
   phase.value = 'table'
   initSession(gameSettings.stakeLevel, gameSettings.playerCount, startingStack.value)
+  resetTimeout()
   setTimeout(dealNewHand, 300)
 }
 
@@ -338,6 +375,7 @@ function makeBotDecision(p: PlayerState): { type: string; amount?: number } {
 
 // ─── Hero Actions ──────────────────────────────────────────────
 function handleFold() {
+  onHeroActivity()
   if (!hero.value) return
   applyAction(hero.value, { type: 'fold' })
   needsToAct.value.delete(hero.value.id)
@@ -346,6 +384,7 @@ function handleFold() {
 }
 
 function handleCheck() {
+  onHeroActivity()
   if (!hero.value) return
   applyAction(hero.value, { type: 'check' })
   needsToAct.value.delete(hero.value.id)
@@ -354,6 +393,7 @@ function handleCheck() {
 }
 
 function handleCall(amount: number) {
+  onHeroActivity()
   if (!hero.value) return
   applyAction(hero.value, { type: 'call' })
   needsToAct.value.delete(hero.value.id)
@@ -362,6 +402,7 @@ function handleCall(amount: number) {
 }
 
 function handleRaise(amount: number) {
+  onHeroActivity()
   if (!hero.value) return
   const cappedAmount = Math.min(amount, hero.value.chips + hero.value.betThisRound)
   applyAction(hero.value, { type: 'raise', amount: cappedAmount })
@@ -474,13 +515,31 @@ function endHand() {
       p.eliminated = true
     }
   }
+
+  // Hero bust-out check
+  if (heroState && heroState.chips <= 0) {
+    saveSessionToSupabase()
+    phase.value = 'busted'
+  }
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function handleRebuy() {
+  // Save the bust-out session, start a fresh one
+  saveSessionToSupabase()
+  initSession(settings.value!.stakeLevel, settings.value!.playerCount, startingStack.value)
+  // Reset all player states
+  playerStates.value = []
+  phase.value = 'table'
+  resetTimeout()
+  setTimeout(dealNewHand, 300)
+}
+
 function backToSetup() {
+  if (timeoutTimer) clearTimeout(timeoutTimer)
   saveSessionToSupabase()
   phase.value = 'setup'
   settings.value = null
@@ -503,7 +562,80 @@ function formatPot(n: number): string {
       @start="handleStart"
     />
 
-    <div v-else class="p-4">
+    <!-- Timeout Screen -->
+    <div v-else-if="phase === 'timeout'" class="flex items-center justify-center min-h-screen">
+      <div class="max-w-md text-center space-y-6 p-8">
+        <div class="text-6xl">⏸</div>
+        <h2 class="text-2xl font-bold">Session Paused</h2>
+        <p class="text-gray-400">
+          No activity for 5 minutes. Your session has been saved and any hand in progress was folded.
+        </p>
+        <div class="bg-gray-800/50 rounded-xl p-4 space-y-1 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-400">Hands played</span>
+            <span class="text-white font-mono">{{ session.handsPlayed }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Stack</span>
+            <span class="text-white font-mono">${{ hero?.chips || 0 }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Profit</span>
+            <span :class="session.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono">
+              {{ session.totalProfit >= 0 ? '+' : '' }}${{ session.totalProfit }}
+            </span>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-center">
+          <UButton color="primary" size="lg" @click="resumeFromTimeout">
+            Resume Playing
+          </UButton>
+          <UButton variant="outline" color="neutral" size="lg" @click="backToSetup">
+            End Session
+          </UButton>
+        </div>
+      </div>
+    </div>
+
+    <!-- Busted Screen -->
+    <div v-else-if="phase === 'busted'" class="flex items-center justify-center min-h-screen">
+      <div class="max-w-md text-center space-y-6 p-8">
+        <div class="text-6xl">💀</div>
+        <h2 class="text-2xl font-bold text-red-400">Busted!</h2>
+        <p class="text-gray-400">
+          You've lost your entire stack. Session has been saved.
+        </p>
+        <div class="bg-gray-800/50 rounded-xl p-4 space-y-1 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-400">Hands played</span>
+            <span class="text-white font-mono">{{ session.handsPlayed }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Final result</span>
+            <span class="text-red-400 font-mono">-${{ session.startingStack }}</span>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-center">
+          <UButton v-if="config.session.rebuyEnabled" color="primary" size="lg" @click="handleRebuy">
+            Re-buy (${{ startingStack }})
+          </UButton>
+          <UButton variant="outline" color="neutral" size="lg" @click="backToSetup">
+            End Session
+          </UButton>
+          <NuxtLink to="/stats">
+            <UButton variant="ghost" color="neutral" size="lg">
+              View Stats
+            </UButton>
+          </NuxtLink>
+        </div>
+        <p class="text-xs text-gray-600">
+          Re-buy starts a new session — your bust-out is recorded separately.
+        </p>
+      </div>
+    </div>
+
+    <!-- Game Table -->
+    <div v-else-if="phase === 'table'" class="p-4">
       <!-- Top bar -->
       <div class="flex items-center justify-between mb-4 max-w-7xl mx-auto">
         <UButton

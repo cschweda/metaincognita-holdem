@@ -61,6 +61,33 @@ onMounted(async () => {
   await loadData(sb)
 })
 
+// ─── Delete Functions ──────────────────────────────────────────
+const confirmingDeleteAll = ref(false)
+const confirmingDeleteSession = ref<string | null>(null)
+
+async function deleteAllData() {
+  const sb = useSupabase()
+  if (!sb || !userId.value) return
+
+  await sb.from('hands').delete().eq('user_id', userId.value)
+  await sb.from('sessions').delete().eq('user_id', userId.value)
+  localStorage.removeItem('holdem-session-stats')
+  sessions.value = []
+  hands.value = []
+  confirmingDeleteAll.value = false
+}
+
+async function deleteSession(sessionId: string) {
+  const sb = useSupabase()
+  if (!sb || !userId.value) return
+
+  await sb.from('hands').delete().eq('session_id', sessionId)
+  await sb.from('sessions').delete().eq('id', sessionId)
+  sessions.value = sessions.value.filter(s => s.id !== sessionId)
+  hands.value = hands.value.filter(h => h.session_id !== sessionId)
+  confirmingDeleteSession.value = null
+}
+
 async function loadData(sb: ReturnType<typeof useSupabase>) {
   if (!sb) return
   loading.value = true
@@ -409,6 +436,36 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
               </div>
             </div>
           </div>
+
+          <!-- Danger zone -->
+          <div class="mt-8 border-t border-red-900/30 pt-6">
+            <h2 class="text-xs font-semibold text-red-500/60 uppercase tracking-wider mb-3">Danger Zone</h2>
+            <div v-if="!confirmingDeleteAll">
+              <button
+                class="text-xs text-red-400/60 hover:text-red-400 transition-colors"
+                @click="confirmingDeleteAll = true"
+              >
+                Delete all lifetime data...
+              </button>
+            </div>
+            <div v-else class="bg-red-900/20 border border-red-800/30 rounded-lg p-4 space-y-3">
+              <p class="text-sm text-red-300">This will permanently delete all sessions and hands from Supabase. This cannot be undone.</p>
+              <div class="flex gap-2">
+                <button
+                  class="px-4 py-1.5 rounded-md text-xs font-semibold bg-red-700 text-white hover:bg-red-600 transition-all"
+                  @click="deleteAllData"
+                >
+                  Yes, Delete Everything
+                </button>
+                <button
+                  class="px-4 py-1.5 rounded-md text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all"
+                  @click="confirmingDeleteAll = false"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ═══ SESSIONS ═══ -->
@@ -441,6 +498,33 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
                   {{ formatProfit(s.total_profit) }}
                 </div>
               </div>
+            </div>
+            <!-- Delete session -->
+            <div class="mt-2 flex justify-end">
+              <template v-if="confirmingDeleteSession === s.id">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-red-400">Delete this session?</span>
+                  <button
+                    class="px-2 py-1 rounded text-[0.65rem] font-semibold bg-red-700 text-white hover:bg-red-600"
+                    @click="deleteSession(s.id)"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    class="px-2 py-1 rounded text-[0.65rem] font-semibold bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    @click="confirmingDeleteSession = null"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </template>
+              <button
+                v-else
+                class="text-[0.6rem] text-gray-600 hover:text-red-400 transition-colors"
+                @click="confirmingDeleteSession = s.id"
+              >
+                Delete session
+              </button>
             </div>
           </div>
           <div v-if="sessions.length === 0" class="text-center text-gray-500 text-sm py-8">
