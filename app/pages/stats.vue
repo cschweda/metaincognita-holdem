@@ -34,6 +34,7 @@ const analysisHand = ref<HandRow | null>(null)
 const copiedHandId = ref<string | null>(null)
 
 function openHandDetail(h: HandRow) { selectedHand.value = h; showHandModal.value = true }
+function drillIntoHand(h: HandRow) { openHandDetail(h) }
 function openAnalysis(h: HandRow) { analysisHand.value = h; showAnalysisModal.value = true }
 function openDeleteHandModal(h: HandRow) { deleteHandTarget.value = h; showDeleteHandModal.value = true }
 function openDeleteSessionModal(s: SessionRow) { deleteSessionTarget.value = s; showDeleteSessionModal.value = true }
