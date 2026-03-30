@@ -271,15 +271,18 @@ function postBlindsAndStartBetting() {
 // Track who still needs to act. A raise resets everyone except the raiser.
 const needsToAct = ref<Set<number>>(new Set())
 
-async function runBettingRound(startSeat: number) {
+async function runBettingRound(startSeat: number, resume: boolean = false) {
   const count = playerStates.value.length
 
-  // Initialize: every active player with chips needs to act
-  needsToAct.value = new Set(
-    playerStates.value
-      .filter(p => !p.folded && !p.eliminated && p.chips > 0)
-      .map(p => p.id)
-  )
+  // Only initialize needsToAct at the start of a new betting round,
+  // not when resuming after hero acted (the set is already correct)
+  if (!resume) {
+    needsToAct.value = new Set(
+      playerStates.value
+        .filter(p => !p.folded && !p.eliminated && p.chips > 0)
+        .map(p => p.id)
+    )
+  }
 
   let seat = startSeat
   let loops = 0
@@ -461,9 +464,9 @@ function resumeBettingAfterHero() {
     return
   }
 
-  // Continue from next seat after hero
+  // Continue from next seat after hero — resume existing round, don't reinitialize
   const nextSeat = (0 + 1) % playerStates.value.length
-  setTimeout(() => runBettingRound(nextSeat), 400)
+  setTimeout(() => runBettingRound(nextSeat, true), 400)
 }
 
 // ─── Street Advancement ────────────────────────────────────────
