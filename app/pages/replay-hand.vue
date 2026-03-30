@@ -264,6 +264,24 @@ const activePlayer = computed(() => {
   return step?.player || null
 })
 
+// ─── Hand completion detection ──────────────────────────
+const isHandComplete = computed(() => {
+  if (!actionQueue.value.length) return false
+  const currentStep = actionQueue.value[stepIndex.value]
+  // Complete when we're at or past the award step, or at the very last step
+  return currentStep?.type === 'award' || stepIndex.value >= actionQueue.value.length - 1
+})
+const winnerNames = computed(() => {
+  if (!hand.value) return new Set<string>()
+  return new Set(hand.value.winners.map(w => w.player))
+})
+const winnerAmounts = computed(() => {
+  if (!hand.value) return new Map<string, number>()
+  const map = new Map<string, number>()
+  for (const w of hand.value.winners) map.set(w.player, (map.get(w.player) ?? 0) + w.amount)
+  return map
+})
+
 // ─── Per-player hand analysis for stats panel ────────────
 import { bestHand, HAND_RANK_NAMES, detectDraws, estimateEquity, describeHand } from '~/utils/handAnalysis'
 
@@ -277,6 +295,8 @@ interface PlayerAnalysis {
   draws: { type: string; outs: number }[]
   folded: boolean
   isLeader: boolean
+  isWinner: boolean
+  winAmount: number
 }
 
 const playerAnalyses = computed<PlayerAnalysis[]>(() => {
@@ -288,7 +308,9 @@ const playerAnalyses = computed<PlayerAnalysis[]>(() => {
     if (!p.holeCards) continue
     const folded = playerFolded.value.has(p.name)
     const result = bestHand(Array.from(p.holeCards), visibleBoard.value)
-    const draws = folded ? [] : detectDraws(Array.from(p.holeCards), visibleBoard.value)
+    // Don't show draws on river (no more cards to come)
+    const isRiver = visibleBoard.value.length >= 5
+    const draws = (folded || isRiver) ? [] : detectDraws(Array.from(p.holeCards), visibleBoard.value)
     const desc = folded ? 'Folded' : (result ? describeHand(p.holeCards, visibleBoard.value) : 'Unknown')
     const rank = result?.rank ?? -1
     if (!folded && rank > bestRank) bestRank = rank
@@ -303,6 +325,8 @@ const playerAnalyses = computed<PlayerAnalysis[]>(() => {
       draws,
       folded,
       isLeader: false,
+      isWinner: isHandComplete.value && winnerNames.value.has(p.name),
+      winAmount: isHandComplete.value ? (winnerAmounts.value.get(p.name) ?? 0) : 0,
     })
   }
 
@@ -494,21 +518,29 @@ Seat 1: Player1 ($200 in chips)
               v-for="pa in playerAnalyses"
               :key="pa.name"
               class="rounded-lg p-2.5 border"
-              :class="pa.folded
-                ? 'bg-gray-800/20 border-gray-800/30 opacity-40'
-                : pa.isLeader
-                  ? 'bg-green-900/20 border-green-700/30'
-                  : 'bg-gray-800/40 border-gray-800/40'"
+              :class="pa.isWinner
+                ? 'bg-green-900/30 border-green-500/50 ring-1 ring-green-500/20'
+                : pa.folded
+                  ? 'bg-gray-800/20 border-gray-800/30 opacity-40'
+                  : pa.isLeader
+                    ? 'bg-green-900/20 border-green-700/30'
+                    : 'bg-gray-800/40 border-gray-800/40'"
             >
               <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-semibold" :class="pa.isLeader ? 'text-green-400' : 'text-white'">{{ pa.name }}</span>
+                  <span class="text-xs font-semibold" :class="pa.isWinner ? 'text-green-300' : pa.isLeader ? 'text-green-400' : 'text-white'">{{ pa.name }}</span>
                   <span class="text-[0.55rem] text-gray-600">{{ pa.position }}</span>
+                  <span v-if="pa.isWinner" class="px-1.5 py-0.5 rounded text-[0.55rem] font-bold uppercase tracking-wider bg-green-600/30 text-green-300 border border-green-500/30">Winner</span>
                 </div>
                 <span class="text-xs font-mono text-gray-400">{{ pa.cards }}</span>
               </div>
 
-              <div class="text-xs font-semibold" :class="pa.folded ? 'text-gray-600' : 'text-white'">{{ pa.handDesc }}</div>
+              <!-- Win amount -->
+              <div v-if="pa.isWinner && pa.winAmount > 0" class="text-sm font-bold text-green-400 mb-0.5">
+                Won ${{ pa.winAmount }}
+              </div>
+
+              <div class="text-xs font-semibold" :class="pa.folded ? 'text-gray-600' : pa.isWinner ? 'text-green-200' : 'text-white'">{{ pa.handDesc }}</div>
 
               <template v-if="!pa.folded">
                 <!-- Equity bar -->
