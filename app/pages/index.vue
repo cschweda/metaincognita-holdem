@@ -544,7 +544,14 @@ function formatPot(n: number): string {
           </div>
         </div>
 
-        <UColorModeToggle />
+        <div class="flex items-center gap-2">
+          <NuxtLink to="/stats">
+            <UButton variant="ghost" color="neutral" size="sm" icon="i-lucide-bar-chart-2">
+              Stats
+            </UButton>
+          </NuxtLink>
+          <UColorModeToggle />
+        </div>
       </div>
 
       <!-- Main layout -->

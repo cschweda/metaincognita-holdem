@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-03-29
+
+### Added
+
+#### Full Stats Page (`/stats`)
+- Dedicated page at `/stats` with cross-session analytics from Supabase
+- **Overview tab**: Lifetime hands played, total profit, win rate, sessions count, biggest win/loss, avg pot size, results breakdown bars, profit trend chart (last 50 hands as bar sparkline), performance by position (win rate + profit per position)
+- **Sessions tab**: Session history cards showing stake level, player count, hands played, W/L, profit
+- **Hands tab**: Sortable table with hand #, hole cards, board, position, result badge, profit, pot size, timestamp
+- Linked from both the setup screen ("View Stats") and the in-game top bar (chart icon)
+- Works on Netlify — all data fetched client-side from Supabase, no server needed
+
 ## [0.5.0] - 2026-03-29
 
 Supabase integration, session stats tracking, and CSV/JSON export.
@@ -310,6 +322,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.5.1]: https://github.com/cschweda/holdem-simulator/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/cschweda/holdem-simulator/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cschweda/holdem-simulator/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/cschweda/holdem-simulator/compare/v0.3.0...v0.3.1

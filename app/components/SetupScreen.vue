@@ -191,9 +191,14 @@ function handleStart() {
     <h1 class="text-3xl font-bold text-center text-white">
       Hold'em Simulator
     </h1>
-    <p class="text-center text-gray-400 text-sm">
-      Configure your table and start playing
-    </p>
+    <div class="flex items-center justify-center gap-3">
+      <p class="text-gray-400 text-sm">Configure your table and start playing</p>
+      <NuxtLink to="/stats">
+        <UButton variant="ghost" color="neutral" size="xs" icon="i-lucide-bar-chart-2">
+          View Stats
+        </UButton>
+      </NuxtLink>
+    </div>
 
     <!-- Hero Name -->
     <div>
