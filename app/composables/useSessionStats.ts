@@ -12,6 +12,7 @@ export interface HandRecord {
   profit: number         // +/- from this hand
   position: string       // BTN, UTG, etc.
   potSize: number
+  actions: string[]      // play-by-play log: "Tight Tony raises $6", "Hero calls $6", etc.
 }
 
 export interface SessionData {
@@ -156,6 +157,7 @@ export function useSessionStats() {
         stake_level: session.value.stakeLevel,
         player_count: session.value.playerCount,
         played_at: new Date().toISOString(),
+        actions: record.actions || [],
       })
     } catch (e) {
       // Silently fail — localStorage is the fallback

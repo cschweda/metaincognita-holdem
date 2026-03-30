@@ -34,9 +34,11 @@ interface HandRow {
   stake_level: number
   player_count: number
   played_at: string
+  actions: string[] | null
 }
 
 const loading = ref(true)
+const expandedHand = ref<string | null>(null)
 const error = ref<string | null>(null)
 const sessions = ref<SessionRow[]>([])
 const hands = ref<HandRow[]>([])
@@ -628,33 +630,87 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="h in hands"
-                  :key="h.id"
-                  class="border-b border-gray-800/50 hover:bg-gray-800/30"
-                >
-                  <td class="py-1.5 px-2 text-gray-500">{{ h.hand_number }}</td>
-                  <td class="py-1.5 px-2 font-mono text-white">{{ h.hole_cards }}</td>
-                  <td class="py-1.5 px-2 font-mono text-gray-400">{{ h.board || '—' }}</td>
-                  <td class="py-1.5 px-2 text-gray-300">{{ h.position }}</td>
-                  <td class="py-1.5 px-2">
-                    <span
-                      class="px-1.5 py-0.5 rounded text-[0.6rem] font-semibold uppercase"
-                      :class="{
-                        'bg-green-900/50 text-green-400': h.result === 'won',
-                        'bg-red-900/50 text-red-400': h.result === 'lost',
-                        'bg-gray-800 text-gray-500': h.result === 'folded',
-                      }"
-                    >
-                      {{ h.result }}
-                    </span>
-                  </td>
-                  <td class="py-1.5 px-2 text-right font-mono" :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'">
-                    {{ formatProfit(h.profit) }}
-                  </td>
-                  <td class="py-1.5 px-2 text-right font-mono text-gray-400">${{ h.pot_size }}</td>
-                  <td class="py-1.5 px-2 text-right text-gray-600">{{ formatDate(h.played_at) }}</td>
-                </tr>
+                <template v-for="h in hands" :key="h.id">
+                  <tr
+                    class="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
+                    @click="expandedHand = expandedHand === h.id ? null : h.id"
+                  >
+                    <td class="py-1.5 px-2 text-gray-500">
+                      <span class="text-gray-600 mr-1">{{ expandedHand === h.id ? '▼' : '▶' }}</span>
+                      {{ h.hand_number }}
+                    </td>
+                    <td class="py-1.5 px-2 font-mono text-white">{{ h.hole_cards }}</td>
+                    <td class="py-1.5 px-2 font-mono text-gray-400">{{ h.board || '—' }}</td>
+                    <td class="py-1.5 px-2 text-gray-300">{{ h.position }}</td>
+                    <td class="py-1.5 px-2">
+                      <span
+                        class="px-1.5 py-0.5 rounded text-[0.6rem] font-semibold uppercase"
+                        :class="{
+                          'bg-green-900/50 text-green-400': h.result === 'won',
+                          'bg-red-900/50 text-red-400': h.result === 'lost',
+                          'bg-gray-800 text-gray-500': h.result === 'folded',
+                        }"
+                      >
+                        {{ h.result }}
+                      </span>
+                    </td>
+                    <td class="py-1.5 px-2 text-right font-mono" :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'">
+                      {{ formatProfit(h.profit) }}
+                    </td>
+                    <td class="py-1.5 px-2 text-right font-mono text-gray-400">${{ h.pot_size }}</td>
+                    <td class="py-1.5 px-2 text-right text-gray-600">{{ formatDate(h.played_at) }}</td>
+                  </tr>
+                  <!-- Expanded hand detail -->
+                  <tr v-if="expandedHand === h.id">
+                    <td colspan="8" class="px-4 py-3 bg-gray-800/30">
+                      <div class="space-y-3">
+                        <!-- Hand summary -->
+                        <div class="flex items-center gap-4 text-sm">
+                          <div>
+                            <span class="text-gray-500 text-xs">Hole Cards</span>
+                            <div class="text-white font-mono text-lg">{{ h.hole_cards }}</div>
+                          </div>
+                          <div v-if="h.board">
+                            <span class="text-gray-500 text-xs">Board</span>
+                            <div class="text-gray-300 font-mono text-lg">{{ h.board }}</div>
+                          </div>
+                          <div>
+                            <span class="text-gray-500 text-xs">Position</span>
+                            <div class="text-gray-300">{{ h.position }}</div>
+                          </div>
+                          <div>
+                            <span class="text-gray-500 text-xs">Pot</span>
+                            <div class="text-yellow-400 font-mono">${{ h.pot_size }}</div>
+                          </div>
+                          <div>
+                            <span class="text-gray-500 text-xs">Result</span>
+                            <div :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold">
+                              {{ formatProfit(h.profit) }}
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Play-by-play -->
+                        <div v-if="h.actions && h.actions.length > 0">
+                          <div class="text-xs text-gray-500 mb-1.5">Play-by-Play</div>
+                          <div class="bg-gray-900/60 rounded-lg p-3 max-h-48 overflow-y-auto space-y-0.5">
+                            <div
+                              v-for="(action, ai) in h.actions"
+                              :key="ai"
+                              class="text-xs font-mono"
+                              :class="action.startsWith('---') ? 'text-yellow-500/70 font-semibold mt-1' : 'text-gray-300'"
+                            >
+                              {{ action }}
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="text-xs text-gray-600 italic">
+                          No play-by-play recorded for this hand.
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>

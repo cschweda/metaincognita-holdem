@@ -76,6 +76,7 @@ const currentBet = ref(0)
 const waitingForHero = ref(false)
 const allCommunity = ref<Card[]>([])
 const animating = ref(false)
+const handActionLog = ref<string[]>([]) // play-by-play for current hand
 
 // ─── Computed ──────────────────────────────────────────────────
 const stake = computed(() => config.stakes.find(s => s.level === (settings.value?.stakeLevel || 3))!)
@@ -197,6 +198,7 @@ function dealNewHand() {
   waitingForHero.value = false
   street.value = 'preflop'
   dealt.value = true
+  handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
 
   // Rotate dealer
   dealerSeat.value = (dealerSeat.value + 1) % count
@@ -320,9 +322,11 @@ function applyAction(p: PlayerState, action: { type: string; amount?: number }) 
     p.folded = true
     p.lastAction = 'fold'
     p.currentBetAmount = 0
+    handActionLog.value.push(`${p.name} folds`)
   } else if (action.type === 'check') {
     p.lastAction = 'check'
     p.currentBetAmount = 0
+    handActionLog.value.push(`${p.name} checks`)
   } else if (action.type === 'call') {
     const callAmt = Math.min(currentBet.value - p.betThisRound, p.chips)
     p.chips -= callAmt
@@ -330,6 +334,7 @@ function applyAction(p: PlayerState, action: { type: string; amount?: number }) 
     pot.value += callAmt
     p.lastAction = 'call'
     p.currentBetAmount = callAmt
+    handActionLog.value.push(`${p.name} calls $${callAmt}`)
   } else if (action.type === 'raise') {
     const raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
     const toAdd = raiseTotal - p.betThisRound
@@ -339,6 +344,7 @@ function applyAction(p: PlayerState, action: { type: string; amount?: number }) 
     currentBet.value = raiseTotal
     p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
     p.currentBetAmount = raiseTotal
+    handActionLog.value.push(p.chips <= 0 ? `${p.name} goes ALL-IN $${raiseTotal}` : `${p.name} raises to $${raiseTotal}`)
   }
 }
 
@@ -443,9 +449,18 @@ function advanceStreet() {
   currentBet.value = 0
 
   switch (street.value) {
-    case 'preflop': street.value = 'flop'; break
-    case 'flop': street.value = 'turn'; break
-    case 'turn': street.value = 'river'; break
+    case 'preflop':
+      street.value = 'flop'
+      handActionLog.value.push(`--- FLOP: ${allCommunity.value.slice(0, 3).map(c => displayCard(c)).join(' ')} ---`)
+      break
+    case 'flop':
+      street.value = 'turn'
+      handActionLog.value.push(`--- TURN: ${displayCard(allCommunity.value[3])} ---`)
+      break
+    case 'turn':
+      street.value = 'river'
+      handActionLog.value.push(`--- RIVER: ${displayCard(allCommunity.value[4])} ---`)
+      break
     case 'river':
       street.value = 'showdown'
       endHand()
@@ -506,6 +521,7 @@ function endHand() {
       profit: heroWon ? pot.value : (heroState.folded ? 0 : -pot.value),
       position: positions.value[0] || '',
       potSize: pot.value,
+      actions: [...handActionLog.value],
     }, heroState.chips)
   }
 
