@@ -188,9 +188,13 @@ function handleStart() {
 
 <template>
   <div class="max-w-2xl mx-auto p-6 space-y-6">
-    <h1 class="text-3xl font-bold text-center text-white">
-      Hold'em Simulator
-    </h1>
+    <div class="flex items-center justify-between">
+      <div />
+      <h1 class="text-3xl font-bold text-center text-white">
+        Hold'em Simulator
+      </h1>
+      <SupabaseStatus />
+    </div>
     <div class="flex items-center justify-center gap-3">
       <p class="text-gray-400 text-sm">Configure your table and start playing</p>
       <NuxtLink to="/stats">

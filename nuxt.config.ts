@@ -41,5 +41,11 @@ export default defineNuxtConfig({
     },
   },
 
+  vite: {
+    optimizeDeps: {
+      include: ['@supabase/supabase-js'],
+    },
+  },
+
   compatibilityDate: '2025-03-29',
 })

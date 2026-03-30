@@ -545,6 +545,7 @@ function formatPot(n: number): string {
         </div>
 
         <div class="flex items-center gap-2">
+          <SupabaseStatus />
           <NuxtLink to="/stats">
             <UButton variant="ghost" color="neutral" size="sm" icon="i-lucide-bar-chart-2">
               Stats

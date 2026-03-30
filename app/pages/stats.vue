@@ -163,11 +163,14 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
           <h1 class="text-2xl font-bold">Hero Stats</h1>
           <p class="text-sm text-gray-500 mt-0.5">Cross-session analytics from Supabase</p>
         </div>
-        <NuxtLink to="/">
-          <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">
-            Back to Table
-          </UButton>
-        </NuxtLink>
+        <div class="flex items-center gap-2">
+          <SupabaseStatus />
+          <NuxtLink to="/">
+            <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">
+              Back to Table
+            </UButton>
+          </NuxtLink>
+        </div>
       </div>
 
       <!-- Loading -->
