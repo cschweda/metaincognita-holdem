@@ -259,7 +259,7 @@ function onGameKeydown(e: KeyboardEvent) {
     }
     // First F press = queue fold with 2s undo window
     foldKeyPending.value = true
-    foldKeyTimer = setTimeout(() => { foldKeyPending.value = false; engine.handleFold() }, 2000)
+    foldKeyTimer = setTimeout(() => { foldKeyPending.value = false; engine.handleFold() }, 3000)
   }
   else if (e.key === 'c' || e.key === 'C') {
     e.preventDefault()
