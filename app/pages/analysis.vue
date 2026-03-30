@@ -243,42 +243,42 @@ const expandedHand = ref<string | null>(null)
                   <tr class="border-b border-gray-700 text-gray-400 text-xs">
                     <th class="text-left py-2 px-2">Bot</th>
                     <th class="text-right px-2">
-                      <UTooltip text="Voluntarily Put $ In Pot — % of hands played (not counting blinds). Higher = looser. This is the OBSERVED value from the simulation.">
+                      <UTooltip text="Voluntarily Put $ In Pot — % of hands played (excluding forced blinds). Under 20% = tight/nitty (plays premium hands only). 25-30% = solid. Over 35% = loose (plays many marginal hands). Observed from simulation.">
                         <span class="cursor-help border-b border-dotted border-gray-600">VPIP</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2 text-gray-600">
-                      <UTooltip text="Configured — the target VPIP set in the bot's persona profile (holdem.config.ts). The observed value should be close to this over many hands.">
+                      <UTooltip text="Target VPIP from the bot's persona config. Over 1,000+ hands, the observed value should converge within ~5% of this target. Larger deviations suggest tilt or table dynamics.">
                         <span class="cursor-help border-b border-dotted border-gray-700">Target</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2">
-                      <UTooltip text="Preflop Raise — % of hands raised preflop. Gap between VPIP and PFR = flat-call rate. This is the OBSERVED value.">
+                      <UTooltip text="Preflop Raise — % of hands raised preflop. The gap between VPIP and PFR reveals calling habits: a large gap (e.g., VPIP 30%, PFR 12%) = calling station. A small gap (VPIP 25%, PFR 22%) = aggressive raiser. Observed from simulation.">
                         <span class="cursor-help border-b border-dotted border-gray-600">PFR</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2 text-gray-600">
-                      <UTooltip text="Configured — the target PFR set in the bot's persona profile. Should converge toward this over 1,000+ hands.">
+                      <UTooltip text="Target PFR from the bot's persona config. Should converge over 1,000+ hands.">
                         <span class="cursor-help border-b border-dotted border-gray-700">Target</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2">
-                      <UTooltip text="Aggression Factor — ratio of (bets + raises) / calls. Higher = more aggressive postflop. This is the OBSERVED value.">
+                      <UTooltip text="Aggression Factor — (bets + raises) / calls. Under 1.0 = passive (checks and calls more than bets). 1.0-1.5 = balanced. Over 1.5 = aggressive (bets and raises frequently). Over 2.0 = hyper-aggressive. Observed from simulation.">
                         <span class="cursor-help border-b border-dotted border-gray-600">AF</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2 text-gray-600">
-                      <UTooltip text="Configured — the target aggression multiplier from the bot's persona profile.">
+                      <UTooltip text="Target aggression multiplier from the bot's persona config. AF is harder to match precisely — it depends on the hands dealt and board textures encountered.">
                         <span class="cursor-help border-b border-dotted border-gray-700">Target</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2">
-                      <UTooltip text="Win rate — % of hands won by this bot.">
+                      <UTooltip text="Win rate — % of hands won. At a 6-player table, random chance = ~17%. Significantly higher = running hot or playing well. Significantly lower = running cold, tilting, or making poor decisions.">
                         <span class="cursor-help border-b border-dotted border-gray-600">Win%</span>
                       </UTooltip>
                     </th>
                     <th class="text-right px-2">
-                      <UTooltip text="Number of times this bot went broke and rebought.">
+                      <UTooltip text="Rebuys — how many times this bot went broke and rebought to starting stack. High rebuys = playing too loose, tilting, or running into coolers. Low rebuys with positive win% = solid, sustainable play.">
                         <span class="cursor-help border-b border-dotted border-gray-600">Rebuys</span>
                       </UTooltip>
                     </th>
