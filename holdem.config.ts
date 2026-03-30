@@ -129,6 +129,10 @@ export default {
     { name: 'Phil Ivey',       vpip: 0.23, pfr: 0.19, aggression: 1.15, bluffFreq: 0.13, creativeFreq: 0.06, tiltMultiplier: 0.3, leak: 'Near-perfect play with rare, unpredictable mistakes — the hardest bot to read or exploit' },
     { name: 'Doyle Brunson',   vpip: 0.28, pfr: 0.20, aggression: 1.20, bluffFreq: 0.16, creativeFreq: 0.09, tiltMultiplier: 0.4, leak: 'Old-school power poker — loves big pairs and big pots. Will trap with monsters but overvalues top pair.' },
     { name: 'Jennifer Tilly',  vpip: 0.30, pfr: 0.16, aggression: 0.90, bluffFreq: 0.12, creativeFreq: 0.07, tiltMultiplier: 0.7, leak: 'Unpredictable mix of tight and loose — plays position well but occasionally overcommits with draws' },
+    { name: 'Phil Laak',       vpip: 0.27, pfr: 0.21, aggression: 1.25, bluffFreq: 0.18, creativeFreq: 0.11, tiltMultiplier: 0.6, leak: 'Unorthodox and analytical — loves unconventional lines, float bets, and delayed aggression. Hard to put on a hand.' },
+    { name: 'Antonio Esfandiari', vpip: 0.29, pfr: 0.23, aggression: 1.30, bluffFreq: 0.19, creativeFreq: 0.08, tiltMultiplier: 0.9, leak: 'Charismatic aggressor — applies constant pressure with well-timed bluffs but can overplay position' },
+    { name: 'Gabe Kaplan',     vpip: 0.26, pfr: 0.18, aggression: 1.00, bluffFreq: 0.11, creativeFreq: 0.05, tiltMultiplier: 0.8, leak: 'Steady, intelligent player — solid fundamentals but predictable bet sizing. Rarely makes big mistakes.' },
+    { name: 'Jean-Robert Bellande', vpip: 0.36, pfr: 0.24, aggression: 1.35, bluffFreq: 0.22, creativeFreq: 0.09, tiltMultiplier: 1.4, leak: 'Fearless gambler — plays wide, bets big, and loves action. Will bluff massive pots but tilts when caught.' },
   ],
 
   // ─── Bot Presets (quick-select archetypes for bot configurator) ─
