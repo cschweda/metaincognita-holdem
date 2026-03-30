@@ -566,9 +566,16 @@ function formatPot(n: number): string {
             v-if="dealt && !heroTurn && street !== 'showdown' && activePlayers.length > 1"
             class="flex justify-center"
           >
-            <div class="flex items-center gap-2 text-sm text-gray-500">
-              <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span>{{ playerStates[activeSeat]?.name || 'Bot' }} is thinking...</span>
+            <div class="inline-flex items-center gap-3 bg-gray-800/80 border border-gray-700/50 rounded-full px-5 py-2.5 shadow-lg">
+              <div class="flex gap-1">
+                <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
+                <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
+                <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
+              </div>
+              <span class="text-sm font-medium text-gray-200">
+                {{ playerStates[activeSeat]?.name || 'Bot' }}
+                <span class="text-gray-400 font-normal">is thinking</span>
+              </span>
             </div>
           </div>
 

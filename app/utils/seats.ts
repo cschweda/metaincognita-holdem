@@ -48,8 +48,8 @@ export function getSeatCoordinates(
   seatIndex: number,
   totalSeats: number,
 ): { x: number; y: number } {
-  // Start from bottom (π/2) and go clockwise
-  const angle = (Math.PI / 2) + (seatIndex / totalSeats) * 2 * Math.PI
+  // Start from bottom (π/2) and go clockwise (subtract angle for CW direction)
+  const angle = (Math.PI / 2) - (seatIndex / totalSeats) * 2 * Math.PI
   const rx = 45 // horizontal radius (% of container)
   const ry = 38 // vertical radius (% of container)
 
