@@ -29,6 +29,7 @@ export interface GameEngineOptions {
 export function useGameEngine(options: GameEngineOptions) {
   const { gameState: gs, bb, sb, positions, makeBotDecision, onEndHand, onHeroActivity } = options
   const botDelay = options.botDelay ?? { min: 800, max: 2000, heroFoldedMin: 150, heroFoldedMax: 350 }
+  const paused = ref(false)
 
   // Track preflop raise level for escalation
   let preflopRaiseLevel = 0
@@ -232,7 +233,7 @@ export function useGameEngine(options: GameEngineOptions) {
       if (!heroOut) {
         gs.botThinkingInsight.value = buildThinkingInsight(p, gs)
       }
-      await sleep(delay)
+      await sleep(delay, paused)
       gs.botThinkingInsight.value = null
 
       const currentRaiseLevel = gs.street.value === 'preflop' ? preflopRaiseLevel : 0
@@ -414,11 +415,22 @@ export function useGameEngine(options: GameEngineOptions) {
     handleRaise,
     resumeBettingAfterHero,
     recordHandWinner,
+    paused,
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+function sleep(ms: number, pauseRef?: Ref<boolean>): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(async () => {
+      // If paused, wait until unpaused
+      if (pauseRef?.value) {
+        await new Promise<void>(unpause => {
+          const stop = watch(pauseRef, (v) => { if (!v) { stop(); unpause() } })
+        })
+      }
+      resolve()
+    }, ms)
+  })
 }
 
 /**

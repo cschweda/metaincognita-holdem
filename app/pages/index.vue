@@ -268,6 +268,7 @@ function handleStart(gameSettings: GameSettings) {
   // Set commentary directly from setup choice — no localStorage middleman
   commentary.enabled.value = gameSettings.commentaryMode !== 'off'
   commentary.mode.value = gameSettings.commentaryMode === 'tv' ? 'tv' : 'hero'
+  engine.paused.value = false
   resetTimeout()
   setTimeout(dealNewHand, 300)
 }
@@ -650,11 +651,13 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             :norman-serious="commentary.normanSerious.value"
             :lon-analysis="commentary.lonAnalysis.value"
             :hand-over="gs.street.value === 'showdown'"
+            :paused="engine.paused.value"
             @update:enabled="commentary.enabled.value = $event"
             @update:mode="commentary.mode.value = $event"
             @update:norman-silence="commentary.normanSilence.value = $event"
             @update:norman-serious="commentary.normanSerious.value = $event"
             @update:lon-analysis="commentary.lonAnalysis.value = $event"
+            @update:paused="engine.paused.value = $event"
           />
         </div>
         <div class="flex-1 min-w-0 space-y-4">

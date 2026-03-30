@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-03-29
+
+### Added
+- **TV mode pause button** — Pause the game mid-action in TV Broadcast mode to study bet sizing, board texture, and card values. Bot actions freeze until you resume. Only available in TV mode (not Hero POV or Off). Auto-resumes at showdown.
+- **Watch vs Practice buttons** in stats hand detail — "Watch" opens the non-interactive step-through replay (all cards face-up, pause/play/speed). "Practice" opens the interactive replay (hero makes new decisions). Both have tooltips explaining the difference.
+- **Session milestones** in stats panel Session tab — first win, first $100+ pot, first $500+ pot, first all-in win, best win streak, biggest win. Each with hand number.
+- **Keyboard shortcuts** on main game — F=fold, C=call/check, R=raise half-pot. Shown in the Your Turn indicator.
+
+### Changed
+- **Commentary mode simplified** — always defaults to Hero POV. No localStorage for mode. Setup passes choice directly to composable via GameSettings. No race conditions.
+- **Fold confirmation** — first click shows "Confirm Fold" (pulsing, 2s timeout), second click folds.
+- **Your Turn indicator** — larger, thicker border, amber glow, keyboard shortcut hint.
+- **Hero vs winner comparison** at showdown — side-by-side red/green panels showing both hands with descriptions and kicker explanation.
+- **Raise presets** — larger buttons (py-2.5), bolder text, better active/hover contrast.
+- **Hand counter** in header bar (Hand #N).
+- **Commentary scroll-to-bottom** arrow button when scrolled up.
+
 ## [0.15.0] - 2026-03-29
 
 ### Added

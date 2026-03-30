@@ -13,6 +13,7 @@ const props = defineProps<{
   normanSerious: number
   lonAnalysis: number
   handOver?: boolean
+  paused?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +21,7 @@ const emit = defineEmits<{
   'update:mode': [value: CommentaryMode]
   'update:normanSilence': [value: number]
   'update:normanSerious': [value: number]
+  'update:paused': [value: boolean]
   'update:lonAnalysis': [value: number]
 }>()
 
@@ -90,6 +92,18 @@ const typeStyles: Record<string, string> = {
           TV
         </button>
       </div>
+      <!-- Pause button (TV mode only) -->
+      <button
+        v-if="enabled && mode === 'tv' && !handOver"
+        class="w-full py-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-all"
+        :class="paused
+          ? 'bg-amber-600/80 text-amber-100 border border-amber-500/60 animate-pulse'
+          : 'bg-gray-700/60 text-gray-300 border border-gray-600/40 hover:bg-gray-600/60'"
+        @click="emit('update:paused', !paused)"
+      >
+        {{ paused ? '▶ Resume' : '⏸ Pause' }}
+      </button>
+
       <!-- Voice sliders (TV mode only) -->
       <div v-if="enabled && mode === 'tv'" class="space-y-1.5">
         <div class="space-y-0.5">
