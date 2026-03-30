@@ -726,9 +726,24 @@ function boardCards(board: string): string[] {
                               {{ formatProfit(h.profit) }}
                             </span>
                           </div>
-                          <div class="text-xs text-gray-500">
-                            Pot: <span class="text-yellow-400 font-mono">${{ h.pot_size }}</span>
-                            &middot; Position: <span class="text-gray-300">{{ h.position }}</span>
+                          <div class="flex items-center gap-3">
+                            <div class="text-xs text-gray-500">
+                              Pot: <span class="text-yellow-400 font-mono">${{ h.pot_size }}</span>
+                              &middot; Position: <span class="text-gray-300">{{ h.position }}</span>
+                            </div>
+                            <NuxtLink
+                              v-if="h.players && h.players.length > 0"
+                              :to="`/replay?hand=${h.id}`"
+                            >
+                              <UButton
+                                variant="outline"
+                                color="primary"
+                                size="xs"
+                                icon="i-lucide-play"
+                              >
+                                Replay
+                              </UButton>
+                            </NuxtLink>
                           </div>
                         </div>
 

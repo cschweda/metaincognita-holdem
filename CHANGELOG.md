@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-03-29
+
+Hand replay, email/password auth, stat tooltips, and UI improvements.
+
+### Added
+
+#### Hand Replay (`/replay`)
+- Click "Replay" on any hand in the stats page to re-live it
+- Same hole cards, same board, same players and positions
+- Bot decisions replay using the same AI engine (probabilistic — may differ slightly each replay)
+- Hero gets full bet controls at each decision point to try different lines
+- Ready screen shows original hand summary before starting
+- Comparison panel at showdown: Original result vs Replay result with profit difference
+- Side panel shows original play-by-play alongside replay play-by-play
+- "Replay Again" button to try the same hand multiple times
+- Works with both localStorage and Supabase hand data
+
+#### Email/Password Authentication
+- Sign up / sign in form on setup screen alongside GitHub OAuth
+- Password requirements: 8+ chars, uppercase, lowercase, number
+- Real-time validation feedback while typing
+- Supabase handles bcrypt hashing server-side (passwords never stored in plaintext)
+- Prevents duplicate emails across auth methods
+- Forgot password flow via Supabase reset email
+
+#### Stat Tooltips (Nuxt UI UTooltip)
+- Equity: explains Monte Carlo simulation methodology
+- Chen Score: explains the preflop hand strength formula
+- Position: context-specific guidance (BTN=wide range, UTG=top 15%, etc.)
+- Pot Odds: explains ratio and when calling is profitable
+- SPR: explains stack-to-pot ratio and commitment thresholds
+- Draws & Outs: explains draws, outs, and improvement chances
+- Chance to Improve: explains the probability simulation
+- Recommendation: explains the color-coding system
+- All labels have dotted underline + cursor-help for discoverability
+
+#### Betting Tooltips
+- All main action buttons (Fold/Check/Call/Raise) have explanatory tooltips
+- Preset buttons show "Raise to $X" or explain why disabled
+- All-in button shows full amount
+
+### Changed
+- Recommendation reasoning text is now color-coded: green (confident), yellow (marginal), red (fold)
+- Turn/thinking indicators moved from stats column to between table and bet controls
+- Simplified auth: removed guest mode, two clear options (signed in or not)
+- Setup screen shows prominent GitHub sign-in button + email/password form for non-authenticated users
+- Stats page shows localStorage data for anonymous users, Supabase data for authenticated users
+- Min-raise formula fixed: BB-based instead of doubling current bet
+- Pot-fraction presets show real amounts and are disabled when below min-raise
+
+### Fixed
+- Hands not saving to Supabase (FK constraint — session must exist before hand insert)
+- UColorModeToggle → UColorModeButton (Nuxt UI v4)
+- URange → USlider (Nuxt UI v4)
+- onUnmounted lifecycle warning (moved to onBeforeUnmount)
+- Recommendation showing CHECK when facing a bet (now properly context-aware)
+- Betting round not ending after opponent calls hero's raise (needsToAct reinit bug)
+- Negative wagered amount in win stats
+- Community cards showing after early win (board now freezes at ending street)
+- Preset buttons not raising immediately on click
+
 ## [0.7.1] - 2026-03-29
 
 ### Added
@@ -411,6 +472,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.8.0]: https://github.com/cschweda/holdem-simulator/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/cschweda/holdem-simulator/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/cschweda/holdem-simulator/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/cschweda/holdem-simulator/compare/v0.5.1...v0.6.0
