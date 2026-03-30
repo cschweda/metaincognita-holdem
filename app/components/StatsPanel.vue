@@ -237,6 +237,18 @@ const actionColor = computed(() => {
   }
 })
 
+// Adjust recommendation label: RAISE → ALL-IN when stack can't cover a raise
+const displayAction = computed(() => {
+  if (!analysis.value) return ''
+  const action = analysis.value.action
+  const chips = props.heroChips || 0
+  const call = props.toCall || 0
+  // If RAISE or CALL would cost the entire stack, show ALL-IN
+  if ((action === 'RAISE' || action === 'CALL') && call >= chips && chips > 0) return 'ALL-IN'
+  if (action === 'RAISE' && chips <= call * 1.5) return 'ALL-IN' // can't meaningfully raise
+  return action
+})
+
 const positionTooltip = computed(() => {
   const pos = props.position
   if (pos.includes('BTN') || pos === 'D' || pos.includes('D/')) {
@@ -362,10 +374,10 @@ function afLabel(af: number): string {
           @click="handleActionClick"
         >
           <div class="text-lg font-bold text-white tracking-wide">
-            {{ analysis.action }}
+            {{ displayAction }}
           </div>
           <div v-if="isClickableAction && heroTurn" class="text-[0.6rem] text-white/50 mt-0.5">
-            click to {{ analysis.action.toLowerCase() }}
+            click to {{ displayAction.toLowerCase() }}
           </div>
         </button>
         <p class="mt-2 text-xs leading-relaxed" :class="reasoningColor">{{ analysis.reasoning }}</p>
