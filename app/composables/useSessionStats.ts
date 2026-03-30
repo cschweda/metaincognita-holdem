@@ -50,6 +50,44 @@ export function useSessionStats() {
     // Set up Supabase anonymous session
     userId.value = await ensureAnonSession()
     supabaseReady.value = !!userId.value
+
+    // Auto-save session to Supabase every 60 seconds
+    const interval = setInterval(() => {
+      if (session.value.handsPlayed > 0) saveSessionToSupabase()
+    }, 60000)
+
+    // Save on tab close (uses sendBeacon for reliability)
+    window.addEventListener('beforeunload', () => {
+      // localStorage is synchronous — always works
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
+      // Beacon for Supabase (fire-and-forget, survives tab close)
+      if (userId.value && session.value.handsPlayed > 0) {
+        const url = `${useRuntimeConfig().public.supabaseUrl}/rest/v1/sessions?id=eq.${session.value.id}`
+        const body = JSON.stringify({
+          id: session.value.id,
+          user_id: userId.value,
+          started_at: session.value.startedAt,
+          stake_level: session.value.stakeLevel,
+          player_count: session.value.playerCount,
+          starting_stack: session.value.startingStack,
+          hands_played: session.value.handsPlayed,
+          hands_won: session.value.handsWon,
+          hands_lost: session.value.handsLost,
+          hands_folded: session.value.handsFolded,
+          final_stack: session.value.currentStack,
+          peak_stack: session.value.peakStack,
+          total_profit: session.value.totalProfit,
+          ended_at: new Date().toISOString(),
+        })
+        const key = useRuntimeConfig().public.supabaseKey as string
+        navigator.sendBeacon(
+          `${useRuntimeConfig().public.supabaseUrl}/rest/v1/sessions`,
+          new Blob([body], { type: 'application/json' })
+        )
+      }
+    })
+
+    onUnmounted(() => clearInterval(interval))
   })
 
   // Auto-save to localStorage on changes
