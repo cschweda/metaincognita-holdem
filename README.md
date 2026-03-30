@@ -670,7 +670,8 @@ Four levels of verification, each more realistic than the last:
 | Persistence | Supabase (GitHub OAuth, email/password, RLS) + localStorage fallback |
 | Package Manager | Yarn |
 | Deployment | Netlify (static) |
-| Testing | Vitest (753 tests) |
+| Testing | Vitest (800 tests across 18 files) |
+| Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
 

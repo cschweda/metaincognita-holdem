@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.3] - 2026-03-29
+
+### Refactored (Code Quality — B+ → A-)
+Continued refactoring from the codebase audit. Focus: eliminate remaining large files and duplication.
+
+- **useStatsData composable** — Extracted all data loading, computed stats (lifetime, position, profit timeline), CRUD operations (delete all/session/hand), and export functions from stats.vue into a dedicated composable (262 LOC). stats.vue reduced from 1,104 → 725 LOC (34% reduction).
+- **downloadFile utility** — Shared file download helper extracted from inline functions. Used by useStatsData, analysis page.
+- **Keyboard fold confirmation** — Pressing F now requires double-press within 2 seconds, matching the BetControls click confirmation pattern.
+- **Heads-up poker fix** — Three bugs causing heads-up to be unplayable: SB defense too tight (now 85% cap in heads-up), script rebuy happening after alive-check (games ended after 1 bust), D/SB position bonus too small (now matches BTN). Verified over 1,000+ heads-up hands.
+
+### Summary of all refactoring (v0.15.2 + v0.15.3)
+| File | Before | After | Change |
+|------|--------|-------|--------|
+| useCommentary.ts | 1,622 | 877 | -46% |
+| stats.vue | 1,104 | 725 | -34% |
+| Code duplication | ~500 LOC | ~80 LOC | -84% |
+| Files >900 LOC (non-algorithmic) | 4 | 1 (StatsPanel) | -75% |
+| Utility files | 11 | 17 | +55% |
+| Composables | 5 | 6 | +20% |
+| Tests | 765 | 800 | +5% |
+
 ## [0.15.2] - 2026-03-29
 
 ### Refactored (Code Quality — C+ → B+)
