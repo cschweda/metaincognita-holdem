@@ -568,6 +568,13 @@ function afLabel(af: number): string {
                 <span class="text-green-400 font-mono font-bold">+${{ winAmount || 0 }}</span>
               </div>
               <div v-if="winnerHand" class="text-sm font-semibold text-white mt-1">{{ winnerHand }}</div>
+              <!-- Kicker/split pot explanation when hero lost with same hand type -->
+              <div
+                v-if="!heroWon && !heroFolded && winnerHand && analysis?.handDescription && analysis.madeHand && winnerHand.split(',')[0] === analysis.handDescription.split(',')[0]"
+                class="text-xs text-amber-400/80 mt-1"
+              >
+                Same hand type — {{ winnerName }} wins on kicker.
+              </div>
             </div>
 
             <!-- Detailed hand financials -->

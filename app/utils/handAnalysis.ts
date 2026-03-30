@@ -542,7 +542,37 @@ export function describeHand(holeCards: [Card, Card], community: Card[]): string
     return result.name
   }
 
-  if (result.rank >= 2) return result.name
+  // Two pair — show the kicker
+  if (result.rank === 2) {
+    // score = [2, highPairRank, lowPairRank, kicker]
+    const kicker = result.score[3]
+    if (kicker) return `${result.name}, ${RANK_DISPLAY[kicker]}-kicker`
+    return result.name
+  }
+
+  // Full house — show over what
+  if (result.rank === 6) {
+    // score = [6, tripsRank, pairRank]
+    return `${RANK_DISPLAY[result.score[1]]}s full of ${RANK_DISPLAY[result.score[2]]}s`
+  }
+
+  // Flush — show high card
+  if (result.rank === 5) {
+    return `${RANK_DISPLAY[result.score[1]]}-high Flush`
+  }
+
+  // Straight — show high card
+  if (result.rank === 4) {
+    return `Straight, ${RANK_DISPLAY[result.score[1]]}-high`
+  }
+
+  // Trips — show kicker
+  if (result.rank === 3) {
+    return `Three ${RANK_DISPLAY[result.score[1]]}s, ${RANK_DISPLAY[result.score[2]]}-kicker`
+  }
+
+  // Quads, straight flush — just the name
+  if (result.rank >= 7) return result.name
 
   // High card — mention what we have
   const highCard = Math.max(...holeRanks)
