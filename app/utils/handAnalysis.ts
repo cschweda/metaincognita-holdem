@@ -508,38 +508,56 @@ export function recommend(
 
   // Very strong hand
   if (equity >= 75) {
-    return maybeCheck({ action: 'RAISE', reasoning: `Very strong hand (${Math.round(equity)}% equity) — raise for value.` })
+    return facingBet
+      ? { action: 'RAISE', reasoning: `Very strong hand (${Math.round(equity)}% equity) — raise for value.` }
+      : { action: 'RAISE', reasoning: `Very strong hand (${Math.round(equity)}% equity) — bet for value.` }
   }
 
   // Strong hand
   if (equity >= 55) {
     if (handRank >= 2) {
-      return maybeCheck({ action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — bet/raise for value and protection.` })
+      return facingBet
+        ? { action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — raise for value and protection.` }
+        : { action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — bet for value and protection.` }
     }
-    return maybeCheck({ action: 'CALL', reasoning: `Decent equity (${Math.round(equity)}%) — call and reevaluate.` })
+    return facingBet
+      ? { action: 'CALL', reasoning: `Decent equity (${Math.round(equity)}%) — call and reevaluate.` }
+      : { action: 'CHECK', reasoning: `Decent equity (${Math.round(equity)}%) — check and see the next card.` }
   }
 
-  // Drawing hand
+  // Drawing hand with good equity
   if (equity >= 35 || hasStrongDraw) {
     if (totalDrawOuts >= 12) {
-      return maybeCheck({ action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff raise.` })
+      return facingBet
+        ? { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff raise.` }
+        : { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff bet.` }
     }
-    if (totalDrawOuts >= 8) {
-      return maybeCheck({ action: 'CALL', reasoning: `Good draw with ${totalDrawOuts} outs — call if pot odds justify.` })
+    if (facingBet) {
+      return { action: 'CALL', reasoning: `${totalDrawOuts > 0 ? `${totalDrawOuts} outs to improve. ` : ''}${Math.round(equity)}% equity — call if pot odds justify.` }
     }
-    return maybeCheck({ action: 'CALL', reasoning: `Moderate equity (${Math.round(equity)}%) — call to see another card.` })
+    return { action: 'CHECK', reasoning: `${totalDrawOuts > 0 ? `${totalDrawOuts} outs to improve. ` : ''}Check to see a free card.` }
   }
 
-  // Weak
+  // Marginal — depends on whether facing a bet
+  if (facingBet) {
+    // Facing a bet with weak equity — usually fold
+    if (equity < 25) {
+      return { action: 'FOLD', reasoning: `Only ${Math.round(equity)}% equity facing a bet${totalDrawOuts > 0 ? ` with ${totalDrawOuts} outs` : ''} — fold.` }
+    }
+    // Borderline — call only if pot odds are good
+    return { action: 'CALL', reasoning: `Marginal hand (${Math.round(equity)}% equity) — calling is borderline. Consider pot odds.` }
+  }
+
+  // Not facing a bet — check for free
   if (equity >= 20 && totalDrawOuts >= 4) {
-    return maybeCheck({ action: 'CHECK', reasoning: `Weak hand but ${totalDrawOuts} outs to improve — check or fold to aggression.` })
+    return { action: 'CHECK', reasoning: `Weak hand but ${totalDrawOuts} outs to improve — check for a free card.` }
   }
 
   if (handRank === 0 && totalDrawOuts === 0) {
-    return maybeCheck({ action: 'FOLD', reasoning: `No made hand, no draw — fold to any bet.` })
+    return { action: 'CHECK', reasoning: `No made hand, no draw — check and hope to improve.` }
   }
 
-  return maybeCheck({ action: 'CHECK', reasoning: `Marginal hand (${Math.round(equity)}% equity) — check and minimize losses.` })
+  return { action: 'CHECK', reasoning: `Marginal hand (${Math.round(equity)}% equity) — check and minimize losses.` }
 }
 
 // ─── Hand Improvement Probabilities (Monte Carlo) ──────────────
