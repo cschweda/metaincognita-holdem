@@ -90,7 +90,7 @@ function handleFold() {
     foldPending.value = false
     foldCountdown.value = false
     emit('fold')
-  }, 3000)
+  }, 2000)
 }
 
 function cancelFold() {
@@ -127,9 +127,9 @@ function formatAmount(n: number): string {
     <!-- Row 1: Main action buttons -->
     <div class="flex gap-2">
       <!-- Fold: instant action with 2s undo window -->
-      <UTooltip :text="foldPending ? 'Click to cancel — folding in 3s' : 'Surrender your hand'" class="flex-1">
+      <UTooltip :text="foldPending ? 'Click to cancel — folding in 2s' : 'Surrender your hand'" class="flex-1">
         <button
-          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all duration-[3000ms] active:scale-[0.97] relative overflow-hidden"
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all duration-[2000ms] active:scale-[0.97] relative overflow-hidden"
           :class="foldPending
             ? (foldCountdown ? 'bg-amber-800/70 text-amber-200 border-2 border-amber-500/60' : 'bg-amber-700/80 text-amber-100 border-2 border-amber-400')
             : 'bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40'"
@@ -142,11 +142,11 @@ function formatAmount(n: number): string {
             </template>
             <template v-else>Fold</template>
           </span>
-          <!-- Countdown bar: shrinks from full to 0 over 3s, then fold executes -->
+          <!-- Countdown bar: shrinks from full to 0 over 2s, then fold executes -->
           <div
             v-if="foldPending"
             class="absolute bottom-0 left-0 h-1 bg-amber-400 transition-all ease-linear"
-            :style="{ width: foldCountdown ? '0%' : '100%', transitionDuration: '3s' }"
+            :style="{ width: foldCountdown ? '0%' : '100%', transitionDuration: '2s' }"
           />
         </button>
       </UTooltip>
