@@ -31,6 +31,8 @@ const props = defineProps<{
   heroFolded?: boolean
   heroWon?: boolean
   winAmount?: number
+  heroWagered?: number
+  heroNetProfit?: number
   sessionStats?: {
     handsPlayed: number
     handsWon: number
@@ -336,20 +338,47 @@ function afLabel(af: number): string {
           </div>
 
           <!-- Win/Loss result (showdown) -->
-          <div v-if="street === 'showdown' && !heroFolded" class="border-t border-gray-700/50 pt-3">
+          <div v-if="street === 'showdown' && !heroFolded" class="border-t border-gray-700/50 pt-3 space-y-3">
+            <!-- Result banner -->
             <div
-              class="rounded-lg px-3 py-3 text-center"
+              class="rounded-lg px-4 py-3 text-center"
               :class="heroWon ? 'bg-green-600/30 border border-green-500/30' : 'bg-red-600/20 border border-red-500/20'"
             >
               <div class="text-2xl font-bold" :class="heroWon ? 'text-green-400' : 'text-red-400'">
                 {{ heroWon ? 'YOU WIN' : 'YOU LOSE' }}
               </div>
-              <div v-if="heroWon && winAmount" class="text-lg font-mono font-semibold text-green-300 mt-1">
-                +${{ winAmount }}
+            </div>
+
+            <!-- Detailed hand financials -->
+            <div class="bg-gray-800/40 rounded-lg p-3 space-y-2">
+              <div class="flex justify-between text-xs">
+                <span class="text-gray-400">Pot size</span>
+                <span class="text-yellow-400 font-mono">${{ winAmount || 0 }}</span>
               </div>
-              <div v-else-if="!heroWon && winAmount" class="text-lg font-mono font-semibold text-red-300 mt-1">
-                -${{ winAmount }}
+              <div class="flex justify-between text-xs">
+                <span class="text-gray-400">You wagered</span>
+                <span class="text-gray-200 font-mono">${{ heroWagered || 0 }}</span>
               </div>
+              <div v-if="heroWon" class="flex justify-between text-xs">
+                <span class="text-gray-400">You collected</span>
+                <span class="text-green-400 font-mono">${{ winAmount || 0 }}</span>
+              </div>
+              <div class="flex justify-between text-xs border-t border-gray-700/30 pt-2">
+                <span class="text-gray-300 font-semibold">Net profit</span>
+                <span
+                  class="font-mono font-bold text-sm"
+                  :class="(heroNetProfit || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
+                >
+                  {{ (heroNetProfit || 0) >= 0 ? '+' : '' }}${{ heroNetProfit || 0 }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Hand made -->
+            <div v-if="analysis?.madeHand" class="bg-gray-800/40 rounded-lg p-3">
+              <div class="text-xs text-gray-400 mb-1">Your hand</div>
+              <div class="text-sm font-semibold text-white">{{ analysis.handDescription }}</div>
+              <div class="text-xs text-gray-500">{{ HAND_RANK_NAMES[analysis.madeHand.rank] }}</div>
             </div>
           </div>
 

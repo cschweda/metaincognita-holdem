@@ -78,6 +78,8 @@ interface PlayerState {
 const playerStates = ref<PlayerState[]>([])
 const heroWonHand = ref(false)
 const heroWinAmount = ref(0)
+const heroTotalWagered = ref(0)   // total chips hero put in this hand
+const heroChipsAtStart = ref(0)   // hero's stack at start of hand
 const dealerSeat = ref(0)
 const street = ref<'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('preflop')
 const dealt = ref(false)
@@ -198,6 +200,7 @@ function dealNewHand() {
     })
   }
   playerStates.value = states
+  heroChipsAtStart.value = states[0]?.chips || startingStack.value
 
   idx++ // burn
   const community = [deck[idx++], deck[idx++], deck[idx++]]
@@ -216,6 +219,8 @@ function dealNewHand() {
   dealt.value = true
   heroWonHand.value = false
   heroWinAmount.value = 0
+  heroTotalWagered.value = 0
+  heroChipsAtStart.value = 0 // set after player states are created
   handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
 
   // Rotate dealer
@@ -515,6 +520,11 @@ function endHand() {
   // Track hero result for stats panel
   heroWonHand.value = winnerId === 0
   heroWinAmount.value = pot.value
+  // Hero's chips BEFORE pot was awarded = current chips minus pot (if won)
+  const heroChipsBeforeAward = playerStates.value[0]
+    ? playerStates.value[0].chips - (winnerId === 0 ? pot.value : 0)
+    : 0
+  heroTotalWagered.value = heroChipsAtStart.value - heroChipsBeforeAward
 
   // Update tilt state for all non-hero players
   for (const p of playerStates.value) {
@@ -860,6 +870,8 @@ function formatPot(n: number): string {
           :hero-folded="hero?.folded || false"
           :hero-won="heroWonHand"
           :win-amount="heroWinAmount"
+          :hero-wagered="heroTotalWagered"
+          :hero-net-profit="heroWonHand ? heroWinAmount - heroTotalWagered : -heroTotalWagered"
           :session-stats="session"
           :supabase-connected="supabaseReady"
           @fold="handleFold"
