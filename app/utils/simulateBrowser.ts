@@ -10,8 +10,7 @@ import type { BotProfile, TiltState } from './botDecision'
 import { bestHand, HAND_RANK_NAMES, HAND_RANKS } from './handAnalysis'
 import { calculateSidePots, awardPots } from './sidePots'
 import { toPokerStarsFormat } from './pokerStarsExport'
-import type { Card, Suit } from './cards'
-import { RANK_DISPLAY, SUIT_SYMBOLS } from './cards'
+import type { Card } from './cards'
 
 const FICTIONAL = ['Tight Tony', 'Loose Lucy', 'Aggressive Alex', 'Calling Carl', 'Tricky Tina', 'Solid Sam', 'Wild Wendy']
 
@@ -57,21 +56,7 @@ export interface SimResult {
   allHandsPS: string // full PokerStars hand history for all hands
 }
 
-function displayCard(c: Card): string { return `${RANK_DISPLAY[c.rank]}${SUIT_SYMBOLS[c.suit]}` }
-
-function shuffleDeck(): Card[] {
-  const deck: Card[] = []
-  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
-  for (const suit of suits) for (let rank = 2; rank <= 14; rank++) deck.push({ rank, suit })
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]
-  }
-  return deck
-}
-
-function findSeat(positions: string[], label: string): number {
-  return positions.findIndex(p => p === label || p.includes(label))
-}
+import { simDisplayCard as displayCard, simShuffleDeck as shuffleDeck, simFindSeat as findSeat } from './gameSimulation'
 
 export async function runSimulation(
   numHands: number,
