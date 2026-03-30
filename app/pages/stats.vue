@@ -98,12 +98,32 @@ const lifetimeStats = computed(() => {
   const biggestLoss = hands.value.reduce((min, h) => Math.min(min, h.profit), 0)
   const avgPot = totalHands > 0 ? hands.value.reduce((sum, h) => sum + h.pot_size, 0) / totalHands : 0
 
-  return { totalHands, won, lost, folded, totalProfit, totalSessions, biggestWin, biggestLoss, avgPot }
+  const avgProfit = totalSessions > 0 ? totalProfit / totalSessions : 0
+  const handsPerSession = totalSessions > 0 ? Math.round(totalHands / totalSessions) : 0
+  const foldPct = totalHands > 0 ? (folded / totalHands) * 100 : 0
+  const showdownRate = totalHands > 0 ? ((won + lost) / totalHands) * 100 : 0
+  const wonAtShowdown = (won + lost) > 0 ? (won / (won + lost)) * 100 : 0
+
+  return {
+    totalHands, won, lost, folded, totalProfit, totalSessions,
+    biggestWin, biggestLoss, avgPot, avgProfit, handsPerSession,
+    foldPct, showdownRate, wonAtShowdown,
+  }
 })
 
 const winRate = computed(() => {
   if (lifetimeStats.value.totalHands === 0) return 0
   return (lifetimeStats.value.won / lifetimeStats.value.totalHands) * 100
+})
+
+// Per-session win/loss summary
+const sessionSummary = computed(() => {
+  const winning = sessions.value.filter(s => s.total_profit > 0).length
+  const losing = sessions.value.filter(s => s.total_profit < 0).length
+  const breakeven = sessions.value.filter(s => s.total_profit === 0).length
+  const bestSession = sessions.value.reduce((best, s) => s.total_profit > best ? s.total_profit : best, 0)
+  const worstSession = sessions.value.reduce((worst, s) => s.total_profit < worst ? s.total_profit : worst, 0)
+  return { winning, losing, breakeven, bestSession, worstSession }
 })
 
 // ─── Position Stats ────────────────────────────────────────────
@@ -220,110 +240,172 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
 
         <!-- ═══ OVERVIEW ═══ -->
         <div v-if="activeTab === 'overview'" class="space-y-6">
-          <!-- Big numbers -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.totalHands }}</div>
-              <div class="text-xs text-gray-500 mt-1 uppercase">Hands Played</div>
-            </div>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-3xl font-bold font-mono" :class="lifetimeStats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'">
-                {{ formatProfit(lifetimeStats.totalProfit) }}
-              </div>
-              <div class="text-xs text-gray-500 mt-1 uppercase">Lifetime Profit</div>
-            </div>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-3xl font-bold font-mono" :class="winRate >= 30 ? 'text-green-400' : 'text-red-400'">
-                {{ winRate.toFixed(1) }}%
-              </div>
-              <div class="text-xs text-gray-500 mt-1 uppercase">Win Rate</div>
-            </div>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.totalSessions }}</div>
-              <div class="text-xs text-gray-500 mt-1 uppercase">Sessions</div>
-            </div>
-          </div>
 
-          <!-- Win/Loss/Fold -->
-          <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
-            <h3 class="text-sm font-semibold text-gray-300 mb-3">Results Breakdown</h3>
-            <div class="space-y-2">
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-green-400 w-12">Won</span>
-                <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                  <div class="h-full bg-green-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.won / lifetimeStats.totalHands) * 100 : 0}%` }" />
-                </div>
-                <span class="text-xs text-white font-mono w-10 text-right">{{ lifetimeStats.won }}</span>
+          <!-- ── TOTALS ── -->
+          <div>
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Totals</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.totalHands }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Hands Played</div>
               </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-red-400 w-12">Lost</span>
-                <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                  <div class="h-full bg-red-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.lost / lifetimeStats.totalHands) * 100 : 0}%` }" />
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono" :class="lifetimeStats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'">
+                  {{ formatProfit(lifetimeStats.totalProfit) }}
                 </div>
-                <span class="text-xs text-white font-mono w-10 text-right">{{ lifetimeStats.lost }}</span>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Lifetime Profit</div>
               </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-gray-400 w-12">Folded</span>
-                <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                  <div class="h-full bg-gray-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.folded / lifetimeStats.totalHands) * 100 : 0}%` }" />
-                </div>
-                <span class="text-xs text-white font-mono w-10 text-right">{{ lifetimeStats.folded }}</span>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-white">${{ Math.round(lifetimeStats.avgPot) }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Avg Pot Size</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.handsPerSession }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Hands / Session</div>
               </div>
             </div>
           </div>
 
-          <!-- Notable stats -->
-          <div class="grid grid-cols-3 gap-3">
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-lg font-bold font-mono text-green-400">{{ formatProfit(lifetimeStats.biggestWin) }}</div>
-              <div class="text-[0.65rem] text-gray-500 uppercase">Biggest Win</div>
+          <!-- ── SESSIONS ── -->
+          <div>
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Sessions</h2>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.totalSessions }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Total</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-green-400">{{ sessionSummary.winning }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Winning</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-red-400">{{ sessionSummary.losing }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Losing</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-lg font-bold font-mono text-green-400">{{ formatProfit(sessionSummary.bestSession) }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Best Session</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-lg font-bold font-mono text-red-400">{{ formatProfit(sessionSummary.worstSession) }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Worst Session</div>
+              </div>
             </div>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-lg font-bold font-mono text-red-400">{{ formatProfit(lifetimeStats.biggestLoss) }}</div>
-              <div class="text-[0.65rem] text-gray-500 uppercase">Biggest Loss</div>
-            </div>
-            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
-              <div class="text-lg font-bold font-mono text-white">${{ Math.round(lifetimeStats.avgPot) }}</div>
-              <div class="text-[0.65rem] text-gray-500 uppercase">Avg Pot Size</div>
+            <div v-if="lifetimeStats.totalSessions > 0" class="mt-2 text-xs text-gray-500 text-center">
+              Avg profit per session: <span class="font-mono" :class="lifetimeStats.avgProfit >= 0 ? 'text-green-400' : 'text-red-400'">{{ formatProfit(Math.round(lifetimeStats.avgProfit)) }}</span>
             </div>
           </div>
 
-          <!-- Profit trend (text sparkline) -->
-          <div v-if="profitTimeline.length > 1" class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
-            <h3 class="text-sm font-semibold text-gray-300 mb-3">Profit Trend (last {{ profitTimeline.length }} hands)</h3>
-            <div class="flex items-end gap-[2px] h-16">
-              <div
-                v-for="(val, i) in profitTimeline"
-                :key="i"
-                class="flex-1 rounded-t-sm transition-all"
-                :class="val >= 0 ? 'bg-green-500/70' : 'bg-red-500/70'"
-                :style="{ height: `${Math.max(4, Math.abs(val) / Math.max(...profitTimeline.map(Math.abs)) * 100)}%` }"
-              />
+          <!-- ── WIN / LOSS ── -->
+          <div>
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Win / Loss</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono" :class="winRate >= 30 ? 'text-green-400' : 'text-red-400'">
+                  {{ winRate.toFixed(1) }}%
+                </div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Win Rate</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.showdownRate.toFixed(0) }}%</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Showdown Rate</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono" :class="lifetimeStats.wonAtShowdown >= 50 ? 'text-green-400' : 'text-red-400'">
+                  {{ lifetimeStats.wonAtShowdown.toFixed(0) }}%
+                </div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Won at Showdown</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold font-mono text-white">{{ lifetimeStats.foldPct.toFixed(0) }}%</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Fold Rate</div>
+              </div>
             </div>
-            <div class="flex justify-between text-[0.6rem] text-gray-600 mt-1">
-              <span>Oldest</span>
-              <span :class="profitTrendClass" class="font-mono">{{ formatProfit(profitTimeline[profitTimeline.length - 1]) }}</span>
-              <span>Latest</span>
+
+            <!-- Win/Loss/Fold bars -->
+            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
+              <div class="space-y-2.5">
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-green-400 w-14">Won</span>
+                  <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-green-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.won / lifetimeStats.totalHands) * 100 : 0}%` }" />
+                  </div>
+                  <span class="text-xs text-white font-mono w-14 text-right">{{ lifetimeStats.won }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-red-400 w-14">Lost</span>
+                  <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-red-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.lost / lifetimeStats.totalHands) * 100 : 0}%` }" />
+                  </div>
+                  <span class="text-xs text-white font-mono w-14 text-right">{{ lifetimeStats.lost }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-gray-400 w-14">Folded</span>
+                  <div class="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-gray-500 rounded-full transition-all" :style="{ width: `${lifetimeStats.totalHands ? (lifetimeStats.folded / lifetimeStats.totalHands) * 100 : 0}%` }" />
+                  </div>
+                  <span class="text-xs text-white font-mono w-14 text-right">{{ lifetimeStats.folded }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── NOTABLE HANDS ── -->
+          <div>
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Notable Hands</h2>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold font-mono text-green-400">{{ formatProfit(lifetimeStats.biggestWin) }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Biggest Win</div>
+              </div>
+              <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold font-mono text-red-400">{{ formatProfit(lifetimeStats.biggestLoss) }}</div>
+                <div class="text-xs text-gray-500 mt-1 uppercase">Biggest Loss</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profit trend -->
+          <div v-if="profitTimeline.length > 1">
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Profit Trend</h2>
+            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
+              <div class="text-xs text-gray-400 mb-2">Last {{ profitTimeline.length }} hands</div>
+              <div class="flex items-end gap-[2px] h-20">
+                <div
+                  v-for="(val, i) in profitTimeline"
+                  :key="i"
+                  class="flex-1 rounded-t-sm transition-all"
+                  :class="val >= 0 ? 'bg-green-500/70' : 'bg-red-500/70'"
+                  :style="{ height: `${Math.max(4, Math.abs(val) / Math.max(...profitTimeline.map(Math.abs)) * 100)}%` }"
+                />
+              </div>
+              <div class="flex justify-between text-[0.6rem] text-gray-600 mt-1">
+                <span>Oldest</span>
+                <span :class="profitTrendClass" class="font-mono font-semibold">{{ formatProfit(profitTimeline[profitTimeline.length - 1]) }}</span>
+                <span>Latest</span>
+              </div>
             </div>
           </div>
 
           <!-- Position stats -->
-          <div v-if="positionStats.length > 0" class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
-            <h3 class="text-sm font-semibold text-gray-300 mb-3">Performance by Position</h3>
-            <div class="space-y-2">
-              <div
-                v-for="ps in positionStats"
-                :key="ps.position"
-                class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg px-3 py-2"
-              >
-                <span class="font-semibold text-white w-12">{{ ps.position }}</span>
-                <span class="text-gray-400">{{ ps.played }} hands</span>
-                <span :class="ps.winRate >= 30 ? 'text-green-400' : 'text-red-400'" class="font-mono">
-                  {{ ps.winRate.toFixed(0) }}% win
-                </span>
-                <span :class="ps.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono w-16 text-right">
-                  {{ formatProfit(ps.profit) }}
-                </span>
+          <div v-if="positionStats.length > 0">
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">By Position</h2>
+            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-5">
+              <div class="space-y-2">
+                <div
+                  v-for="ps in positionStats"
+                  :key="ps.position"
+                  class="flex items-center justify-between text-xs bg-gray-800/50 rounded-lg px-3 py-2"
+                >
+                  <span class="font-semibold text-white w-12">{{ ps.position }}</span>
+                  <span class="text-gray-400">{{ ps.played }} hands</span>
+                  <span :class="ps.winRate >= 30 ? 'text-green-400' : 'text-red-400'" class="font-mono">
+                    {{ ps.winRate.toFixed(0) }}% win
+                  </span>
+                  <span :class="ps.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono w-16 text-right">
+                    {{ formatProfit(ps.profit) }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
