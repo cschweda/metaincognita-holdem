@@ -56,14 +56,21 @@ const authSuccess = ref<string | null>(null)
 
 const passwordValidation = computed(() => validatePassword(passwordInput.value))
 
-// Commentary toggle — syncs with the same localStorage key the composable reads
-const commentaryEnabled = ref(
-  typeof localStorage !== 'undefined'
-    ? localStorage.getItem('holdem-commentary-enabled') !== 'false'
-    : true,
-)
-watch(commentaryEnabled, (v) => {
-  if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-enabled', String(v))
+// Commentary mode: 'off' | 'hero' | 'tv' — syncs with the composable's localStorage keys
+type CommentaryChoice = 'off' | 'hero' | 'tv'
+function getInitialCommentaryChoice(): CommentaryChoice {
+  if (typeof localStorage === 'undefined') return 'hero'
+  const enabled = localStorage.getItem('holdem-commentary-enabled')
+  if (enabled === 'false') return 'off'
+  const mode = localStorage.getItem('holdem-commentary-mode')
+  if (mode === 'tv') return 'tv'
+  return 'hero'
+}
+const commentaryChoice = ref<CommentaryChoice>(getInitialCommentaryChoice())
+watch(commentaryChoice, (v) => {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem('holdem-commentary-enabled', v === 'off' ? 'false' : 'true')
+  if (v !== 'off') localStorage.setItem('holdem-commentary-mode', v)
 })
 
 onMounted(async () => {
@@ -592,31 +599,33 @@ function handleStart() {
       </div>
     </div>
 
-    <!-- Commentary Toggle -->
-    <div class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-300 font-medium">Live Commentary</span>
-            <span class="text-[0.55rem] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 uppercase">Optional</span>
-          </div>
-          <div class="text-xs text-gray-500 mt-0.5">
-            {{ commentaryEnabled
-              ? 'Real-time text play-by-play in the left column. Switch between Hero POV and WSOP-style TV Broadcast with Chorman Nad & Mon LeEachern — our homage to the legendary Norman Chad & Lon McEachern.'
-              : 'Commentary is off. The game plays without the commentary panel.'
-            }}
-          </div>
-        </div>
+    <!-- Commentary Mode -->
+    <div class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-300 font-medium">Live Commentary</span>
+        <span class="text-[0.55rem] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 uppercase">Optional</span>
+      </div>
+      <div class="flex rounded-lg overflow-hidden border border-gray-700/50">
         <button
-          class="relative w-10 h-5.5 rounded-full transition-colors shrink-0 ml-3"
-          :class="commentaryEnabled ? 'bg-green-600' : 'bg-gray-700'"
-          @click="commentaryEnabled = !commentaryEnabled"
+          v-for="opt in ([
+            { value: 'off', label: 'Off' },
+            { value: 'hero', label: 'Hero POV' },
+            { value: 'tv', label: 'TV Broadcast' },
+          ] as const)"
+          :key="opt.value"
+          class="flex-1 py-2 text-xs font-semibold transition-colors"
+          :class="commentaryChoice === opt.value
+            ? 'bg-gray-700 text-white'
+            : 'text-gray-500 hover:text-gray-300'"
+          @click="commentaryChoice = opt.value"
         >
-          <div
-            class="absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform"
-            :class="commentaryEnabled ? 'translate-x-[1.2rem]' : 'translate-x-0.5'"
-          />
+          {{ opt.label }}
         </button>
+      </div>
+      <div class="text-xs text-gray-500">
+        <template v-if="commentaryChoice === 'off'">No commentary panel. Standard poker trainer experience.</template>
+        <template v-else-if="commentaryChoice === 'hero'">Real-time text play-by-play from your perspective. Only your cards are visible — opponents face-down.</template>
+        <template v-else>WSOP-style TV broadcast with Chorman Nad &amp; Mon LeEachern (our homage to Norman Chad &amp; Lon McEachern). All cards shown face-up — like watching poker on TV. You still make all decisions.</template>
       </div>
     </div>
 
