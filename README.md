@@ -1144,6 +1144,19 @@ This project draws inspiration from the poker software and communities that shap
 - **Two Plus Two Publishing** -- The books that taught a generation how to think about poker mathematically. David Sklansky's *The Theory of Poker* (1987) introduced fundamental concepts like the Fundamental Theorem of Poker, pot odds, and implied odds that underpin this app's analysis engine. Bill Chen and Jerrod Ankenman's *The Mathematics of Poker* (2006) gave us the Chen formula used throughout the hand evaluation system. Sklansky and Ed Miller's *No Limit Hold'em: Theory and Practice* (2006) influenced the preflop range structure and positional play. Dan Harrington's *Harrington on Hold'em* series (2004-2006) shaped the M-ratio and short-stack push/fold logic. Doyle Brunson's *Super/System* (1979) and *Super/System 2* (2004) defined the player archetypes (tight-aggressive, loose-aggressive, etc.) that the bot persona system models. David Sklansky and Mason Malmuth's *Hold'em Poker for Advanced Players* (1988, revised 1999) contributed the hand grouping and starting hand ranking concepts visible in the ranges tab.
 - **ESPN World Series of Poker broadcasts** -- The Lon McEachern and Norman Chad commentary that made poker entertaining for millions. The TV Broadcast commentary mode (Chorman Nad & Mon LeEachern) is a direct homage to their chemistry, humor, and the way they made watching poker feel like appointment television.
 
+## What Makes This Different
+
+Most poker trainers are either too simple (random bots, no personality) or too serious (solver outputs, no fun). This one tries to be both useful and enjoyable:
+
+- **Bots you recognize** -- 18 pro-inspired personas with distinct playstyles, tilt systems, and leaks. Phellmuth melts down after one loss. Pvey is an emotionless machine. Jellande bluffs his own grandmother.
+- **Watch like TV or play like a pro** -- flip between Hero POV (serious training, cards face-down) and TV Broadcast (all cards face-up, Chorman Nad cracking jokes while Mon LeEachern calls the action). Switch mid-hand.
+- **Chorman is actually smart** -- slide from pure comedy to genuine strategic analysis. "That's an overbet — very strong hand or big bluff" mixed with "I've made better decisions at 3 AM at a Waffle House."
+- **Everything is real** -- actual hand evaluation, Monte Carlo equity, blocker-adjusted draw math, position-aware 3-bet sizing, kicker differentiation, SPR awareness, river polarization, MDF defense. 21 realism fixes from three professional audits.
+- **Paste and replay** -- drop any PokerStars hand history into `/replay-hand` and watch it play out on the felt. Step through action by action. Pause and study.
+- **Run 3,000 hands in your browser** -- the `/analysis` page simulates heads-up, 6-max, and 8-max tables with pro bots, auto-selects the most interesting hands, and lets you download everything in PokerStars format.
+- **Learn from every hand** -- real-time equity, pot odds (percentage vs percentage for easy comparison), draws with outs, action recommendations pinned at the top of the stats panel. Board texture analysis in the Hero commentary.
+- **Zero install** -- runs in any modern browser. No download, no account required. Optional Supabase for cross-session stats.
+
 ## License
 
-Public project.
+MIT License. See [LICENSE](LICENSE) for details.
