@@ -1007,8 +1007,15 @@ const displayedHands = computed(() => {
 
           <!-- Action buttons -->
           <div class="flex items-center gap-2 flex-wrap">
+            <NuxtLink v-if="selectedHand.players && selectedHand.players.length > 0" :to="`/replay-hand?hand=${encodeURIComponent(toPokerStarsFormat(selectedHand, getStakeFromLevel(selectedHand.stake_level)))}`">
+              <UTooltip text="Watch the hand play out step-by-step with all cards face-up. Pause and study each action.">
+                <UButton variant="outline" color="primary" size="xs" icon="i-lucide-eye">Watch</UButton>
+              </UTooltip>
+            </NuxtLink>
             <NuxtLink v-if="selectedHand.players && selectedHand.players.length > 0" :to="`/replay?hand=${selectedHand.id}`">
-              <UButton variant="outline" color="primary" size="xs" icon="i-lucide-play">Replay</UButton>
+              <UTooltip text="Re-play the hand interactively — make different decisions, see what happens.">
+                <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-rotate-ccw">Practice</UButton>
+              </UTooltip>
             </NuxtLink>
             <UButton v-if="selectedHand.actions && selectedHand.actions.length > 0" variant="outline" color="info" size="xs" icon="i-lucide-search" @click="openAnalysis(selectedHand)">Analyze</UButton>
             <UButton
