@@ -238,6 +238,38 @@ function afLabel(af: number): string {
             </div>
           </div>
 
+          <!-- Hand Probabilities -->
+          <div v-if="analysis.handProbabilities && analysis.handProbabilities.length > 0" class="border-t border-gray-700/50 pt-3">
+            <div class="text-xs text-gray-400 mb-2">
+              {{ street === 'preflop' ? 'Chance by River' : street === 'river' || street === 'showdown' ? 'Final Hand' : 'Chance to Improve' }}
+            </div>
+            <div class="space-y-1">
+              <template v-for="hp in analysis.handProbabilities" :key="hp.rank">
+                <div
+                  v-if="hp.probability > 0 || hp.current"
+                  class="flex items-center gap-2 text-xs"
+                >
+                  <span class="w-24 truncate" :class="hp.current ? 'text-green-400 font-semibold' : 'text-gray-400'">
+                    {{ hp.name }}
+                  </span>
+                  <div class="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      class="h-full rounded-full transition-all duration-300"
+                      :class="hp.current ? 'bg-green-500' : hp.probability >= 20 ? 'bg-blue-500' : hp.probability >= 5 ? 'bg-yellow-500/70' : 'bg-gray-600'"
+                      :style="{ width: `${Math.max(hp.probability > 0 ? 2 : 0, hp.probability)}%` }"
+                    />
+                  </div>
+                  <span
+                    class="w-12 text-right font-mono"
+                    :class="hp.current ? 'text-green-400' : hp.probability >= 20 ? 'text-blue-400' : hp.probability >= 5 ? 'text-yellow-400' : 'text-gray-600'"
+                  >
+                    {{ hp.current && hp.probability === 100 ? '✓' : `${hp.probability}%` }}
+                  </span>
+                </div>
+              </template>
+            </div>
+          </div>
+
           <!-- Pot Odds -->
           <div v-if="potOdds" class="border-t border-gray-700/50 pt-3">
             <div class="text-xs text-gray-400 mb-1">Pot Odds</div>

@@ -65,12 +65,22 @@ export interface HandAnalysis {
   // Equity estimate (Monte Carlo)
   equity: number // 0-100
 
+  // Hand improvement probabilities (% chance of making each hand by river)
+  handProbabilities: HandProbability[]
+
   // Pot odds (placeholder until real betting)
   potOddsNeeded: number
 
   // Recommendation
   action: 'FOLD' | 'CHECK' | 'CALL' | 'RAISE'
   reasoning: string
+}
+
+export interface HandProbability {
+  rank: number         // 0-8
+  name: string         // "One Pair", "Flush", etc.
+  current: boolean     // true if hero already has this hand or better
+  probability: number  // 0-100, chance of making this hand by river
 }
 
 // ─── Chen Formula (preflop hand strength) ──────────────────────
@@ -524,6 +534,80 @@ export function recommend(
   return { action: 'CHECK', reasoning: `Marginal hand (${Math.round(equity)}% equity) — check and minimize losses.` }
 }
 
+// ─── Hand Improvement Probabilities (Monte Carlo) ──────────────
+/**
+ * Simulates random runouts from the current board and counts how
+ * often each hand rank is achieved. Returns probabilities for all
+ * 9 hand ranks, marking the current rank and anything below it.
+ */
+export function simulateHandProbabilities(
+  holeCards: [Card, Card],
+  community: Card[],
+  iterations: number = 500,
+): HandProbability[] {
+  const currentResult = community.length >= 3 ? bestHand(holeCards, community) : null
+  const currentRank = currentResult?.rank ?? -1
+
+  // If we're at the river or showdown, no simulation needed — it's determined
+  if (community.length >= 5) {
+    return HAND_RANK_ORDER.map(({ rank, name }) => ({
+      rank,
+      name,
+      current: currentRank >= rank,
+      probability: currentRank === rank ? 100 : 0,
+    }))
+  }
+
+  // Build remaining deck
+  const usedKeys = new Set([
+    ...holeCards.map(c => `${c.rank}-${c.suit}`),
+    ...community.map(c => `${c.rank}-${c.suit}`),
+  ])
+  const deck: Card[] = []
+  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
+  for (const suit of suits) {
+    for (let rank = 2; rank <= 14; rank++) {
+      if (!usedKeys.has(`${rank}-${suit}`)) deck.push({ rank, suit })
+    }
+  }
+
+  // Count how many times each rank is the best hand
+  const counts = new Array(9).fill(0)
+  const cardsNeeded = 5 - community.length
+
+  for (let i = 0; i < iterations; i++) {
+    // Shuffle remaining deck (partial Fisher-Yates for just the cards we need)
+    const remaining = [...deck]
+    for (let j = 0; j < cardsNeeded && j < remaining.length; j++) {
+      const k = j + Math.floor(Math.random() * (remaining.length - j));
+      [remaining[j], remaining[k]] = [remaining[k], remaining[j]]
+    }
+
+    const fullBoard = [...community, ...remaining.slice(0, cardsNeeded)]
+    const result = bestHand(holeCards, fullBoard)
+    if (result) counts[result.rank]++
+  }
+
+  return HAND_RANK_ORDER.map(({ rank, name }) => ({
+    rank,
+    name,
+    current: currentRank >= rank,
+    probability: Math.round((counts[rank] / iterations) * 1000) / 10,
+  }))
+}
+
+const HAND_RANK_ORDER = [
+  { rank: 8, name: 'Straight Flush' },
+  { rank: 7, name: 'Four of a Kind' },
+  { rank: 6, name: 'Full House' },
+  { rank: 5, name: 'Flush' },
+  { rank: 4, name: 'Straight' },
+  { rank: 3, name: 'Three of a Kind' },
+  { rank: 2, name: 'Two Pair' },
+  { rank: 1, name: 'One Pair' },
+  { rank: 0, name: 'High Card' },
+]
+
 // ─── Full Analysis ─────────────────────────────────────────────
 export function analyzeHand(
   holeCards: [Card, Card],
@@ -554,6 +638,9 @@ export function analyzeHand(
 
   const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position)
 
+  // Hand improvement probabilities
+  const handProbabilities = simulateHandProbabilities(holeCards, community, 400)
+
   return {
     madeHand,
     handDescription: handDesc,
@@ -565,6 +652,7 @@ export function analyzeHand(
     probNextCard: Math.round(probNext * 10) / 10,
     probByRiver: Math.round(probRiver * 10) / 10,
     equity: Math.round(equity * 10) / 10,
+    handProbabilities,
     potOddsNeeded: 0, // placeholder until real betting
     action,
     reasoning,
