@@ -263,6 +263,56 @@ const activePlayer = computed(() => {
   const step = actionQueue.value[stepIndex.value]
   return step?.player || null
 })
+
+// ─── Per-player hand analysis for stats panel ────────────
+import { bestHand, HAND_RANK_NAMES, detectDraws, estimateEquity, describeHand } from '~/utils/handAnalysis'
+
+interface PlayerAnalysis {
+  name: string
+  position: string
+  cards: string
+  handDesc: string
+  handRank: number
+  equity: number
+  draws: { type: string; outs: number }[]
+  folded: boolean
+  isLeader: boolean
+}
+
+const playerAnalyses = computed<PlayerAnalysis[]>(() => {
+  if (!hand.value || visibleBoard.value.length < 3) return []
+  const analyses: PlayerAnalysis[] = []
+  let bestRank = -1
+
+  for (const p of hand.value.players) {
+    if (!p.holeCards) continue
+    const folded = playerFolded.value.has(p.name)
+    const result = bestHand(Array.from(p.holeCards), visibleBoard.value)
+    const draws = folded ? [] : detectDraws(Array.from(p.holeCards), visibleBoard.value)
+    const desc = folded ? 'Folded' : (result ? describeHand(p.holeCards, visibleBoard.value) : 'Unknown')
+    const rank = result?.rank ?? -1
+    if (!folded && rank > bestRank) bestRank = rank
+
+    analyses.push({
+      name: p.name,
+      position: p.position,
+      cards: p.holeCards.map(c => displayCard(c)).join(' '),
+      handDesc: desc,
+      handRank: rank,
+      equity: folded ? 0 : estimateEquity(p.holeCards, visibleBoard.value, hand.value!.players.filter(pp => pp.holeCards && !playerFolded.value.has(pp.name)).length - 1 || 1, 150),
+      draws,
+      folded,
+      isLeader: false,
+    })
+  }
+
+  // Mark the leader(s)
+  for (const a of analyses) {
+    if (!a.folded && a.handRank === bestRank) a.isLeader = true
+  }
+
+  return analyses
+})
 </script>
 
 <template>
@@ -306,7 +356,8 @@ Seat 1: Player1 ($200 in chips)
     </div>
 
     <!-- Viewing phase -->
-    <div v-if="phase === 'viewing' && hand" class="max-w-7xl mx-auto px-4 py-4">
+    <div v-if="phase === 'viewing' && hand" class="max-w-[100rem] mx-auto px-4 py-4 flex gap-4 items-start">
+      <div class="flex-1 min-w-0">
       <!-- Top bar -->
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-3">
@@ -428,6 +479,60 @@ Seat 1: Player1 ($200 in chips)
       <!-- Keyboard hint -->
       <div class="mt-3 text-center text-[0.55rem] text-gray-700">
         Space = play/pause &middot; Arrow keys = step &middot; Esc = back
+      </div>
+      </div>
+
+      <!-- Stats panel (right side) -->
+      <div v-if="visibleBoard.length >= 3 && playerAnalyses.length > 0" class="hidden xl:block w-80 shrink-0 sticky top-4">
+        <div class="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-clip text-sm h-[min(calc(100vh-6rem),800px)] flex flex-col">
+          <div class="px-4 py-2.5 border-b border-gray-700/50 shrink-0">
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Hand Analysis</span>
+            <span class="text-[0.55rem] text-gray-600 ml-2">{{ currentStreet.toUpperCase() }}</span>
+          </div>
+          <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+            <div
+              v-for="pa in playerAnalyses"
+              :key="pa.name"
+              class="rounded-lg p-2.5 border"
+              :class="pa.folded
+                ? 'bg-gray-800/20 border-gray-800/30 opacity-40'
+                : pa.isLeader
+                  ? 'bg-green-900/20 border-green-700/30'
+                  : 'bg-gray-800/40 border-gray-800/40'"
+            >
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-semibold" :class="pa.isLeader ? 'text-green-400' : 'text-white'">{{ pa.name }}</span>
+                  <span class="text-[0.55rem] text-gray-600">{{ pa.position }}</span>
+                </div>
+                <span class="text-xs font-mono text-gray-400">{{ pa.cards }}</span>
+              </div>
+
+              <div class="text-xs font-semibold" :class="pa.folded ? 'text-gray-600' : 'text-white'">{{ pa.handDesc }}</div>
+
+              <template v-if="!pa.folded">
+                <!-- Equity bar -->
+                <div class="flex items-center gap-2 mt-1.5">
+                  <div class="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      class="h-full rounded-full transition-all duration-300"
+                      :class="pa.equity >= 50 ? 'bg-green-500' : pa.equity >= 25 ? 'bg-yellow-500' : 'bg-red-500'"
+                      :style="{ width: `${Math.max(2, pa.equity)}%` }"
+                    />
+                  </div>
+                  <span class="text-xs font-mono tabular-nums w-10 text-right" :class="pa.equity >= 50 ? 'text-green-400' : pa.equity >= 25 ? 'text-yellow-400' : 'text-red-400'">{{ pa.equity }}%</span>
+                </div>
+
+                <!-- Draws -->
+                <div v-if="pa.draws.length > 0" class="mt-1">
+                  <div v-for="d in pa.draws" :key="d.type" class="text-[0.6rem] text-blue-400/70">
+                    {{ d.type }} ({{ d.outs }} outs)
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
