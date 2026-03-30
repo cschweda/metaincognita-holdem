@@ -165,6 +165,9 @@ export function useSessionStats() {
     session.value.totalProfit = newStack - session.value.startingStack
     session.value.peakStack = Math.max(session.value.peakStack, newStack)
 
+    // Save to localStorage immediately (don't wait for debounced watch)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
+
     // Save to Supabase in background
     saveHandToSupabase(record)
   }

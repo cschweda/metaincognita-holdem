@@ -60,10 +60,19 @@ export function useStatsData() {
     }
 
     const sb = useSupabase()
-    if (!sb) { loading.value = false; return }
+    if (!sb) {
+      // No Supabase — use localStorage data directly
+      mapLocalSessionToHands()
+      loading.value = false
+      return
+    }
 
     userId.value = await ensureAnonSession()
-    if (!userId.value) { loading.value = false; return }
+    if (!userId.value) {
+      mapLocalSessionToHands()
+      loading.value = false
+      return
+    }
 
     const user = await getCurrentUser()
     isGitHubAuth.value = !!user && !user.is_anonymous
@@ -71,18 +80,22 @@ export function useStatsData() {
     if (isGitHubAuth.value) {
       await loadData(sb)
     } else {
-      if (localSession.value?.hands) {
-        hands.value = localSession.value.hands.map((h: HandRecord, i: number) => ({
-          id: `local-${i}`, session_id: localSession.value.id,
-          hand_number: h.handNumber, hole_cards: h.holeCards, board: h.board,
-          result: h.result, profit: h.profit, position: h.position,
-          pot_size: h.potSize, stake_level: localSession.value.stakeLevel,
-          player_count: localSession.value.playerCount,
-          played_at: new Date().toISOString(),
-          actions: h.actions || null, players: h.players || null,
-        }))
-      }
+      mapLocalSessionToHands()
       loading.value = false
+    }
+  }
+
+  function mapLocalSessionToHands() {
+    if (localSession.value?.hands) {
+      hands.value = localSession.value.hands.map((h: HandRecord, i: number) => ({
+        id: `local-${i}`, session_id: localSession.value!.id,
+        hand_number: h.handNumber, hole_cards: h.holeCards, board: h.board,
+        result: h.result, profit: h.profit, position: h.position,
+        pot_size: h.potSize, stake_level: localSession.value!.stakeLevel,
+        player_count: localSession.value!.playerCount,
+        played_at: new Date().toISOString(),
+        actions: h.actions || null, players: h.players || null,
+      }))
     }
   }
 
