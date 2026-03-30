@@ -102,83 +102,107 @@ function formatAmount(n: number): string {
     <!-- Row 1: Main action buttons -->
     <div class="flex gap-2">
       <!-- Fold -->
-      <button
-        class="flex-1 py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
-               bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40
-               active:scale-[0.97]"
-        @click="handleFold"
-      >
-        Fold
-      </button>
+      <UTooltip text="Surrender your hand and lose any chips already in the pot" class="flex-1">
+        <button
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
+                 bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40
+                 active:scale-[0.97]"
+          @click="handleFold"
+        >
+          Fold
+        </button>
+      </UTooltip>
 
       <!-- Check / Call -->
-      <button
-        class="flex-1 py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
-               active:scale-[0.97]"
-        :class="canCheck
-          ? 'bg-gray-700/60 hover:bg-gray-600/80 text-gray-200 border border-gray-600/40'
-          : 'bg-blue-900/60 hover:bg-blue-800/80 text-blue-200 border border-blue-700/40'"
-        @click="handleCheckCall"
+      <UTooltip
+        :text="canCheck
+          ? 'Pass the action — no chips needed'
+          : `Match the current bet of ${formatAmount(Math.min(toCall, maxRaise))}${toCall >= maxRaise ? ' (all your remaining chips)' : ''}`"
+        class="flex-1"
       >
-        <template v-if="canCheck">Check</template>
-        <template v-else>
-          Call {{ formatAmount(Math.min(toCall, maxRaise)) }}
-          <span v-if="toCall >= maxRaise" class="text-xs opacity-70 ml-1">(all-in)</span>
-        </template>
-      </button>
+        <button
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
+                 active:scale-[0.97]"
+          :class="canCheck
+            ? 'bg-gray-700/60 hover:bg-gray-600/80 text-gray-200 border border-gray-600/40'
+            : 'bg-blue-900/60 hover:bg-blue-800/80 text-blue-200 border border-blue-700/40'"
+          @click="handleCheckCall"
+        >
+          <template v-if="canCheck">Check</template>
+          <template v-else>
+            Call {{ formatAmount(Math.min(toCall, maxRaise)) }}
+            <span v-if="toCall >= maxRaise" class="text-xs opacity-70 ml-1">(all-in)</span>
+          </template>
+        </button>
+      </UTooltip>
 
       <!-- Raise / Bet / All-In -->
-      <button
+      <UTooltip
         v-if="canRaise"
-        class="flex-1 py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
-               bg-green-900/60 hover:bg-green-800/80 text-green-200 border border-green-700/40
-               active:scale-[0.97]"
-        @click="handleRaise"
+        :text="isAllIn
+          ? `Push all your chips in — ${formatAmount(maxRaise)}`
+          : `Increase the bet to ${formatAmount(raiseAmount)} (min ${formatAmount(minRaise)})`"
+        class="flex-1"
       >
-        <template v-if="isAllIn">
-          All-In {{ formatAmount(maxRaise) }}
-        </template>
-        <template v-else>
-          Raise {{ formatAmount(raiseAmount) }}
-        </template>
-      </button>
+        <button
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
+                 bg-green-900/60 hover:bg-green-800/80 text-green-200 border border-green-700/40
+                 active:scale-[0.97]"
+          @click="handleRaise"
+        >
+          <template v-if="isAllIn">
+            All-In {{ formatAmount(maxRaise) }}
+          </template>
+          <template v-else>
+            Raise {{ formatAmount(raiseAmount) }}
+          </template>
+        </button>
+      </UTooltip>
     </div>
 
     <!-- Row 2: Raise presets + custom (only when raising is possible) -->
     <div v-if="canRaise" class="space-y-2">
       <!-- Preset buttons -->
       <div class="flex gap-1.5">
-        <button
+        <UTooltip
           v-for="preset in presets"
           :key="preset.label"
-          class="flex-1 py-1.5 rounded-md text-xs font-semibold transition-all border
-                 active:scale-[0.97]"
-          :class="[
-            raiseAmount === preset.amount
-              ? 'bg-green-700/60 text-green-100 border-green-500/50'
-              : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60',
-            preset.isClamped ? 'opacity-50' : '',
-          ]"
-          :disabled="preset.isClamped"
-          :title="preset.isClamped ? `${preset.label} ($${preset.raw}) is below min-raise ($${minRaise})` : ''"
-          @click="!preset.isClamped && raisePreset(preset.amount)"
+          :text="preset.isClamped
+            ? `${preset.label} (${formatAmount(preset.raw)}) is below the min-raise of ${formatAmount(minRaise)}`
+            : `Raise to ${formatAmount(preset.amount)}`"
+          class="flex-1"
         >
-          {{ preset.label }}
-          <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(preset.raw) }}</span>
-        </button>
+          <button
+            class="w-full py-1.5 rounded-md text-xs font-semibold transition-all border
+                   active:scale-[0.97]"
+            :class="[
+              raiseAmount === preset.amount
+                ? 'bg-green-700/60 text-green-100 border-green-500/50'
+                : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60',
+              preset.isClamped ? 'opacity-50 cursor-not-allowed' : '',
+            ]"
+            :disabled="preset.isClamped"
+            @click="!preset.isClamped && raisePreset(preset.amount)"
+          >
+            {{ preset.label }}
+            <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(preset.raw) }}</span>
+          </button>
+        </UTooltip>
 
         <!-- All-in button -->
-        <button
-          class="flex-1 py-1.5 rounded-md text-xs font-semibold transition-all border
-                 active:scale-[0.97]"
-          :class="raiseAmount === maxRaise
-            ? 'bg-amber-700/60 text-amber-100 border-amber-500/50'
-            : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60'"
-          @click="raisePreset(maxRaise)"
-        >
-          All-In
-          <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(maxRaise) }}</span>
-        </button>
+        <UTooltip :text="`Go all-in for ${formatAmount(maxRaise)}`" class="flex-1">
+          <button
+            class="w-full py-1.5 rounded-md text-xs font-semibold transition-all border
+                   active:scale-[0.97]"
+            :class="raiseAmount === maxRaise
+              ? 'bg-amber-700/60 text-amber-100 border-amber-500/50'
+              : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60'"
+            @click="raisePreset(maxRaise)"
+          >
+            All-In
+            <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(maxRaise) }}</span>
+          </button>
+        </UTooltip>
       </div>
 
       <!-- Slider -->
