@@ -177,7 +177,7 @@ function afLabel(af: number): string {
 </script>
 
 <template>
-  <div class="w-full lg:w-80 bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden text-sm">
+  <div class="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden text-sm">
     <!-- Tab bar -->
     <div class="flex border-b border-gray-700/50">
       <button

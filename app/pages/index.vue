@@ -786,24 +786,6 @@ function formatPot(n: number): string {
             @raise="handleRaise"
           />
 
-          <!-- Waiting indicator (bots acting) -->
-          <div
-            v-if="dealt && !heroTurn && street !== 'showdown' && activePlayers.length > 1"
-            class="flex justify-center"
-          >
-            <div class="inline-flex items-center gap-3 bg-gray-800/80 border border-gray-700/50 rounded-full px-5 py-2.5 shadow-lg">
-              <div class="flex gap-1">
-                <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
-                <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
-                <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
-              </div>
-              <span class="text-sm font-medium text-gray-200">
-                {{ playerStates[activeSeat]?.name || 'Bot' }}
-                <span class="text-gray-400 font-normal">is thinking</span>
-              </span>
-            </div>
-          </div>
-
           <!-- Deal next hand -->
           <div v-if="street === 'showdown'" class="flex justify-center">
             <UButton
@@ -816,7 +798,46 @@ function formatPot(n: number): string {
           </div>
         </div>
 
-        <!-- Stats Panel -->
+        <!-- Stats column -->
+        <div class="w-full lg:w-80 space-y-3">
+          <!-- Action status -->
+          <div
+            v-if="dealt && !heroTurn && street !== 'showdown' && activePlayers.length > 1"
+            class="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4"
+          >
+            <div class="flex items-center gap-4">
+              <div class="flex gap-1.5">
+                <div class="w-3 h-3 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
+                <div class="w-3 h-3 rounded-full bg-green-400 animate-bounce" style="animation-delay: 150ms;" />
+                <div class="w-3 h-3 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
+              </div>
+              <div>
+                <div class="text-base font-semibold text-white">
+                  {{ playerStates[activeSeat]?.name || 'Bot' }}
+                </div>
+                <div class="text-xs text-gray-400">is thinking...</div>
+              </div>
+            </div>
+            <!-- Progress bar -->
+            <div class="mt-3 w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div class="h-full bg-green-500/60 rounded-full animate-pulse" style="width: 60%;" />
+            </div>
+          </div>
+
+          <!-- Hero's turn indicator -->
+          <div
+            v-if="heroTurn"
+            class="bg-amber-900/30 border border-amber-700/40 rounded-xl p-4"
+          >
+            <div class="flex items-center gap-3">
+              <div class="w-3 h-3 rounded-full bg-amber-400 animate-pulse" />
+              <div>
+                <div class="text-base font-semibold text-amber-200">Your Turn</div>
+                <div class="text-xs text-amber-400/60">{{ toCall > 0 ? `$${toCall} to call` : 'Check or bet' }}</div>
+              </div>
+            </div>
+          </div>
+
         <StatsPanel
           :hole-cards="heroHoleCards as [import('~/utils/cards').Card, import('~/utils/cards').Card] | null"
           :community="visibleCommunity"
@@ -837,6 +858,7 @@ function formatPot(n: number): string {
           @export-csv="downloadCSV"
           @reset-session="resetSession"
         />
+        </div>
       </div>
     </div>
   </div>
