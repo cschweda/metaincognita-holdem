@@ -83,7 +83,7 @@ async function handleEmailAuth() {
 
 // Pro bots are real player personas; fictional bots are the originals
 const proBots = config.personas.filter(p =>
-  ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly', 'Phil Laak', 'Antonio Esfandiari', 'Gabe Kaplan', 'Jean-Robert Bellande', 'Mike Matusow'].includes(p.name)
+  !['Tight Tony', 'Loose Lucy', 'Aggressive Alex', 'Calling Carl', 'Tricky Tina', 'Solid Sam', 'Wild Wendy'].includes(p.name)
 )
 const fictionalBots = config.personas.filter(p => !proBots.includes(p))
 

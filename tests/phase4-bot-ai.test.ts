@@ -92,8 +92,8 @@ describe('Bet sizing', () => {
 
 describe('Tilt mechanics', () => {
   it('tilt trigger threshold is reasonable (20-50% of stack)', () => {
-    expect(config.tilt.triggerThreshold).toBeGreaterThanOrEqual(0.20)
-    expect(config.tilt.triggerThreshold).toBeLessThanOrEqual(0.50)
+    expect(config.tilt.bigLossThreshold).toBeGreaterThanOrEqual(0.20)
+    expect(config.tilt.bigLossThreshold).toBeLessThanOrEqual(0.50)
   })
 
   it('tilt decays within 3-5 hands', () => {

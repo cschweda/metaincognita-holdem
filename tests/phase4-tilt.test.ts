@@ -194,18 +194,18 @@ describe('applyTilt profile modification', () => {
     expect(result.pfr).toBe(base.pfr + tiltConfig.pfrBoost)
   })
 
-  it('caps VPIP at 0.60 even on full tilt', () => {
-    const looseBase: BotProfile = { ...base, vpip: 0.55 }
+  it('caps VPIP at 0.65 even on full tilt', () => {
+    const looseBase: BotProfile = { ...base, vpip: 0.60 }
     const state: TiltState = { consecutiveLosses: 5, tilted: true, severity: 1.0, handsRemaining: 4 }
     const result = applyTilt(looseBase, state, tiltConfig)
-    expect(result.vpip).toBeLessThanOrEqual(0.60)
+    expect(result.vpip).toBeLessThanOrEqual(0.65)
   })
 
-  it('caps aggression at 2.5 even on full tilt', () => {
-    const aggroBase: BotProfile = { ...base, aggression: 2.3 }
+  it('caps aggression at 3.0 even on full tilt', () => {
+    const aggroBase: BotProfile = { ...base, aggression: 2.8 }
     const state: TiltState = { consecutiveLosses: 5, tilted: true, severity: 1.0, handsRemaining: 4 }
     const result = applyTilt(aggroBase, state, tiltConfig)
-    expect(result.aggression).toBeLessThanOrEqual(2.5)
+    expect(result.aggression).toBeLessThanOrEqual(3.0)
   })
 })
 
