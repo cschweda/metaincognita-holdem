@@ -35,6 +35,7 @@ interface HandRow {
   player_count: number
   played_at: string
   actions: string[] | null
+  players: { name: string; position: string; holeCards: string; folded: boolean; isHero: boolean }[] | null
 }
 
 const loading = ref(true)
@@ -686,6 +687,33 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
                             <span class="text-gray-500 text-xs">Result</span>
                             <div :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold">
                               {{ formatProfit(h.profit) }}
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- All players' cards -->
+                        <div v-if="h.players && h.players.length > 0">
+                          <div class="text-xs text-gray-500 mb-1.5">Players</div>
+                          <div class="grid grid-cols-2 gap-1.5">
+                            <div
+                              v-for="(player, pi) in h.players"
+                              :key="pi"
+                              class="flex items-center justify-between bg-gray-900/60 rounded px-2.5 py-1.5 text-xs"
+                              :class="player.folded ? 'opacity-50' : ''"
+                            >
+                              <div class="flex items-center gap-2">
+                                <span
+                                  class="font-semibold"
+                                  :class="player.isHero ? 'text-amber-400' : 'text-gray-300'"
+                                >
+                                  {{ player.name }}
+                                </span>
+                                <span class="text-gray-600 text-[0.6rem]">{{ player.position }}</span>
+                              </div>
+                              <div class="flex items-center gap-1.5">
+                                <span class="font-mono text-white">{{ player.holeCards || '?' }}</span>
+                                <span v-if="player.folded" class="text-red-400/60 text-[0.55rem]">FOLD</span>
+                              </div>
                             </div>
                           </div>
                         </div>

@@ -552,6 +552,15 @@ function endHand() {
     const holeStr = heroState.holeCards ? heroState.holeCards.map(c => displayCard(c)).join(' ') : ''
     const boardStr = visibleCommunity.value.map(c => displayCard(c)).join(' ')
 
+    // Collect all players' cards for hand history
+    const allPlayerHands = playerStates.value.map((p, i) => ({
+      name: p.name,
+      position: positions.value[i] || '',
+      holeCards: p.holeCards ? p.holeCards.map(c => displayCard(c)).join(' ') : '',
+      folded: p.folded,
+      isHero: p.isHero,
+    }))
+
     if (!guestMode.value) recordHand({
       handNumber: session.value.handsPlayed + 1,
       holeCards: holeStr,
@@ -561,6 +570,7 @@ function endHand() {
       position: positions.value[0] || '',
       potSize: pot.value,
       actions: [...handActionLog.value],
+      players: allPlayerHands,
     }, heroState.chips)
   }
 

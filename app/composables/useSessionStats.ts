@@ -4,15 +4,24 @@
  */
 import { useSupabase, ensureAnonSession } from './useSupabase'
 
+export interface PlayerHand {
+  name: string
+  position: string
+  holeCards: string      // e.g. "Ah Kd"
+  folded: boolean
+  isHero: boolean
+}
+
 export interface HandRecord {
   handNumber: number
-  holeCards: string      // e.g. "Ah Kd"
+  holeCards: string      // hero's cards e.g. "Ah Kd"
   board: string          // e.g. "As Td 7c 2h 9s"
   result: 'won' | 'lost' | 'folded'
   profit: number         // +/- from this hand
   position: string       // BTN, UTG, etc.
   potSize: number
-  actions: string[]      // play-by-play log: "Tight Tony raises $6", "Hero calls $6", etc.
+  actions: string[]      // play-by-play log
+  players: PlayerHand[]  // all players' cards + status
 }
 
 export interface SessionData {
@@ -189,6 +198,7 @@ export function useSessionStats() {
       player_count: session.value.playerCount,
       played_at: new Date().toISOString(),
       actions: record.actions || [],
+      players: record.players || [],
     })
     if (error) console.warn('Failed to save hand:', error.message)
   }
