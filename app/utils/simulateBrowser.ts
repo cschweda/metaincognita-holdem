@@ -319,7 +319,7 @@ export async function runSimulation(
     if (isShowdown && remaining.length >= 2) {
       const showdownHands = remaining.filter(p => p.holeCards).map(p => ({
         name: p.name, result: bestHand(Array.from(p.holeCards!), community), cards: p.holeCards!,
-      })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
+      })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.score[0] - a.result!.score[0])
 
       // Teaching: show what the winning hand was and why
       if (showdownHands.length >= 1) {
