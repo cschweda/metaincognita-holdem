@@ -467,7 +467,15 @@ export function recommend(
   madeHand: HandResult | null,
   chenScoreVal: number,
   position: string,
+  facingBet: boolean = true,
 ): { action: HandAnalysis['action']; reasoning: string } {
+  // Helper: if not facing a bet, CALL becomes CHECK
+  function maybeCheck(result: { action: HandAnalysis['action']; reasoning: string }) {
+    if (!facingBet && result.action === 'CALL') {
+      return { action: 'CHECK' as const, reasoning: result.reasoning.replace(/call/gi, 'check') }
+    }
+    return result
+  }
   // Preflop logic
   if (street === 'preflop') {
     const isLate = ['BTN', 'CO', 'D', 'D/SB', 'D/BTN'].includes(position)
@@ -500,38 +508,38 @@ export function recommend(
 
   // Very strong hand
   if (equity >= 75) {
-    return { action: 'RAISE', reasoning: `Very strong hand (${Math.round(equity)}% equity) — raise for value.` }
+    return maybeCheck({ action: 'RAISE', reasoning: `Very strong hand (${Math.round(equity)}% equity) — raise for value.` })
   }
 
   // Strong hand
   if (equity >= 55) {
     if (handRank >= 2) {
-      return { action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — bet/raise for value and protection.` }
+      return maybeCheck({ action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — bet/raise for value and protection.` })
     }
-    return { action: 'CALL', reasoning: `Decent equity (${Math.round(equity)}%) — call and reevaluate.` }
+    return maybeCheck({ action: 'CALL', reasoning: `Decent equity (${Math.round(equity)}%) — call and reevaluate.` })
   }
 
   // Drawing hand
   if (equity >= 35 || hasStrongDraw) {
     if (totalDrawOuts >= 12) {
-      return { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff raise.` }
+      return maybeCheck({ action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff raise.` })
     }
     if (totalDrawOuts >= 8) {
-      return { action: 'CALL', reasoning: `Good draw with ${totalDrawOuts} outs — call if pot odds justify.` }
+      return maybeCheck({ action: 'CALL', reasoning: `Good draw with ${totalDrawOuts} outs — call if pot odds justify.` })
     }
-    return { action: 'CALL', reasoning: `Moderate equity (${Math.round(equity)}%) — call to see another card.` }
+    return maybeCheck({ action: 'CALL', reasoning: `Moderate equity (${Math.round(equity)}%) — call to see another card.` })
   }
 
   // Weak
   if (equity >= 20 && totalDrawOuts >= 4) {
-    return { action: 'CHECK', reasoning: `Weak hand but ${totalDrawOuts} outs to improve — check or fold to aggression.` }
+    return maybeCheck({ action: 'CHECK', reasoning: `Weak hand but ${totalDrawOuts} outs to improve — check or fold to aggression.` })
   }
 
   if (handRank === 0 && totalDrawOuts === 0) {
-    return { action: 'FOLD', reasoning: `No made hand, no draw — fold to any bet.` }
+    return maybeCheck({ action: 'FOLD', reasoning: `No made hand, no draw — fold to any bet.` })
   }
 
-  return { action: 'CHECK', reasoning: `Marginal hand (${Math.round(equity)}% equity) — check and minimize losses.` }
+  return maybeCheck({ action: 'CHECK', reasoning: `Marginal hand (${Math.round(equity)}% equity) — check and minimize losses.` })
 }
 
 // ─── Hand Improvement Probabilities (Monte Carlo) ──────────────
@@ -615,6 +623,7 @@ export function analyzeHand(
   streetName: string,
   numOpponents: number,
   position: string,
+  toCall: number = 0,
 ): HandAnalysis {
   const chen = chenScore(holeCards)
   const { tier, label } = preflopTier(chen)
@@ -636,7 +645,7 @@ export function analyzeHand(
     ? estimatePreflopEquity(chen, numOpponents)
     : estimateEquity(holeCards, community, numOpponents, 300)
 
-  const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position)
+  const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0)
 
   // Hand improvement probabilities
   const handProbabilities = simulateHandProbabilities(holeCards, community, 400)

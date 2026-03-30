@@ -77,6 +77,7 @@ const analysis = computed<HandAnalysis | null>(() => {
     props.street,
     props.numOpponents,
     props.position,
+    props.toCall || 0,
   )
 })
 
