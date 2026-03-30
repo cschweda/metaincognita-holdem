@@ -1,5 +1,5 @@
 <template>
   <UApp>
-    <NuxtPage />
+    <NuxtPage :keepalive="{ include: ['index'] }" />
   </UApp>
 </template>

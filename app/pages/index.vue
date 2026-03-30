@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'index' })
 /**
  * Main game page — poker table with simulated betting rounds.
  * Bots act visibly in sequence with action labels.
@@ -14,6 +15,14 @@ import { displayCard } from '~/utils/cards'
 const phase = ref<'setup' | 'table' | 'timeout' | 'busted'>('setup')
 const { session, initSession, recordHand, resetSession, saveSessionToSupabase, downloadJSON, downloadCSV, supabaseReady } = useSessionStats()
 const settings = ref<GameSettings | null>(null)
+
+// ─── KeepAlive: pause/resume timeout when navigating to/from stats ──
+onActivated(() => {
+  if (phase.value === 'table') resetTimeout()
+})
+onDeactivated(() => {
+  if (timeoutTimer) clearTimeout(timeoutTimer)
+})
 
 // ─── Hero Timeout ──────────────────────────────────────────────
 let timeoutTimer: ReturnType<typeof setTimeout> | null = null
