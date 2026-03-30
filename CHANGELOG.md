@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mon said "Hero has 9 outs to the flush draw" on the river. `onHeroTurn()` now skips `detectDraws()` entirely on the river.
   - Mon said a player was "chasing the flush draw" when calling on the river. `onAction()` call handler now skips draw detection on the river.
 
+### Added (Position-Aware Commentary)
+- **Mon fold assessments with position** — `lonFoldAssessment()` generates dynamic, context-aware fold analysis considering hand strength, position, street, and whether facing a raise. Examples: "Degreanu folds Ah Qd from the cutoff facing a raise. Disciplined. Most players can't fold that." / "Pvey folds 7h 2d from under the gun. Easy decision."
+- **Chorman reacts to fold assessments** — 15 new `normanFoldReactionQuips`: "Mon's right. That fold makes sense. I would have called, which is why I'm broke and they're not."
+- **Position on junk EP opens** — Mon critiques questionable early-position raises: "Opening that hand from under the gun? That's either a read or a mistake." Chorman follows with position-specific quips: "From under the gun with THAT? My ex-wife makes better decisions."
+- **Position on premium raises** — Mon includes position label when analyzing strong preflop raises in TV mode.
+- **Positions passed to commentary composable** — `useCommentary` now receives position labels via the GS interface from index.vue.
+
 ### Added (Commentary Overhaul — Variety & Banter)
 Comprehensive assessment found Mon's pools too thin (61 phrases, repeats within a session), Norman's thin pools (4-8 quips each for common triggers), no inter-voice dialogue, and strategic generators too shallow. All fixed:
 
