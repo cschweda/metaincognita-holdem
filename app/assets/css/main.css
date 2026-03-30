@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/*
+ * Hold'em Simulator — Global Styles
+ * Casino-dark luxury theme: emerald felt, walnut rail, gold/cream accents.
+ * The poker table felt stays dark emerald green in both light and dark mode.
+ */
+
+:root {
+  /* Felt & table (constant across color modes) */
+  --felt-green: #0a5c36;
+  --felt-green-light: #0d7a48;
+  --felt-glow: rgba(16, 185, 100, 0.15);
+  --rail-walnut: #5c3a1e;
+  --rail-walnut-dark: #3d2713;
+  --rail-shadow: rgba(0, 0, 0, 0.5);
+
+  /* Card colors */
+  --card-red: #dc2626;
+  --card-black: #1a1a1a;
+
+  /* Gold/cream accents */
+  --accent-gold: #d4a847;
+  --accent-cream: #f5f0e1;
+
+  /* Chip colors */
+  --chip-white: #f0f0f0;
+  --chip-red: #dc2626;
+  --chip-green: #16a34a;
+  --chip-black: #1a1a1a;
+  --chip-purple: #7c3aed;
+  --chip-orange: #ea580c;
+}

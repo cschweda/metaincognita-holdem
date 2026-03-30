@@ -1,0 +1,8 @@
+[build]
+  command = "yarn generate"
+  publish = ".output/public"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

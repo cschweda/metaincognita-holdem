@@ -1,0 +1,21 @@
+{
+  "name": "holdem-simulator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^4.6.0",
+    "nuxt": "^4.4.2"
+  },
+  "devDependencies": {
+    "@vue/test-utils": "^2.4.6",
+    "vitest": "^4.1.2"
+  }
+}
