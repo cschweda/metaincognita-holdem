@@ -827,12 +827,17 @@ function boardCards(board: string): string[] {
                         <!-- Play-by-play -->
                         <div v-if="h.actions && h.actions.length > 0">
                           <div class="text-xs text-gray-500 mb-1.5">Play-by-Play</div>
-                          <div class="bg-gray-900/60 rounded-lg p-3 max-h-48 overflow-y-auto space-y-0.5">
+                          <div class="bg-gray-900/60 rounded-lg p-3 max-h-64 overflow-y-auto space-y-0.5">
                             <div
                               v-for="(action, ai) in h.actions"
                               :key="ai"
                               class="text-xs font-mono"
-                              :class="action.startsWith('---') ? 'text-yellow-500/70 font-semibold mt-1' : 'text-gray-300'"
+                              :class="[
+                                action.startsWith('---') ? 'text-yellow-500/70 font-semibold mt-2' : '',
+                                action.startsWith('  ') && !action.startsWith('---') ? 'text-blue-400/70 pl-2' : '',
+                                !action.startsWith('---') && !action.startsWith('  ') ? 'text-gray-300' : '',
+                                action.includes('← Hero') ? 'text-amber-400/90' : '',
+                              ]"
                             >
                               {{ action }}
                             </div>

@@ -232,7 +232,19 @@ function dealNewHand() {
   handWinnerId.value = -1
   handWinnerName.value = ''
   streetAtEnd.value = 'preflop'
-  handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
+  // Build the hand log with player cards at the top
+  const playerCards = states
+    .filter(p => !p.eliminated)
+    .map(p => {
+      const pos = positions.value[p.id] || ''
+      const cards = p.holeCards ? p.holeCards.map(c => displayCard(c)).join(' ') : '??'
+      return `  ${p.name} (${pos}): ${cards}${p.isHero ? ' ← Hero' : ''}`
+    })
+  handActionLog.value = [
+    `--- DEAL ---`,
+    ...playerCards,
+    `--- PREFLOP ---`,
+  ]
 
   // Rotate dealer
   dealerSeat.value = (dealerSeat.value + 1) % count
