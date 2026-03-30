@@ -170,6 +170,64 @@ const positionStats = computed(() => {
     .sort((a, b) => b.profit - a.profit)
 })
 
+// ─── Export Functions ──────────────────────────────────────────
+
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportLifetimeJSON() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    lifetime: lifetimeStats.value,
+    winRate: winRate.value,
+    sessionSummary: sessionSummary.value,
+    positionStats: positionStats.value,
+    sessions: sessions.value,
+    hands: hands.value,
+  }
+  downloadFile(JSON.stringify(data, null, 2), `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.json`, 'application/json')
+}
+
+function exportLifetimeCSV() {
+  const headers = ['Hand #', 'Session', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size', 'Stake', 'Players', 'Played At']
+  const rows = hands.value.map(h => [
+    h.hand_number,
+    h.session_id.slice(0, 8),
+    h.hole_cards,
+    h.board || '',
+    h.position,
+    h.result,
+    h.profit,
+    h.pot_size,
+    h.stake_level,
+    h.player_count,
+    h.played_at,
+  ].join(','))
+  downloadFile([headers.join(','), ...rows].join('\n'), `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv')
+}
+
+function exportSessionJSON(s: SessionRow) {
+  const sessionHands = hands.value.filter(h => h.session_id === s.id)
+  const data = { session: s, hands: sessionHands }
+  downloadFile(JSON.stringify(data, null, 2), `holdem-session-${s.id.slice(0, 8)}.json`, 'application/json')
+}
+
+function exportSessionCSV(s: SessionRow) {
+  const sessionHands = hands.value.filter(h => h.session_id === s.id)
+  const headers = ['Hand #', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size', 'Played At']
+  const rows = sessionHands.map(h => [
+    h.hand_number, h.hole_cards, h.board || '', h.position, h.result, h.profit, h.pot_size, h.played_at,
+  ].join(','))
+  downloadFile([headers.join(','), ...rows].join('\n'), `holdem-session-${s.id.slice(0, 8)}.csv`, 'text/csv')
+}
+
 // ─── Profit Over Time (last 50 hands) ─────────────────────────
 
 const profitTimeline = computed(() => {
@@ -437,6 +495,19 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
             </div>
           </div>
 
+          <!-- Export lifetime -->
+          <div class="mt-6">
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Export Lifetime Data</h2>
+            <div class="flex gap-2">
+              <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimeJSON">
+                JSON
+              </UButton>
+              <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimeCSV">
+                CSV
+              </UButton>
+            </div>
+          </div>
+
           <!-- Danger zone -->
           <div class="mt-8 border-t border-red-900/30 pt-6">
             <h2 class="text-xs font-semibold text-red-500/60 uppercase tracking-wider mb-3">Danger Zone</h2>
@@ -499,8 +570,16 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
                 </div>
               </div>
             </div>
-            <!-- Delete session -->
-            <div class="mt-2 flex justify-end">
+            <!-- Session actions -->
+            <div class="mt-2 flex items-center justify-between">
+              <div class="flex gap-1">
+                <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionJSON(s)">
+                  JSON
+                </UButton>
+                <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionCSV(s)">
+                  CSV
+                </UButton>
+              </div>
               <template v-if="confirmingDeleteSession === s.id">
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-red-400">Delete this session?</span>
