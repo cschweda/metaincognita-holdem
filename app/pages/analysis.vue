@@ -3,11 +3,18 @@
  * Interactive bot analysis page — runs a live simulation in the browser,
  * shows results with metrics, bot stats, and the most interesting hands.
  */
+import config from '@config'
 import { runSimulation } from '~/utils/simulateBrowser'
 import type { SimResult } from '~/utils/simulateBrowser'
 
 defineOptions({ name: 'analysis' })
 useHead({ title: 'Bot Analysis Report' })
+
+const stakeLevel = ref(3)
+const stakeName = computed(() => {
+  const s = config.stakes.find(st => st.level === stakeLevel.value)
+  return s ? `${s.name} $${s.sb}/$${s.bb}` : 'Medium $1/$2'
+})
 
 const running = ref(false)
 const runPhase = ref('')
@@ -25,13 +32,13 @@ async function runAnalysis() {
   const startTime = Date.now()
 
   runPhase.value = 'Running heads-up (2-player) simulation...'
-  result2p.value = await runSimulation(1000, 2, () => {})
+  result2p.value = await runSimulation(1000, 2, () => {}, stakeLevel.value)
 
   runPhase.value = 'Running 6-player simulation...'
-  result6p.value = await runSimulation(1000, 6, () => {})
+  result6p.value = await runSimulation(1000, 6, () => {}, stakeLevel.value)
 
   runPhase.value = 'Running 8-player simulation...'
-  result8p.value = await runSimulation(1000, 8, () => {})
+  result8p.value = await runSimulation(1000, 8, () => {}, stakeLevel.value)
 
   runDuration.value = Math.round((Date.now() - startTime) / 1000)
   runTimestamp.value = new Date().toLocaleString('en-US', {
@@ -81,25 +88,42 @@ const expandedHand = ref<string | null>(null)
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-3xl font-bold text-white">Bot Analysis Report</h1>
-          <p class="text-gray-500 text-sm mt-1">Live simulation — pro personas only, $1/$2 Medium stakes</p>
+          <p class="text-gray-500 text-sm mt-1">Live simulation — pro personas only</p>
         </div>
         <NuxtLink to="/">
           <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back</UButton>
         </NuxtLink>
       </div>
 
-      <!-- Run Button -->
+      <!-- Run Controls -->
       <div class="mb-8">
-        <button
-          :disabled="running"
-          class="px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
-          :class="running
-            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-            : 'bg-green-600 hover:bg-green-500 text-white active:scale-[0.97]'"
-          @click="runAnalysis"
-        >
-          {{ running ? 'Running Simulation...' : result6p ? 'Run New Simulation' : 'Run 3,000-Hand Simulation' }}
-        </button>
+        <div class="flex items-center gap-4">
+          <button
+            :disabled="running"
+            class="px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
+            :class="running
+              ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-500 text-white active:scale-[0.97]'"
+            @click="runAnalysis"
+          >
+            {{ running ? 'Running Simulation...' : result6p ? 'Run New Simulation' : 'Run 3,000-Hand Simulation' }}
+          </button>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500">Stakes:</span>
+            <select
+              v-model.number="stakeLevel"
+              :disabled="running"
+              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50 cursor-pointer"
+            >
+              <option v-for="s in config.stakes" :key="s.level" :value="s.level">
+                {{ s.name }} — ${{ s.sb }}/${{ s.bb }}
+              </option>
+            </select>
+            <UTooltip text="Stakes affect the dollar amounts in hand histories and pot sizes but do not change bot behavior — bots use relative values (pot odds, bet-to-pot ratios).">
+              <span class="text-gray-600 text-xs cursor-help">?</span>
+            </UTooltip>
+          </div>
+        </div>
 
         <!-- Spinner -->
         <div v-if="running" class="mt-4 flex items-center gap-3">
@@ -120,6 +144,8 @@ const expandedHand = ref<string | null>(null)
           <span>{{ runDuration }}s runtime</span>
           <span>&middot;</span>
           <span>3,000 total hands</span>
+        <span>&middot;</span>
+        <span>{{ stakeName }}</span>
         </div>
         <button
           class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
@@ -248,11 +274,14 @@ const expandedHand = ref<string | null>(null)
                 <tbody>
                   <tr v-for="s in sim.r.botStats" :key="s.name" class="border-b border-gray-800/50">
                     <td class="py-1.5 px-2 text-white font-medium">{{ s.name }}</td>
-                    <td
-                      class="text-right px-2 font-mono"
-                      :class="Math.abs(s.vpipHands / Math.max(s.handsPlayed, 1) * 100 - s.vpipCfg * 100) > 5 ? 'text-amber-400' : 'text-green-400'"
-                    >
-                      {{ (s.vpipHands / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%
+                    <td class="text-right px-2 font-mono">
+                      <UTooltip
+                        v-if="Math.abs(s.vpipHands / Math.max(s.handsPlayed, 1) * 100 - s.vpipCfg * 100) > 5"
+                        :text="`VPIP deviated ${Math.abs(s.vpipHands / Math.max(s.handsPlayed, 1) * 100 - s.vpipCfg * 100).toFixed(1)}% from target — likely caused by tilt (${s.rebuys} rebuys), table dynamics, or natural variance over ${s.handsPlayed} hands.`"
+                      >
+                        <span class="text-amber-400 cursor-help">{{ (s.vpipHands / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%</span>
+                      </UTooltip>
+                      <span v-else class="text-green-400">{{ (s.vpipHands / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%</span>
                     </td>
                     <td class="text-right px-2 font-mono text-gray-600">{{ (s.vpipCfg * 100).toFixed(0) }}%</td>
                     <td class="text-right px-2 font-mono text-gray-300">{{ (s.pfrHands / Math.max(s.handsPlayed, 1) * 100).toFixed(1) }}%</td>

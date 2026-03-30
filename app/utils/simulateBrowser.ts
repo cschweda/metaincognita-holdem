@@ -71,8 +71,9 @@ export async function runSimulation(
   numHands: number,
   numPlayers: number,
   onProgress: (pct: number, hand: number) => void,
+  stakeLevel: number = 3,
 ): Promise<SimResult> {
-  const STAKE = config.stakes.find(s => s.level === 3)!
+  const STAKE = config.stakes.find(s => s.level === stakeLevel) || config.stakes.find(s => s.level === 3)!
   const BB = STAKE.bb, SB = STAKE.sb, STARTING_STACK = BB * 100
   const TABLE_FLOW_WINDOW = 20
 
