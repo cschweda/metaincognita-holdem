@@ -388,11 +388,16 @@ const expandedHand = ref<string | null>(null)
                       </div>
                     </div>
                   </div>
-                  <!-- Full PokerStars hand history -->
-                  <details>
-                    <summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-semibold">PokerStars Hand History</summary>
-                    <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3 mt-2">{{ hand.psFormat }}</pre>
-                  </details>
+                  <!-- Actions -->
+                  <div class="flex items-center gap-2">
+                    <NuxtLink :to="`/replay-hand?hand=${encodeURIComponent(hand.psFormat)}`">
+                      <UButton size="xs" variant="outline" color="primary" icon="i-lucide-play">Replay on Table</UButton>
+                    </NuxtLink>
+                    <details class="flex-1">
+                      <summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-semibold">PokerStars Hand History</summary>
+                      <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3 mt-2">{{ hand.psFormat }}</pre>
+                    </details>
+                  </div>
                 </div>
               </div>
             </div>
