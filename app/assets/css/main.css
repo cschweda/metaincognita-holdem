@@ -32,3 +32,21 @@
   --chip-purple: #7c3aed;
   --chip-orange: #ea580c;
 }
+
+/* Tooltip overrides — ensure visibility and wrapping */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+[role="tooltip"] {
+  max-width: 280px !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  background-color: #030712 !important;
+  color: #e5e7eb !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  font-size: 0.75rem !important;
+  line-height: 1.6 !important;
+}
