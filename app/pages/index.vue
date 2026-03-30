@@ -56,6 +56,19 @@ const minRaise = computed(() => Math.max(currentBet.value + bb.value, currentBet
 const maxRaise = computed(() => heroChips.value)
 const heroTurn = computed(() => dealt.value && !heroFolded.value && street.value !== 'showdown')
 
+// Generate opponent stats from bot persona configs (simulated — real tracking in Phase 5)
+const opponentStats = computed(() => {
+  if (!settings.value) return []
+  return settings.value.botConfigs.slice(0, settings.value.playerCount - 1).map(bot => ({
+    name: bot.name,
+    handsPlayed: 25, // simulated sample size
+    vpip: bot.vpip * 100,
+    pfr: bot.pfr * 100,
+    af: bot.aggression,
+    wtsd: bot.vpip > 0.25 ? 35 : 22, // loose players see more showdowns
+  }))
+})
+
 const players = computed(() => {
   if (!settings.value) return []
 
@@ -353,6 +366,10 @@ function formatPot(n: number): string {
           :street="street"
           :num-opponents="(settings?.playerCount || 2) - 1"
           :position="heroPosition"
+          :pot="pot"
+          :to-call="toCall"
+          :hero-chips="heroChips"
+          :player-stats="opponentStats"
         />
       </div>
     </div>
