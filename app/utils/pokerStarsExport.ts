@@ -87,17 +87,11 @@ export function toPokerStarsFormat(
   if (sbPlayer) lines.push(`${sbPlayer.name}: posts small blind $${stakeLevel.sb}`)
   if (bbPlayer) lines.push(`${bbPlayer.name}: posts big blind $${stakeLevel.bb}`)
 
-  // Hole cards
+  // Hole cards — always show all players' cards when available
+  // (needed for replay viewer to display all hands face-up)
   lines.push('*** HOLE CARDS ***')
-  const hero = players.find(p => p.isHero)
-  if (hero?.holeCards) {
-    // Normal game: show hero's cards
-    lines.push(`Dealt to ${hero.name} [${cardsToPS(hero.holeCards)}]`)
-  } else {
-    // Bot-vs-bot simulation: show all players' cards
-    for (const p of players) {
-      if (p.holeCards) lines.push(`Dealt to ${p.name} [${cardsToPS(p.holeCards)}]`)
-    }
+  for (const p of players) {
+    if (p.holeCards) lines.push(`Dealt to ${p.name} [${cardsToPS(p.holeCards)}]`)
   }
 
   // Parse actions into streets
