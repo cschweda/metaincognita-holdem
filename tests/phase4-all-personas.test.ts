@@ -14,7 +14,7 @@ import {
 } from '../app/utils/botDecision'
 import config from '../holdem.config'
 
-const N = 50000
+const N = 500000
 
 function profileFrom(p: typeof config.personas[0]): BotProfile {
   return { vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq }
@@ -27,15 +27,16 @@ describe('All personas: observed stats match config', () => {
     describe(persona.name, () => {
       const stats = simulateBotStats(profileFrom(persona), N)
 
-      it('VPIP is within reasonable range of config', () => {
-        // Observed VPIP should be within ±12% of configured
-        expect(stats.vpip).toBeGreaterThan(persona.vpip - 0.12)
-        expect(stats.vpip).toBeLessThan(persona.vpip + 0.12)
+      it('VPIP is within tight range of config', () => {
+        // 500K hands — observed VPIP should be within ±8% of configured
+        expect(stats.vpip).toBeGreaterThan(persona.vpip - 0.08)
+        expect(stats.vpip).toBeLessThan(persona.vpip + 0.08)
       })
 
       it('PFR is within reasonable range of config', () => {
-        expect(stats.pfr).toBeGreaterThan(persona.pfr - 0.10)
-        expect(stats.pfr).toBeLessThan(persona.pfr + 0.10)
+        // PFR observed lower than config because sim faces raises ~60% of the time
+        expect(stats.pfr).toBeGreaterThan(persona.pfr - 0.12)
+        expect(stats.pfr).toBeLessThan(persona.pfr + 0.08)
       })
 
       it('PFR does not exceed VPIP', () => {

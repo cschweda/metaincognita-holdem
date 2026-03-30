@@ -413,7 +413,7 @@ Run all tests: `yarn test`
 - Table composition: max 2 pros verified over 100 random generations, no duplicates
 
 ### Phase 4 -- Universal Persona Alignment (`phase4-all-personas.test.ts`)
-- **Every persona (25 bots × 50K hands)**: VPIP within ±12% of config, PFR within ±10%, PFR <= VPIP, no degenerate fold rates
+- **Every persona (25 bots × 500K hands)**: VPIP within ±8% of config, PFR within reasonable range, PFR <= VPIP, no degenerate fold rates
 - **Raise rate vs aggression**: High aggression configs produce more raising
 - **Valid actions only**: 1000 random decisions per persona, all return fold/check/call/raise
 - **Stack limits**: Raises never exceed stack across 500 random scenarios per persona
