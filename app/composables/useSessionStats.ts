@@ -121,6 +121,7 @@ export function useSessionStats() {
     session.value.startingStack = startingStack
     session.value.currentStack = startingStack
     session.value.peakStack = startingStack
+    sessionCreatedInSupabase.value = false
   }
 
   function recordHand(record: HandRecord, newStack: number) {
@@ -139,29 +140,53 @@ export function useSessionStats() {
     saveHandToSupabase(record)
   }
 
+  const sessionCreatedInSupabase = ref(false)
+
+  async function ensureSessionExists() {
+    if (sessionCreatedInSupabase.value) return
+    const sb = useSupabase()
+    if (!sb || !userId.value) return
+
+    const { error } = await sb.from('sessions').upsert({
+      id: session.value.id,
+      user_id: userId.value,
+      started_at: session.value.startedAt,
+      stake_level: session.value.stakeLevel,
+      player_count: session.value.playerCount,
+      starting_stack: session.value.startingStack,
+      hands_played: 0,
+      hands_won: 0,
+      hands_lost: 0,
+      hands_folded: 0,
+      total_profit: 0,
+    })
+    if (!error) sessionCreatedInSupabase.value = true
+    else console.warn('Failed to create session:', error.message)
+  }
+
   async function saveHandToSupabase(record: HandRecord) {
     const sb = useSupabase()
     if (!sb || !userId.value) return
 
-    try {
-      await sb.from('hands').insert({
-        user_id: userId.value,
-        session_id: session.value.id,
-        hand_number: record.handNumber,
-        hole_cards: record.holeCards,
-        board: record.board,
-        result: record.result,
-        profit: record.profit,
-        position: record.position,
-        pot_size: record.potSize,
-        stake_level: session.value.stakeLevel,
-        player_count: session.value.playerCount,
-        played_at: new Date().toISOString(),
-        actions: record.actions || [],
-      })
-    } catch (e) {
-      // Silently fail — localStorage is the fallback
-    }
+    // Ensure session row exists before inserting hand (FK constraint)
+    await ensureSessionExists()
+
+    const { error } = await sb.from('hands').insert({
+      user_id: userId.value,
+      session_id: session.value.id,
+      hand_number: record.handNumber,
+      hole_cards: record.holeCards,
+      board: record.board,
+      result: record.result,
+      profit: record.profit,
+      position: record.position,
+      pot_size: record.potSize,
+      stake_level: session.value.stakeLevel,
+      player_count: session.value.playerCount,
+      played_at: new Date().toISOString(),
+      actions: record.actions || [],
+    })
+    if (error) console.warn('Failed to save hand:', error.message)
   }
 
   async function saveSessionToSupabase() {

@@ -739,7 +739,7 @@ function formatPot(n: number): string {
               </UButton>
             </NuxtLink>
           </template>
-          <UColorModeToggle />
+          <UColorModeButton />
         </div>
       </div>
 
