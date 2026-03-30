@@ -225,7 +225,7 @@ function handleStart() {
       <label class="block text-sm font-medium text-gray-300 mb-2">
         Opponents: {{ playerCount - 1 }}
       </label>
-      <URange
+      <USlider
         v-model="playerCount"
         :min="config.table.minPlayers"
         :max="config.table.maxPlayers"
@@ -262,7 +262,7 @@ function handleStart() {
       <label class="block text-sm font-medium text-gray-300 mb-2">
         Stack: {{ stackBB }} BB (${{ startingStack }})
       </label>
-      <URange
+      <USlider
         v-model="stackBB"
         :min="config.stackRange.minBB"
         :max="config.stackRange.maxBB"
@@ -329,7 +329,7 @@ function handleStart() {
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <div>
               <label class="text-gray-500">VPIP: {{ (bot.vpip * 100).toFixed(0) }}%</label>
-              <URange
+              <USlider
                 v-model="bot.vpip"
                 :min="config.botCustomRanges.vpip.min"
                 :max="config.botCustomRanges.vpip.max"
@@ -339,7 +339,7 @@ function handleStart() {
             </div>
             <div>
               <label class="text-gray-500">PFR: {{ (bot.pfr * 100).toFixed(0) }}%</label>
-              <URange
+              <USlider
                 v-model="bot.pfr"
                 :min="config.botCustomRanges.pfr.min"
                 :max="config.botCustomRanges.pfr.max"
@@ -349,7 +349,7 @@ function handleStart() {
             </div>
             <div>
               <label class="text-gray-500">Aggression: {{ bot.aggression.toFixed(2) }}</label>
-              <URange
+              <USlider
                 v-model="bot.aggression"
                 :min="config.botCustomRanges.aggression.min"
                 :max="config.botCustomRanges.aggression.max"
@@ -359,7 +359,7 @@ function handleStart() {
             </div>
             <div>
               <label class="text-gray-500">Bluff: {{ (bot.bluffFreq * 100).toFixed(0) }}%</label>
-              <URange
+              <USlider
                 v-model="bot.bluffFreq"
                 :min="config.botCustomRanges.bluffFreq.min"
                 :max="config.botCustomRanges.bluffFreq.max"

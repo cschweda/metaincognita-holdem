@@ -39,6 +39,14 @@ export function useSessionStats() {
   const supabaseReady = ref(false)
 
   // Initialize
+  let autoSaveInterval: ReturnType<typeof setInterval> | null = null
+  let beforeUnloadHandler: (() => void) | null = null
+
+  onBeforeUnmount(() => {
+    if (autoSaveInterval) clearInterval(autoSaveInterval)
+    if (beforeUnloadHandler) window.removeEventListener('beforeunload', beforeUnloadHandler)
+  })
+
   onMounted(async () => {
     // Load from localStorage
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -53,17 +61,15 @@ export function useSessionStats() {
     supabaseReady.value = !!userId.value
 
     // Auto-save session to Supabase every 60 seconds
-    const interval = setInterval(() => {
+    autoSaveInterval = setInterval(() => {
       if (session.value.handsPlayed > 0) saveSessionToSupabase()
     }, 60000)
 
     // Save on tab close (uses sendBeacon for reliability)
-    window.addEventListener('beforeunload', () => {
-      // localStorage is synchronous — always works
+    beforeUnloadHandler = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
-      // Beacon for Supabase (fire-and-forget, survives tab close)
       if (userId.value && session.value.handsPlayed > 0) {
-        const url = `${useRuntimeConfig().public.supabaseUrl}/rest/v1/sessions?id=eq.${session.value.id}`
+        const runtimeConfig = useRuntimeConfig()
         const body = JSON.stringify({
           id: session.value.id,
           user_id: userId.value,
@@ -80,15 +86,13 @@ export function useSessionStats() {
           total_profit: session.value.totalProfit,
           ended_at: new Date().toISOString(),
         })
-        const key = useRuntimeConfig().public.supabaseKey as string
         navigator.sendBeacon(
-          `${useRuntimeConfig().public.supabaseUrl}/rest/v1/sessions`,
+          `${runtimeConfig.public.supabaseUrl}/rest/v1/sessions`,
           new Blob([body], { type: 'application/json' })
         )
       }
-    })
-
-    onUnmounted(() => clearInterval(interval))
+    }
+    window.addEventListener('beforeunload', beforeUnloadHandler)
   })
 
   // Auto-save to localStorage on changes
