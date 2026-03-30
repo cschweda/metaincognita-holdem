@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest'
 import { decideBotAction, simulateBotStats, type BotProfile } from '../app/utils/botDecision'
 import config from '../holdem.config'
 
-const N = 10000 // hands per test — tight confidence intervals at ~80ms total
+const N = 100000 // hands per test — very tight confidence intervals
 
 // ─── Persona Profiles ──────────────────────────────────────────
 
