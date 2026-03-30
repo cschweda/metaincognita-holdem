@@ -813,8 +813,9 @@ interface GS {
 export function useCommentary(gs: GS) {
   const heroLines = ref<CommentaryLine[]>([])
   const tvLines = ref<CommentaryLine[]>([])
-  const enabled = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-enabled') !== 'false' : true)
-  const mode = ref<CommentaryMode>((typeof localStorage !== 'undefined' ? localStorage.getItem('holdem-commentary-mode') as CommentaryMode : null) || 'hero')
+  // Always start as Hero POV enabled. Setup screen sets these directly via handleStart().
+  const enabled = ref(true)
+  const mode = ref<CommentaryMode>('hero')
 
   const normanSilence = ref(
     typeof localStorage !== 'undefined'
@@ -832,8 +833,7 @@ export function useCommentary(gs: GS) {
       : 30,
   )
 
-  watch(enabled, v => { if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-enabled', String(v)) })
-  watch(mode, v => { if (typeof localStorage !== 'undefined') localStorage.setItem('holdem-commentary-mode', v) })
+  // No localStorage for enabled/mode — set directly by handleStart() from setup screen choice
   let prevSilence = -1
   watch(normanSilence, v => {
     const wasHigher = prevSilence >= 0 && v > prevSilence
@@ -1618,13 +1618,5 @@ export function useCommentary(gs: GS) {
     onHeroTurn()
   })
 
-  /** Re-read enabled/mode from localStorage (call after setup screen writes) */
-  function syncFromStorage() {
-    if (typeof localStorage === 'undefined') return
-    enabled.value = localStorage.getItem('holdem-commentary-enabled') !== 'false'
-    const m = localStorage.getItem('holdem-commentary-mode')
-    if (m === 'hero' || m === 'tv') mode.value = m
-  }
-
-  return { lines: readonly(lines), enabled, mode, normanSilence, normanSerious, lonAnalysis, clear, syncFromStorage }
+  return { lines: readonly(lines), enabled, mode, normanSilence, normanSerious, lonAnalysis, clear }
 }

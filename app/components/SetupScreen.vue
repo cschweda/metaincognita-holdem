@@ -21,6 +21,7 @@ export interface GameSettings {
   heroName: string
   botConfigs: BotConfig[]
   guestMode: boolean
+  commentaryMode: 'off' | 'hero' | 'tv'
 }
 
 export interface BotConfig {
@@ -56,26 +57,10 @@ const authSuccess = ref<string | null>(null)
 
 const passwordValidation = computed(() => validatePassword(passwordInput.value))
 
-// Commentary mode: 'off' | 'hero' | 'tv' — syncs with the composable's localStorage keys
+// Commentary mode — always defaults to Hero POV. No localStorage.
+// The composable reads this via syncFromStorage() when the game starts.
 type CommentaryChoice = 'off' | 'hero' | 'tv'
-function getInitialCommentaryChoice(): CommentaryChoice {
-  if (typeof localStorage === 'undefined') return 'off'
-  const enabled = localStorage.getItem('holdem-commentary-enabled')
-  if (enabled === 'false') return 'off'
-  const mode = localStorage.getItem('holdem-commentary-mode')
-  if (mode === 'tv') return 'tv'
-  if (enabled === 'true') return 'hero'
-  return 'off'
-}
-const commentaryChoice = ref<CommentaryChoice>(getInitialCommentaryChoice())
-// Write immediately on init AND on change so composable always gets the right state
-function syncCommentaryChoice(v: CommentaryChoice) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem('holdem-commentary-enabled', v === 'off' ? 'false' : 'true')
-  localStorage.setItem('holdem-commentary-mode', v === 'off' ? 'hero' : v)
-}
-syncCommentaryChoice(commentaryChoice.value)
-watch(commentaryChoice, syncCommentaryChoice)
+const commentaryChoice = ref<CommentaryChoice>('hero')
 
 onMounted(async () => {
   isLoggedIn.value = await isGitHubUser()
@@ -230,6 +215,7 @@ function handleStart() {
     heroName: heroName.value,
     botConfigs: activeBots.value,
     guestMode: false,
+    commentaryMode: commentaryChoice.value,
   })
 }
 </script>

@@ -265,7 +265,9 @@ function handleStart(gameSettings: GameSettings) {
   phase.value = 'table'
   initSession(gameSettings.stakeLevel, gameSettings.playerCount, startingStack.value)
   heroProfileStore.reset()
-  commentary.syncFromStorage() // re-read commentary mode from setup screen
+  // Set commentary directly from setup choice — no localStorage middleman
+  commentary.enabled.value = gameSettings.commentaryMode !== 'off'
+  commentary.mode.value = gameSettings.commentaryMode === 'tv' ? 'tv' : 'hero'
   resetTimeout()
   setTimeout(dealNewHand, 300)
 }

@@ -43,7 +43,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Action recommendation** -- FOLD/CHECK/CALL/RAISE pinned at top of stats panel, always visible
 
 ### Live Text Commentary
-- **3-way setup selector** -- Off (standard trainer) / Hero POV (default — your cards only, opponents face-down) / TV Broadcast (all cards face-up, dual-voice banter)
+- **3-way mode selector** -- Off / Hero POV (default) / TV Broadcast. Defaults to Hero POV every session. Switch freely during play. TV mode confirms before flipping cards face-up mid-hand.
 - **Hero POV** -- first-person analysis commentary, straight play-by-play from your perspective
 - **TV Broadcast** -- Chorman Nad & Mon LeEachern style dual-voice (homage to Norman Chad & Lon McEachern). All bot cards shown face-up, like watching WSOP on TV. Confirmation alert before enabling.
 - **400+ unique Chorman Nad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
