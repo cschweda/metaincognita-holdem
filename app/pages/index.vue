@@ -204,6 +204,43 @@ const engine = useGameEngine({
 
 const commentary = useCommentary(gs)
 
+// ─── Session milestones (derived from hand records) ──────────────
+const sessionMilestones = computed(() => {
+  if (!session.value?.hands?.length) return []
+  const milestones: { label: string; hand: number }[] = []
+  const seen = new Set<string>()
+
+  // Track hand type firsts and records
+  let biggestWin = 0, biggestWinHand = 0
+  let winStreak = 0, bestStreak = 0, bestStreakHand = 0
+
+  for (const h of session.value.hands) {
+    const num = h.handNumber
+    if (h.result === 'won') {
+      winStreak++
+      if (winStreak > bestStreak) { bestStreak = winStreak; bestStreakHand = num }
+      if (h.profit > biggestWin) { biggestWin = h.profit; biggestWinHand = num }
+
+      // Hand type firsts from the board
+      const desc = (h.board || '').toLowerCase()
+      const actions = h.actions?.join(' ') || ''
+
+      // Check for hand rank milestones based on what hero won with
+      if (!seen.has('first-win')) { milestones.push({ label: 'First win', hand: num }); seen.add('first-win') }
+      if (h.potSize >= 100 && !seen.has('big-pot')) { milestones.push({ label: 'First $100+ pot', hand: num }); seen.add('big-pot') }
+      if (h.potSize >= 500 && !seen.has('huge-pot')) { milestones.push({ label: 'First $500+ pot', hand: num }); seen.add('huge-pot') }
+      if (actions.includes('ALL-IN') && !seen.has('allin-win')) { milestones.push({ label: 'First all-in win', hand: num }); seen.add('allin-win') }
+    } else {
+      winStreak = 0
+    }
+  }
+
+  if (bestStreak >= 3) milestones.push({ label: `Best win streak: ${bestStreak}`, hand: bestStreakHand })
+  if (biggestWin > 0) milestones.push({ label: `Biggest win: $${biggestWin}`, hand: biggestWinHand })
+
+  return milestones
+})
+
 // ─── Keyboard shortcuts ──────────────────────────────────────────
 function onGameKeydown(e: KeyboardEvent) {
   if (phase.value !== 'table') return
@@ -228,6 +265,7 @@ function handleStart(gameSettings: GameSettings) {
   phase.value = 'table'
   initSession(gameSettings.stakeLevel, gameSettings.playerCount, startingStack.value)
   heroProfileStore.reset()
+  commentary.syncFromStorage() // re-read commentary mode from setup screen
   resetTimeout()
   setTimeout(dealNewHand, 300)
 }
@@ -816,6 +854,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           :winner-cards="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards ? gs.playerStates.value[gs.handWinnerId.value].holeCards!.map(c => displayCard(c)).join(' ') : ''"
           :winner-hand="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards && gs.visibleCommunity.value.length >= 3 ? describeHand(gs.playerStates.value[gs.handWinnerId.value].holeCards!, gs.visibleCommunity.value) : ''"
           :session-stats="session"
+          :milestones="sessionMilestones"
           :supabase-connected="supabaseReady"
           @fold="engine.handleFold"
           @check="engine.handleCheck"

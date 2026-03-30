@@ -1618,5 +1618,13 @@ export function useCommentary(gs: GS) {
     onHeroTurn()
   })
 
-  return { lines: readonly(lines), enabled, mode, normanSilence, normanSerious, lonAnalysis, clear }
+  /** Re-read enabled/mode from localStorage (call after setup screen writes) */
+  function syncFromStorage() {
+    if (typeof localStorage === 'undefined') return
+    enabled.value = localStorage.getItem('holdem-commentary-enabled') !== 'false'
+    const m = localStorage.getItem('holdem-commentary-mode')
+    if (m === 'hero' || m === 'tv') mode.value = m
+  }
+
+  return { lines: readonly(lines), enabled, mode, normanSilence, normanSerious, lonAnalysis, clear, syncFromStorage }
 }

@@ -48,6 +48,7 @@ const props = defineProps<{
     startingStack: number
     peakStack: number
   } | null
+  milestones?: { label: string; hand: number }[]
   supabaseConnected?: boolean
 }>()
 
@@ -782,6 +783,17 @@ function afLabel(af: number): string {
             <div class="text-lg font-bold font-mono"
               :class="(sessionStats.handsWon / sessionStats.handsPlayed) >= 0.3 ? 'text-green-400' : 'text-red-400'">
               {{ ((sessionStats.handsWon / sessionStats.handsPlayed) * 100).toFixed(1) }}%
+            </div>
+          </div>
+
+          <!-- Session milestones -->
+          <div v-if="milestones && milestones.length > 0" class="border-t border-gray-700/50 pt-3">
+            <div class="text-xs text-gray-400 mb-2">Session Milestones</div>
+            <div class="space-y-1">
+              <div v-for="m in milestones" :key="m.label" class="flex items-center justify-between text-xs">
+                <span class="text-amber-400">{{ m.label }}</span>
+                <span class="text-gray-500 font-mono text-[0.6rem]">Hand #{{ m.hand }}</span>
+              </div>
             </div>
           </div>
 
