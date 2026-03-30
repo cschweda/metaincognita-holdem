@@ -98,6 +98,30 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 - **Randomize All**: Shuffle persona assignments across all seats
 - **All Same**: Set every bot to the same preset for controlled experiments
 
+### Tilt System
+- Bots go on tilt after 3 consecutive losses (configurable) or losing >30% of stack in one hand
+- **Mild tilt** (3 losses): VPIP +4%, aggression +0.15, bluff freq +3%
+- **Full tilt** (5+ losses or big loss): VPIP +8%, PFR +4%, aggression +0.3, bluff freq +6%
+- Even the tightest bot plays junk hands from UTG when fully tilted
+- Tilt decays over 3-6 hands, then returns to baseline
+- Visual indicator: "TILTED" (orange) or "FULL TILT" (red, pulsing) badge on nameplate
+
+### Session Management
+- **5-minute hero timeout**: Inactivity auto-folds current hand, pauses game, saves session. Resume or end from pause screen.
+- **Bust-out detection**: Hero at 0 chips triggers bust screen with session summary
+- **Re-buy**: Start a new session at original starting stack. Bust-out and re-buy tracked as separate sessions — lifetime profit sums independently.
+- **Auto-save**: Session saved to Supabase every 60 seconds and on tab close (via `sendBeacon`)
+- **Session stats tab**: Hands played, W/L/F breakdown, bankroll (current/peak/start), win rate, Supabase sync indicator
+- **Export**: Download session as JSON or CSV
+
+### Stats Page (`/stats`)
+- **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position
+- **Sessions**: History cards with per-session stats and individual delete
+- **Hands**: Full table with hole cards, board, position, result, profit, pot size, timestamp
+- **Delete**: Per-session delete with confirmation, or delete all lifetime data (with warning)
+- Supabase connection indicator on every page
+- Works on Netlify — all queries run client-side
+
 ### Authentic Deal Sequence
 - Fisher-Yates shuffled 52-card deck (statistically uniform, no duplicates)
 - Burn cards before flop, turn, and river
@@ -112,6 +136,7 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 | UI | Nuxt UI v4 |
 | Styling | Tailwind CSS v4 |
 | State | Pinia (planned), reactive refs (current) |
+| Persistence | Supabase (anonymous auth, RLS) + localStorage fallback |
 | Package Manager | Yarn 1.22.22 |
 | Deployment | Netlify (static) |
 | Testing | Vitest |
@@ -199,10 +224,14 @@ holdem-simulator/
 │   │   ├── PokerTable.vue         # Felt table with polar-coordinate seat layout
 │   │   ├── PositionBadge.vue      # D/SB/BB/UTG/CO/MP position badges
 │   │   ├── SetupScreen.vue        # Game config + advanced bot configurator
-│   │   └── StatsPanel.vue         # 3-tab panel: Live Hand, Ranges, Opponents
-│   ├── holdem.config.ts           # Single source of truth for all game parameters
+│   │   ├── StatsPanel.vue         # 4-tab panel: Live, Session, Ranges, Table
+│   │   └── SupabaseStatus.vue     # Connection indicator (green/red dot)
+│   ├── composables/
+│   │   ├── useSessionStats.ts     # Session tracking, export, auto-save
+│   │   └── useSupabase.ts         # Supabase client + anonymous auth
 │   ├── pages/
-│   │   └── index.vue              # Main game page
+│   │   ├── index.vue              # Main game page
+│   │   └── stats.vue              # Cross-session analytics from Supabase
 │   ├── public/
 │   │   ├── og-image.svg           # Open Graph social image (SVG source)
 │   │   └── og-image.png           # Open Graph social image (1200x630 PNG)
@@ -222,7 +251,7 @@ holdem-simulator/
 
 ## Configuration
 
-All game parameters are centralized in `app/holdem.config.ts`:
+All game parameters are centralized in `holdem.config.ts` (project root):
 
 - **Stakes**: 6 preset levels (Micro $0.25/$0.50 through Nosebleed $25/$50)
 - **Stack depth**: 50-200 BB slider, default 100 BB
@@ -232,7 +261,8 @@ All game parameters are centralized in `app/holdem.config.ts`:
 - **Custom ranges**: Min/max/step for every bot slider
 - **Equity thresholds**: Value bet, thin value, drawing, give-up cutoffs
 - **Bet sizing**: Open raises, 3-bets, value bets, bluffs, protection bets, overbets
-- **Tilt mechanics**: Trigger threshold, aggression boost, decay duration
+- **Tilt mechanics**: Consecutive loss trigger (default 3), big loss threshold (30%), mild/full severity breakpoints, aggression/VPIP/bluff/PFR boost magnitudes, decay duration
+- **Session management**: Hero timeout (default 5 min), auto-save interval (60s), re-buy enabled toggle
 - **Animation timing**: Deal stagger, bot thinking delay, showdown pause
 - **Stats thresholds**: Min hands for display, persona reveal threshold
 
@@ -314,6 +344,13 @@ Run all tests: `yarn test`
 - **Bluff sensitivity**: Low bluffFreq produces lower bluff rate than high bluffFreq; increasing bluffFreq measurably increases observed rate; high aggression + high bluffFreq produces most betting into unchallenged pots
 - **Decision function**: Valid action types across 100 calls, raise never exceeds stack, passive bot mostly checks, nit folds >60% preflop vs raises
 
+### Phase 4 -- Tilt System (`phase4-tilt.test.ts`)
+- **Triggers**: Consecutive losses at configurable threshold, big pot loss, winning resets loss count but not active tilt
+- **Severity**: Mild (0.5) at 3 losses, full (1.0) at 5+ or big loss, continues escalating with more losses
+- **Decay**: Per-hand countdown, clears at 0, duration within configured range, no-op when not tilted
+- **Profile modification**: VPIP/PFR/aggression/bluff all increase proportional to severity, caps enforced (VPIP 60%, aggression 2.5)
+- **Behavioral impact (100K hands)**: Tilted Tony has higher VPIP, bluffs more, raises more; mild < full tilt; even Solid Sam plays looser on tilt
+
 ### Phase 5 -- Stats (`phase5-stats.test.ts`)
 - VPIP = voluntary hands / total hands; BB walks excluded
 - Aggression factor = (bets + raises) / calls; caps at 999 for zero calls
@@ -322,6 +359,13 @@ Run all tests: `yarn test`
 - Probability: Rule of 2 approximation, exact single-card, exact flop-to-river
 - BB/hand metric for positive, negative, and breakeven sessions
 
+### Phase 5 -- Session Management (`phase5-session.test.ts`)
+- **Timeout**: Fires after 5 min, resets on hero activity, doesn't fire with continuous play, no duplicate timers from rapid actions
+- **Bust-out**: Detected at 0 chips, not triggered with positive chips, all-in loss vs all-in win
+- **Re-buy**: Fresh stack, new session ID, independent P&L from bust-out session, multiple bust-outs tracked correctly
+- **Session recording**: All fields captured, folded hands record 0 profit, stats accumulate, peak stack tracks highest point
+- **Data deletion**: Session + hands removed together, delete-all empties everything, lifetime stats recalculate to zero
+
 ## Roadmap
 
 | Phase | Status | Focus |
@@ -329,8 +373,8 @@ Run all tests: `yarn test`
 | **1** | Done | Visual foundation -- table, cards, chips, setup, stats panel, bet controls |
 | **2** | Partial | Core engine -- deck + shuffle done, hand evaluator done, showdown resolver planned |
 | **3** | Partial | Game loop -- betting round state machine done, side pots + blind rotation planned |
-| **4** | Planned | Bot AI -- persona-driven decisions, tilt, session memory, hero adaptation |
-| **5** | Planned | Stats tracking -- real VPIP/PFR/AF, localStorage persistence, hand log |
+| **4** | Done | Bot AI -- persona-driven decisions, tilt system, bluff awareness, 100K-hand behavioral tests |
+| **5** | Done | Stats -- Supabase persistence, session tracking, cross-session analytics, CSV/JSON export, timeout, bust-out/re-buy |
 | **6** | Planned | Polish -- dealing animations, chip movement, bot thinking delays, celebrations |
 
 ## Future Enhancements
