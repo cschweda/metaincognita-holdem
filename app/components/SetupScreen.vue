@@ -324,6 +324,26 @@ function handleStart() {
       </div>
     </div>
 
+    <!-- Player mix -->
+    <div class="flex items-center justify-between bg-gray-800/30 border border-gray-700/20 rounded-lg px-4 py-3">
+      <div>
+        <div class="text-sm text-gray-200">Opponents</div>
+        <div class="text-xs text-gray-500">
+          {{ activeBots.filter(b => proBots.some(p => p.name === b.name)).length }} pro{{ activeBots.filter(b => proBots.some(p => p.name === b.name)).length !== 1 ? 's' : '' }},
+          {{ activeBots.filter(b => !proBots.some(p => p.name === b.name)).length }} fictional
+        </div>
+      </div>
+      <UButton
+        icon="i-lucide-shuffle"
+        color="primary"
+        variant="soft"
+        size="sm"
+        @click="randomizeAll"
+      >
+        Shuffle Players
+      </UButton>
+    </div>
+
     <!-- Advanced Bot Config -->
     <div>
       <button
