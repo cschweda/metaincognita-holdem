@@ -8,6 +8,7 @@ import config from '@config'
 import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
+import { decideBotAction } from '~/utils/botDecision'
 
 const phase = ref<'setup' | 'table'>('setup')
 const settings = ref<GameSettings | null>(null)
@@ -235,7 +236,7 @@ async function runBettingRound(startSeat: number) {
 
     // Bot decision with thinking delay
     await sleep(800 + Math.random() * 1200)
-    const action = decideBotAction(p)
+    const action = makeBotDecision(p)
 
     applyAction(p, action)
 
@@ -297,39 +298,29 @@ function applyAction(p: PlayerState, action: { type: string; amount?: number }) 
   }
 }
 
-function decideBotAction(p: PlayerState): { type: string; amount?: number } {
-  const toCallAmt = currentBet.value - p.betThisRound
+function makeBotDecision(p: PlayerState): { type: string; amount?: number } {
   const botConfig = settings.value?.botConfigs[p.id - 1]
-  const aggression = botConfig?.aggression || 1.0
-  const vpip = botConfig?.vpip || 0.25
+  if (!botConfig) return { type: 'fold' }
 
-  // Simple persona-driven decisions
-  const rand = Math.random()
-
-  if (toCallAmt === 0) {
-    // No bet to face: check or bet
-    if (rand < 0.35 * aggression) {
-      const betSize = Math.round(pot.value * (0.4 + Math.random() * 0.4))
-      return { type: 'raise', amount: Math.max(betSize, bb.value) + p.betThisRound }
-    }
-    return { type: 'check' }
-  }
-
-  // Facing a bet
-  const potOdds = toCallAmt / (pot.value + toCallAmt)
-
-  // Tight players fold more
-  if (rand > vpip * 1.5) {
-    return { type: 'fold' }
-  }
-
-  // Aggressive players raise more
-  if (rand < 0.15 * aggression && p.chips > currentBet.value * 2) {
-    const raiseSize = currentBet.value * (2 + Math.random())
-    return { type: 'raise', amount: Math.round(Math.min(raiseSize, p.chips + p.betThisRound)) }
-  }
-
-  return { type: 'call' }
+  return decideBotAction(
+    {
+      vpip: botConfig.vpip,
+      pfr: botConfig.pfr,
+      aggression: botConfig.aggression,
+      bluffFreq: botConfig.bluffFreq,
+      creativeFreq: botConfig.creativeFreq,
+    },
+    {
+      street: street.value as 'preflop' | 'flop' | 'turn' | 'river',
+      toCall: currentBet.value - p.betThisRound,
+      pot: pot.value,
+      currentBet: currentBet.value,
+      playerBet: p.betThisRound,
+      chips: p.chips,
+      bb: bb.value,
+      numActivePlayers: activePlayers.value.length,
+    },
+  )
 }
 
 // ─── Hero Actions ──────────────────────────────────────────────

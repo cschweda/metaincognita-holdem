@@ -134,6 +134,57 @@ yarn generate
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## How Bot Behavior Works
+
+Each bot's decisions are driven by a probabilistic engine (`app/utils/botDecision.ts`) that uses the persona's config values — VPIP, PFR, aggression, bluffFreq, and creativeFreq — as direct probability weights for every action. This means a bot's observed behavior over many hands statistically aligns with its configured profile.
+
+### Decision Engine
+
+**Preflop:**
+- Facing no raise: raise with probability = PFR; otherwise check
+- Facing a raise: call with probability = VPIP * 0.7 (tighter vs raises); 3-bet with probability = PFR * 0.35 * aggression; fold the rest
+- Facing a large re-raise: range tightens further
+
+**Postflop (no bet facing):**
+- Bluff bet with probability = bluffFreq (independent roll — this is the pure bluff path)
+- Value/protection bet with probability = 0.22 * aggression (separate roll)
+- Otherwise check
+
+**Postflop (facing a bet):**
+- Bluff raise with probability = bluffFreq * 0.5 * aggression
+- Fold to large bets (>75% pot) with probability = 1 - VPIP * 1.2
+- Value raise with probability = 0.10 * aggression
+- Call with probability = VPIP * 1.3 * (1 - potOdds)
+- Otherwise fold
+
+Each decision path uses an independent random roll, so bluffFreq has a direct, measurable effect on bluffing frequency independent of aggression-based value bets.
+
+### Why It's Accurate
+
+The engine is tested with 1,500-hand simulations per persona using `simulateBotStats()`. This function runs a bot through realistic preflop and postflop scenarios (facing raises ~60% of the time preflop, facing bets ~50% of the time postflop) and measures observed VPIP, PFR, fold rate, raise rate, and bluff rate.
+
+**What the tests verify:**
+- **Absolute alignment**: Each persona's observed VPIP and PFR fall within a tolerance band of their configured values (e.g., Tight Tony's observed VPIP is within 12% of his configured 14%)
+- **Comparative ordering**: Tighter bots always fold more than looser bots; aggressive bots always raise more than passive bots; high-bluff bots always bluff more than low-bluff bots
+- **Bluff sensitivity**: Increasing bluffFreq produces a measurable increase in observed bluff rate; doubling the config reliably increases the behavior
+- **PFR/VPIP ratio**: TAG bots raise a high proportion of hands they play; Loose-Passive bots call much more than they raise
+- **Preset distinctness**: Nit folds the most, Maniac plays the most, Loose-Passive has high VPIP but low raise rate
+
+### Test Coverage (46 tests in `phase4-bot-behavior.test.ts`)
+
+| Category | Tests | What's Verified |
+|----------|-------|-----------------|
+| Tight Tony | 6 | Low VPIP, low PFR, PFR <= VPIP, bluffs less than Wendy, folds more than Lucy |
+| Loose Lucy | 4 | High VPIP, plays more than Tony, PFR matches config |
+| Aggressive Alex | 3 | Raises more than Carl postflop, bluff rate reflects config |
+| Calling Carl | 3 | Low fold rate, raises less than Alex, bluffs less than Alex |
+| Wild Wendy | 5 | High VPIP, bluffs more than all others, high raise rate |
+| Solid Sam | 4 | Moderate VPIP, healthy PFR/VPIP ratio, bluffs less than Wendy |
+| Comparative ordering | 6 | VPIP order matches config order, bluff order matches config order |
+| Preset archetypes | 5 | Nit folds most, Maniac plays most, TAG has high PFR ratio, LAG plays wide + raises |
+| Bluff-specific | 5 | Low bluffFreq < high bluffFreq, increasing config increases observed rate |
+| Decision function | 4 | Valid action types, raise never exceeds stack, passive bot mostly checks, nit folds preflop |
+
 ## Project Structure
 
 ```
@@ -245,7 +296,7 @@ Run all tests: `yarn test`
 - **Action order**: Preflop starts left of BB (UTG); postflop starts left of dealer; postflop skips folded players; action wraps around table correctly
 - **Edge cases**: Heads-up completes after both act; 3-bet pot with folds and calls resolves correctly; everyone checks completes round; single active player ends hand immediately
 
-### Phase 4 -- Bot AI (`phase4-bot-ai.test.ts`)
+### Phase 4 -- Bot AI Config (`phase4-bot-ai.test.ts`)
 - All persona stats within valid ranges (VPIP 10-50%, PFR <= VPIP, etc.)
 - Enough personas for maximum opponents (7)
 - Solid Sam has aggression = 1.0 (closest to GTO)
@@ -255,6 +306,13 @@ Run all tests: `yarn test`
 - Equity thresholds ordered: value > thin value > drawing > give up
 - Open raise EP larger than late position, 3-bet OOP larger than IP
 - Tilt: reasonable trigger threshold, decays in 3-5 hands, max aggression < 2.0
+
+### Phase 4 -- Bot Behavior Statistical Alignment (`phase4-bot-behavior.test.ts`)
+- **Per-persona (1,500 hands each)**: Tight Tony (low VPIP/PFR, folds more than Lucy, bluffs less than Wendy), Loose Lucy (high VPIP, plays more than Tony), Aggressive Alex (raises more than Carl, bluff rate matches config), Calling Carl (low fold rate, low raise rate), Wild Wendy (highest bluff rate of all personas, high raise rate), Solid Sam (moderate VPIP, healthy PFR/VPIP ratio)
+- **Comparative ordering**: Configured VPIP order matches observed VPIP order; configured bluffFreq order matches observed bluff order; tight bots fold more, loose bots play more, aggressive bots raise more
+- **Preset archetypes**: Nit folds most, Maniac plays most, Loose-Passive has high VPIP but low raise rate, TAG has high PFR/VPIP ratio
+- **Bluff sensitivity**: Low bluffFreq produces lower bluff rate than high bluffFreq; increasing bluffFreq measurably increases observed rate; high aggression + high bluffFreq produces most betting into unchallenged pots
+- **Decision function**: Valid action types across 100 calls, raise never exceeds stack, passive bot mostly checks, nit folds >60% preflop vs raises
 
 ### Phase 5 -- Stats (`phase5-stats.test.ts`)
 - VPIP = voluntary hands / total hands; BB walks excluded

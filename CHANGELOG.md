@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-29
+
+Bot decision engine with statistical alignment, bluff awareness, and 46 behavioral tests.
+
+### Added
+
+#### Bot Decision Engine (`app/utils/botDecision.ts`)
+- Extracted bot decision logic into standalone, testable utility
+- Preflop decisions weighted by VPIP (call probability) and PFR (raise probability)
+- Postflop decisions use independent random rolls for bluff bets, value bets, and calls
+- Bluff frequency now has direct, measurable impact on bluffing behavior
+- `bluffFreq` drives a dedicated bluff-bet path (separate from aggression-based value bets)
+- Bluff raises when facing bets scale with bluffFreq * aggression
+- Tight players fold to large bets proportional to (1 - VPIP)
+- Call probability factors in pot odds (better odds = more calls)
+
+#### Bot Behavior Statistical Tests (46 new tests)
+- 1,500-hand simulations per persona via `simulateBotStats()`
+- Per-persona verification: Tight Tony, Loose Lucy, Aggressive Alex, Calling Carl, Wild Wendy, Solid Sam
+- Comparative ordering: VPIP order, bluff order, raise rate order all match config
+- Preset archetype distinctness: Nit/Tight/TAG/LAG/Loose-Passive/Maniac
+- Bluff sensitivity: increasing bluffFreq measurably increases observed bluff rate
+- Decision function unit tests: valid actions, stack limits, passive checking, nit folding
+
+#### README Bot Behavior Section
+- Detailed explanation of the decision engine (preflop + postflop logic)
+- Why behavior is accurate (1,500-hand statistical simulations)
+- Full test coverage table by category (46 tests)
+
+### Changed
+- Bot decisions in game now use the extracted `decideBotAction()` from `botDecision.ts` instead of inline logic
+- Postflop bluff decisions use independent random rolls (not shared with aggression path)
+
 ## [0.2.0] - 2026-03-29
 
 Betting flow overhaul, visual improvements, and expanded test coverage.
@@ -192,5 +225,6 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.3.0]: https://github.com/cschweda/holdem-simulator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cschweda/holdem-simulator/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cschweda/holdem-simulator/releases/tag/v0.1.0
