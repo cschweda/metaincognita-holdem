@@ -242,7 +242,8 @@ const sessionMilestones = computed(() => {
 })
 
 // ─── Keyboard shortcuts ──────────────────────────────────────────
-const foldKeyConfirming = ref(false)
+let foldKeyTimer: ReturnType<typeof setTimeout> | null = null
+const foldKeyPending = ref(false)
 function onGameKeydown(e: KeyboardEvent) {
   if (phase.value !== 'table') return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -250,9 +251,15 @@ function onGameKeydown(e: KeyboardEvent) {
 
   if (e.key === 'f' || e.key === 'F') {
     e.preventDefault()
-    // Require double-press F to fold (matches BetControls confirmation)
-    if (!foldKeyConfirming.value) { foldKeyConfirming.value = true; setTimeout(() => { foldKeyConfirming.value = false }, 2000); return }
-    foldKeyConfirming.value = false; engine.handleFold()
+    if (foldKeyPending.value) {
+      // Second F press = cancel the fold
+      if (foldKeyTimer) clearTimeout(foldKeyTimer)
+      foldKeyPending.value = false
+      return
+    }
+    // First F press = queue fold with 2s undo window
+    foldKeyPending.value = true
+    foldKeyTimer = setTimeout(() => { foldKeyPending.value = false; engine.handleFold() }, 2000)
   }
   else if (e.key === 'c' || e.key === 'C') {
     e.preventDefault()
