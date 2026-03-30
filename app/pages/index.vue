@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Main game page — shows setup screen or poker table.
- * Phase 1: Visual foundation with authentic deal sequence.
+ * Phase 1: Visual foundation with authentic deal sequence + live stats.
  */
 import config from '~/holdem.config'
 import { assignPositions } from '~/utils/seats'
@@ -14,11 +14,10 @@ const settings = ref<GameSettings | null>(null)
 // Deal state
 const dealerSeat = ref(0)
 const holeCards = ref<Map<number, [Card, Card]>>(new Map())
-const communityCards = ref<Card[]>([])
 const street = ref<'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('preflop')
 const dealt = ref(false)
 
-// All 5 community cards are generated at deal time, but only revealed per street
+// All 5 community cards generated at deal time, revealed per street
 const allCommunity = ref<Card[]>([])
 
 const visibleCommunity = computed(() => {
@@ -37,6 +36,9 @@ const positions = computed(() => {
   return assignPositions(settings.value.playerCount, dealerSeat.value)
 })
 
+const heroPosition = computed(() => positions.value[0] || 'BTN')
+const heroHoleCards = computed(() => holeCards.value.get(0) || null)
+
 const players = computed(() => {
   if (!settings.value) return []
   const stake = config.stakes.find(s => s.level === settings.value!.stakeLevel)!
@@ -52,8 +54,8 @@ const players = computed(() => {
       position: positions.value[i] || '',
       isHero,
       holeCards: holeCards.value.get(i) || null,
-      // Hero always sees their cards; bots only at showdown
-      showCards: isHero || street.value === 'showdown',
+      // Hero always sees their cards; bots revealed at showdown
+      showCards: isHero,
       folded: false,
     }
   })
@@ -76,28 +78,44 @@ function handleStart(gameSettings: GameSettings) {
   setTimeout(dealNewHand, 300)
 }
 
-function randomCard(): Card {
-  const suits: Card['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades']
-  return {
-    rank: Math.floor(Math.random() * 13) + 2,
-    suit: suits[Math.floor(Math.random() * 4)],
-  }
-}
-
+/**
+ * Deal from a shuffled deck (Fisher-Yates) to avoid duplicate cards.
+ */
 function dealNewHand() {
   const count = settings.value?.playerCount || 2
 
-  // Deal hole cards to all players
+  // Build and shuffle a full 52-card deck
+  const deck: Card[] = []
+  const suits: Card['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades']
+  for (const suit of suits) {
+    for (let rank = 2; rank <= 14; rank++) {
+      deck.push({ rank, suit })
+    }
+  }
+  // Fisher-Yates shuffle
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]]
+  }
+
+  let idx = 0
+
+  // Deal 2 hole cards to each player
   const cards = new Map<number, [Card, Card]>()
   for (let i = 0; i < count; i++) {
-    cards.set(i, [randomCard(), randomCard()])
+    cards.set(i, [deck[idx++], deck[idx++]])
   }
   holeCards.value = cards
 
-  // Pre-generate all 5 community cards (revealed in stages)
-  allCommunity.value = Array.from({ length: 5 }, () => randomCard())
-  communityCards.value = []
+  // Burn + flop (3), burn + turn (1), burn + river (1) = 3 burns + 5 community
+  idx++ // burn before flop
+  const community: Card[] = [deck[idx++], deck[idx++], deck[idx++]]
+  idx++ // burn before turn
+  community.push(deck[idx++])
+  idx++ // burn before river
+  community.push(deck[idx++])
 
+  allCommunity.value = community
   street.value = 'preflop'
   dealt.value = true
 }
@@ -133,7 +151,6 @@ function backToSetup() {
   settings.value = null
   holeCards.value = new Map()
   allCommunity.value = []
-  communityCards.value = []
   dealt.value = false
 }
 </script>
@@ -146,10 +163,10 @@ function backToSetup() {
       @start="handleStart"
     />
 
-    <!-- Game Table -->
+    <!-- Game Table + Stats -->
     <div v-else class="p-4">
       <!-- Top bar -->
-      <div class="flex items-center justify-between mb-4 max-w-5xl mx-auto">
+      <div class="flex items-center justify-between mb-4 max-w-7xl mx-auto">
         <UButton
           variant="ghost"
           color="neutral"
@@ -183,56 +200,71 @@ function backToSetup() {
         </div>
       </div>
 
-      <!-- Poker Table -->
-      <PokerTable :player-count="settings?.playerCount || 6">
-        <template #community>
-          <PlayingCard
-            v-for="(card, i) in visibleCommunity"
-            :key="i"
-            :card="card"
-            :face-up="true"
-            size="md"
-          />
-          <!-- Empty slots for unrevealed community cards -->
-          <div
-            v-for="i in (5 - visibleCommunity.length)"
-            :key="'empty-' + i"
-            class="w-14 h-20 rounded-lg border border-dashed border-green-800/40"
-          />
-        </template>
+      <!-- Main layout: Table + Stats Panel -->
+      <div class="flex flex-col lg:flex-row gap-4 max-w-7xl mx-auto items-start">
+        <!-- Poker Table -->
+        <div class="flex-1 min-w-0">
+          <PokerTable :player-count="settings?.playerCount || 6">
+            <template #community>
+              <PlayingCard
+                v-for="(card, i) in visibleCommunity"
+                :key="i"
+                :card="card"
+                :face-up="true"
+                size="md"
+              />
+              <!-- Empty slots for unrevealed community cards -->
+              <div
+                v-for="i in (5 - visibleCommunity.length)"
+                :key="'empty-' + i"
+                class="w-14 h-20 rounded-lg border border-dashed border-green-800/40"
+              />
+            </template>
 
-        <template #pot>
-          <div class="text-center text-yellow-400 font-bold text-sm">
-            Pot: ${{ (config.stakes.find(s => s.level === settings?.stakeLevel)?.bb || 2) * 3 }}
+            <template #pot>
+              <div class="text-center text-yellow-400 font-bold text-sm">
+                Pot: ${{ (config.stakes.find(s => s.level === settings?.stakeLevel)?.bb || 2) * 3 }}
+              </div>
+            </template>
+
+            <template #seat="{ seatIndex }">
+              <PlayerSeat
+                v-if="players[seatIndex]"
+                :name="players[seatIndex].name"
+                :chips="players[seatIndex].chips"
+                :position="players[seatIndex].position"
+                :hole-cards="players[seatIndex].holeCards"
+                :show-cards="players[seatIndex].showCards"
+                :is-hero="players[seatIndex].isHero"
+                :is-active="seatIndex === 0 && street !== 'showdown'"
+                :folded="false"
+                :stake-level="settings?.stakeLevel || 3"
+                :peekable="!players[seatIndex].isHero"
+              />
+            </template>
+          </PokerTable>
+
+          <!-- Street advancement controls -->
+          <div class="flex justify-center mt-6 gap-3">
+            <UButton
+              v-if="dealt"
+              color="primary"
+              size="lg"
+              @click="advanceStreet"
+            >
+              {{ nextStreetLabel }}
+            </UButton>
           </div>
-        </template>
+        </div>
 
-        <template #seat="{ seatIndex }">
-          <PlayerSeat
-            v-if="players[seatIndex]"
-            :name="players[seatIndex].name"
-            :chips="players[seatIndex].chips"
-            :position="players[seatIndex].position"
-            :hole-cards="players[seatIndex].holeCards"
-            :show-cards="players[seatIndex].showCards"
-            :is-hero="players[seatIndex].isHero"
-            :is-active="seatIndex === 0 && street !== 'showdown'"
-            :folded="false"
-            :stake-level="settings?.stakeLevel || 3"
-          />
-        </template>
-      </PokerTable>
-
-      <!-- Street advancement controls -->
-      <div class="flex justify-center mt-6 gap-3">
-        <UButton
-          v-if="dealt"
-          color="primary"
-          size="lg"
-          @click="advanceStreet"
-        >
-          {{ nextStreetLabel }}
-        </UButton>
+        <!-- Stats Panel -->
+        <StatsPanel
+          :hole-cards="heroHoleCards as [import('~/utils/cards').Card, import('~/utils/cards').Card] | null"
+          :community="visibleCommunity"
+          :street="street"
+          :num-opponents="(settings?.playerCount || 2) - 1"
+          :position="heroPosition"
+        />
       </div>
     </div>
   </div>

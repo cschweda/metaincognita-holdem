@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
  * Player nameplate — name, chip count, position badge, hole cards, and chip stack.
+ * Bot cards can be clicked to peek (flip face-up then back).
  */
 import type { Card } from '~/utils/cards'
 
@@ -14,6 +15,7 @@ const props = withDefaults(defineProps<{
   isActive?: boolean
   folded?: boolean
   stakeLevel?: number
+  peekable?: boolean
 }>(), {
   holeCards: null,
   showCards: false,
@@ -21,7 +23,17 @@ const props = withDefaults(defineProps<{
   isActive: false,
   folded: false,
   stakeLevel: 3,
+  peekable: false,
 })
+
+const peeking = ref(false)
+
+function togglePeek() {
+  if (!props.peekable || props.isHero || !props.holeCards) return
+  peeking.value = !peeking.value
+}
+
+const cardsVisible = computed(() => props.showCards || peeking.value)
 
 const formattedChips = computed(() => {
   if (props.chips >= 1000) return `$${(props.chips / 1000).toFixed(1)}k`
@@ -35,24 +47,35 @@ const formattedChips = computed(() => {
     :class="{ 'opacity-40': folded }"
   >
     <!-- Hole cards -->
-    <div class="flex gap-0.5 -mb-1">
+    <div
+      class="flex gap-0.5 -mb-1"
+      :class="{ 'cursor-pointer': peekable && !isHero && holeCards }"
+      @click="togglePeek"
+    >
       <template v-if="holeCards">
         <PlayingCard
           :card="holeCards[0]"
-          :face-up="showCards"
+          :face-up="cardsVisible"
           size="sm"
         />
         <PlayingCard
           :card="holeCards[1]"
-          :face-up="showCards"
+          :face-up="cardsVisible"
           size="sm"
         />
       </template>
       <template v-else>
-        <!-- Empty card slots -->
         <div class="w-10 h-14 rounded-lg border border-dashed border-gray-600/30" />
         <div class="w-10 h-14 rounded-lg border border-dashed border-gray-600/30" />
       </template>
+    </div>
+
+    <!-- Peek indicator -->
+    <div
+      v-if="peeking && !isHero"
+      class="text-[0.55rem] text-yellow-400/70 -mt-0.5"
+    >
+      peeking
     </div>
 
     <!-- Nameplate -->

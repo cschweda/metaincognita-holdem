@@ -81,6 +81,42 @@ function setAllSame(presetName: string) {
 }
 
 /**
+ * Generates a dynamic adjective-first-name based on stats.
+ * E.g., "Loose Lucy" becomes "Aggro Lucy" if aggression is cranked up,
+ * or "Nitty Lucy" if VPIP is dialed way down.
+ */
+function dynamicBotName(bot: BotConfig): string {
+  // Extract the first name from the preset (e.g., "Tight Tony" → "Tony")
+  const presetParts = bot.preset.split(' ')
+  const firstName = presetParts.length > 1 ? presetParts[presetParts.length - 1] : bot.preset
+
+  // Find the matching persona/preset to check if stats have drifted
+  const original = [...config.personas, ...config.botPresets].find(p => p.name === bot.preset)
+  if (!original) return bot.name
+
+  // Check if stats have meaningfully changed from the preset
+  const vpipDrift = Math.abs(bot.vpip - original.vpip) > 0.05
+  const aggrDrift = Math.abs(bot.aggression - original.aggression) > 0.2
+  const bluffDrift = Math.abs(bot.bluffFreq - original.bluffFreq) > 0.06
+
+  if (!vpipDrift && !aggrDrift && !bluffDrift) return original.name
+
+  // Build a new adjective based on dominant trait
+  let adj = ''
+  if (bot.vpip <= 0.14) adj = 'Nitty'
+  else if (bot.vpip <= 0.19) adj = 'Tight'
+  else if (bot.vpip >= 0.36) adj = 'Wild'
+  else if (bot.vpip >= 0.30) adj = 'Loose'
+  else if (bot.aggression >= 1.4) adj = 'Aggro'
+  else if (bot.aggression <= 0.6) adj = 'Passive'
+  else if (bot.bluffFreq >= 0.22) adj = 'Bluffy'
+  else if (bot.bluffFreq <= 0.07) adj = 'Honest'
+  else adj = 'Custom'
+
+  return `${adj} ${firstName}`
+}
+
+/**
  * Generates a plain-English description of a bot's playstyle based on its stats.
  */
 function describeBotStyle(bot: BotConfig): string {
@@ -127,6 +163,16 @@ const allPresetNames = computed(() => [
 ])
 
 const activeBots = computed(() => botConfigs.value.slice(0, playerCount.value - 1))
+
+// Auto-update bot names when stats drift from preset defaults
+watch(botConfigs, (bots) => {
+  for (const bot of bots) {
+    const newName = dynamicBotName(bot)
+    if (newName !== bot.name) {
+      bot.name = newName
+    }
+  }
+}, { deep: true })
 
 function handleStart() {
   emit('start', {
