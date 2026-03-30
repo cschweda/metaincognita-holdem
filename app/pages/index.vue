@@ -196,21 +196,30 @@ function postBlindsAndStartBetting() {
 }
 
 // ─── Betting Round ─────────────────────────────────────────────
+// Track who still needs to act. A raise resets everyone except the raiser.
+const needsToAct = ref<Set<number>>(new Set())
+
 async function runBettingRound(startSeat: number) {
   const count = playerStates.value.length
-  let seat = startSeat
-  let lastRaiserSeat = -1
-  let acted = 0
 
-  while (true) {
+  // Initialize: every active player with chips needs to act
+  needsToAct.value = new Set(
+    playerStates.value
+      .filter(p => !p.folded && !p.eliminated && p.chips > 0)
+      .map(p => p.id)
+  )
+
+  let seat = startSeat
+  let loops = 0
+
+  while (needsToAct.value.size > 0) {
     const p = playerStates.value[seat]
 
-    // Skip folded, eliminated, all-in
-    if (p.folded || p.eliminated || p.chips <= 0) {
+    // Skip players who don't need to act
+    if (!needsToAct.value.has(p.id)) {
       seat = (seat + 1) % count
-      acted++
-      if (acted >= count * 2) break // safety
-      if (seat === lastRaiserSeat) break
+      loops++
+      if (loops >= count * 4) break // safety
       continue
     }
 
@@ -220,69 +229,72 @@ async function runBettingRound(startSeat: number) {
     activeSeat.value = seat
 
     if (p.isHero) {
-      // Wait for hero input
       waitingForHero.value = true
-      return // Hero takes over; betting resumes after hero acts
+      return // Hero takes over; resumes via resumeBettingAfterHero
     }
 
-    // Bot decision
+    // Bot decision with thinking delay
     await sleep(800 + Math.random() * 1200)
     const action = decideBotAction(p)
 
-    if (action.type === 'fold') {
-      p.folded = true
-      p.lastAction = 'fold'
-      p.currentBetAmount = 0
-    } else if (action.type === 'check') {
-      p.lastAction = 'check'
-      p.currentBetAmount = 0
-    } else if (action.type === 'call') {
-      const callAmt = Math.min(currentBet.value - p.betThisRound, p.chips)
-      p.chips -= callAmt
-      p.betThisRound += callAmt
-      pot.value += callAmt
-      p.lastAction = 'call'
-      p.currentBetAmount = callAmt
-    } else if (action.type === 'raise') {
-      const raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
-      const toAdd = raiseTotal - p.betThisRound
-      p.chips -= toAdd
-      p.betThisRound = raiseTotal
-      pot.value += toAdd
-      currentBet.value = raiseTotal
-      p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
-      p.currentBetAmount = raiseTotal
-      lastRaiserSeat = seat
+    applyAction(p, action)
+
+    // This player has acted
+    needsToAct.value.delete(p.id)
+
+    // A raise means everyone else needs to act again
+    if (action.type === 'raise') {
+      for (const ap of activePlayers.value) {
+        if (ap.id !== p.id && ap.chips > 0 && !ap.folded) {
+          needsToAct.value.add(ap.id)
+        }
+      }
     }
 
-    // Check if only one player left
     if (activePlayers.value.length <= 1) break
 
     seat = (seat + 1) % count
-    acted++
-    if (acted >= count * 3) break // safety
-
-    // If we've gone all the way around to the raiser, done
-    if (seat === lastRaiserSeat) break
-
-    // If everyone has matched the bet and had a chance to act
-    const allMatched = activePlayers.value.every(
-      ap => ap.betThisRound >= currentBet.value || ap.chips <= 0
-    )
-    if (allMatched && acted >= activePlayers.value.length) break
+    loops++
+    if (loops >= count * 4) break // safety
   }
 
   activeSeat.value = -1
   waitingForHero.value = false
 
-  // Check if hand is over (only one player left)
   if (activePlayers.value.length <= 1) {
     setTimeout(() => endHand(), 1000)
     return
   }
 
-  // Advance to next street
+  // Street complete — advance
   setTimeout(() => advanceStreet(), 800)
+}
+
+function applyAction(p: PlayerState, action: { type: string; amount?: number }) {
+  if (action.type === 'fold') {
+    p.folded = true
+    p.lastAction = 'fold'
+    p.currentBetAmount = 0
+  } else if (action.type === 'check') {
+    p.lastAction = 'check'
+    p.currentBetAmount = 0
+  } else if (action.type === 'call') {
+    const callAmt = Math.min(currentBet.value - p.betThisRound, p.chips)
+    p.chips -= callAmt
+    p.betThisRound += callAmt
+    pot.value += callAmt
+    p.lastAction = 'call'
+    p.currentBetAmount = callAmt
+  } else if (action.type === 'raise') {
+    const raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
+    const toAdd = raiseTotal - p.betThisRound
+    p.chips -= toAdd
+    p.betThisRound = raiseTotal
+    pot.value += toAdd
+    currentBet.value = raiseTotal
+    p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
+    p.currentBetAmount = raiseTotal
+  }
 }
 
 function decideBotAction(p: PlayerState): { type: string; amount?: number } {
@@ -323,28 +335,24 @@ function decideBotAction(p: PlayerState): { type: string; amount?: number } {
 // ─── Hero Actions ──────────────────────────────────────────────
 function handleFold() {
   if (!hero.value) return
-  hero.value.folded = true
-  hero.value.lastAction = 'fold'
+  applyAction(hero.value, { type: 'fold' })
+  needsToAct.value.delete(hero.value.id)
   waitingForHero.value = false
   resumeBettingAfterHero()
 }
 
 function handleCheck() {
   if (!hero.value) return
-  hero.value.lastAction = 'check'
-  hero.value.currentBetAmount = 0
+  applyAction(hero.value, { type: 'check' })
+  needsToAct.value.delete(hero.value.id)
   waitingForHero.value = false
   resumeBettingAfterHero()
 }
 
 function handleCall(amount: number) {
   if (!hero.value) return
-  const callAmt = Math.min(amount, hero.value.chips)
-  hero.value.chips -= callAmt
-  hero.value.betThisRound += callAmt
-  pot.value += callAmt
-  hero.value.lastAction = 'call'
-  hero.value.currentBetAmount = callAmt
+  applyAction(hero.value, { type: 'call' })
+  needsToAct.value.delete(hero.value.id)
   waitingForHero.value = false
   resumeBettingAfterHero()
 }
@@ -352,36 +360,31 @@ function handleCall(amount: number) {
 function handleRaise(amount: number) {
   if (!hero.value) return
   const cappedAmount = Math.min(amount, hero.value.chips + hero.value.betThisRound)
-  const toAdd = cappedAmount - hero.value.betThisRound
-  hero.value.chips -= toAdd
-  hero.value.betThisRound = cappedAmount
-  pot.value += toAdd
-  currentBet.value = cappedAmount
-  hero.value.lastAction = hero.value.chips <= 0 ? 'all-in' : 'raise'
-  hero.value.currentBetAmount = cappedAmount
+  applyAction(hero.value, { type: 'raise', amount: cappedAmount })
+  needsToAct.value.delete(hero.value.id)
+  // Raise reopens action for everyone else
+  for (const ap of activePlayers.value) {
+    if (ap.id !== hero.value.id && ap.chips > 0 && !ap.folded) {
+      needsToAct.value.add(ap.id)
+    }
+  }
   waitingForHero.value = false
   resumeBettingAfterHero()
 }
 
 function resumeBettingAfterHero() {
-  const heroIdx = 0
-  const nextSeat = (heroIdx + 1) % playerStates.value.length
-
-  // Check if only one left
   if (activePlayers.value.length <= 1) {
     setTimeout(() => endHand(), 1000)
     return
   }
 
-  // Check if everyone has matched
-  const allMatched = activePlayers.value.every(
-    ap => ap.betThisRound >= currentBet.value || ap.chips <= 0
-  )
-  if (allMatched) {
+  if (needsToAct.value.size === 0) {
     setTimeout(() => advanceStreet(), 800)
     return
   }
 
+  // Continue from next seat after hero
+  const nextSeat = (0 + 1) % playerStates.value.length
   setTimeout(() => runBettingRound(nextSeat), 400)
 }
 
@@ -404,8 +407,14 @@ function advanceStreet() {
       return
   }
 
-  // Postflop: action starts left of dealer
-  const startSeat = (dealerSeat.value + 1) % playerStates.value.length
+  // Postflop: action starts first active player left of dealer
+  const count = playerStates.value.length
+  let startSeat = (dealerSeat.value + 1) % count
+  for (let i = 0; i < count; i++) {
+    const p = playerStates.value[startSeat]
+    if (!p.folded && !p.eliminated && p.chips > 0) break
+    startSeat = (startSeat + 1) % count
+  }
   setTimeout(() => runBettingRound(startSeat), 600)
 }
 
