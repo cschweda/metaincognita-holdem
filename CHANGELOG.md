@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-03-29
+
+### Changed
+- **README fully rewritten** to reflect current state of the app:
+  - Updated from "7 bot personas" to 25 (7 fictional + 18 pro) with full tables including consistency column
+  - Updated from "10 pro bots" to 18 with all new additions (Moneymaker, Reese, Ungar, Selbst, Seidel, Dwan, Antonius, Nguyen, Chan, Kenney)
+  - Pro count now documented as configurable (0 / 1 / 2 / 3 / All), not hardcoded at 2
+  - Added consistency system documentation
+  - Added pre-action queuing and speed-after-fold documentation
+  - Added PokerStars export documentation
+  - Added hand improvement probabilities documentation
+  - Test suite section updated: 666 tests across 14 files with realistic pipeline tests
+  - Testing approach table: Simplified (100K) → Universal (500K) → Realistic (50K with real cards)
+  - Future enhancements cleaned up: removed items already implemented (hand history, replayer, PokerStars export)
+  - Configuration section updated: 25 personas, consistency field
+  - Project structure updated: app.config.ts, app.vue, botDecision.ts, pokerStarsExport.ts, .env.example
+  - Roadmap updated: Phases 1-5 done, Phase 3 partial
+  - **Added poker glossary**: 20 terms (VPIP, PFR, AF, WTSD, equity, pot odds, implied odds, outs, SPR, Chen, OESD, gutshot, tilt, GTO, TAG, LAG, 3-bet, C-bet, value bet, semi-bluff, walk, position)
+
 ## [0.10.1] - 2026-03-29
 
 ### Added
@@ -612,6 +631,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.10.2]: https://github.com/cschweda/holdem-simulator/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/cschweda/holdem-simulator/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/cschweda/holdem-simulator/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/cschweda/holdem-simulator/compare/v0.9.1...v0.9.2
