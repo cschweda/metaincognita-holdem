@@ -38,7 +38,7 @@ function runStats(p: ReturnType<typeof getPersona>) {
 // ─── Pro Bot Existence ─────────────────────────────────────────
 
 describe('Pro bot personas exist with correct fields', () => {
-  const proNames = ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly', 'Phil Laak', 'Antonio Esfandiari', 'Gabe Kaplan', 'Jean-Robert Bellande']
+  const proNames = ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly', 'Phil Laak', 'Antonio Esfandiari', 'Gabe Kaplan', 'Jean-Robert Bellande', 'Mike Matusow']
 
   for (const name of proNames) {
     it(`${name} exists in config`, () => {
@@ -241,6 +241,43 @@ describe('Jennifer Tilly — unpredictable, moderate tilt', () => {
   })
 })
 
+// ─── Mike Matusow ──────────────────────────────────────────────
+
+describe('Mike Matusow — "The Mouth", solid but self-destructs on tilt', () => {
+  const matusow = getPersona('Mike Matusow')
+
+  it('plays solid when not tilted (VPIP ~28%)', () => {
+    const stats = runStats(matusow)
+    expect(stats.vpip).toBeGreaterThan(0.15)
+    expect(stats.vpip).toBeLessThan(0.40)
+  })
+
+  it('has second-highest tilt multiplier (2.2x, behind Hellmuth)', () => {
+    expect(matusow.tiltMultiplier).toBeGreaterThan(2.0)
+    expect(matusow.tiltMultiplier).toBeLessThan(getPersona('Phil Hellmuth').tiltMultiplier!)
+  })
+
+  it('tilts after 1-2 losses like Hellmuth', () => {
+    const state = createTiltState()
+    // effective threshold = round(3 / 2.2) = 1
+    updateTilt(state, false, false, config.tilt, matusow.tiltMultiplier!)
+    expect(state.tilted).toBe(true)
+  })
+
+  it('tilted Matusow bluffs significantly more', () => {
+    const baseStats = simulateBotStats(profileFrom(matusow), N)
+    const tiltedProfile = applyTilt(
+      profileFrom(matusow),
+      { consecutiveLosses: 3, tilted: true, severity: 1.0, handsRemaining: 5 },
+      config.tilt,
+      matusow.tiltMultiplier!,
+    )
+    const tiltStats = simulateBotStats(tiltedProfile, N)
+    expect(tiltStats.bluffRate).toBeGreaterThan(baseStats.bluffRate)
+    expect(tiltStats.vpip).toBeGreaterThan(baseStats.vpip + 0.05)
+  })
+})
+
 // ─── Comparative: Pro vs Pro ───────────────────────────────────
 
 describe('Pro bot comparative behavior', () => {
@@ -320,16 +357,16 @@ describe('Per-persona tilt multiplier mechanics', () => {
 // ─── Table Composition Rules ───────────────────────────────────
 
 describe('Table composition: max 2 pros, no duplicates', () => {
-  const proNames = new Set(['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly', 'Phil Laak', 'Antonio Esfandiari', 'Gabe Kaplan', 'Jean-Robert Bellande'])
+  const proNames = new Set(['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly', 'Phil Laak', 'Antonio Esfandiari', 'Gabe Kaplan', 'Jean-Robert Bellande', 'Mike Matusow'])
   const allNames = config.personas.map(p => p.name)
 
   it('config has at least 12 total personas (7 fictional + 5 pro)', () => {
     expect(config.personas.length).toBeGreaterThanOrEqual(12)
   })
 
-  it('config has exactly 9 pro bots', () => {
+  it('config has exactly 10 pro bots', () => {
     const pros = config.personas.filter(p => proNames.has(p.name))
-    expect(pros.length).toBe(9)
+    expect(pros.length).toBe(10)
   })
 
   it('no duplicate persona names in config', () => {

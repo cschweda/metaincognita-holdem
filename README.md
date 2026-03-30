@@ -59,7 +59,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with intelligent bot oppo
 
 The advanced setup section lets you fine-tune every opponent at the table. Each bot can use a named persona, a quick-select preset, or fully custom stats.
 
-**7 Named Personas** -- each with a distinct playstyle and exploitable leak:
+**7 Fictional Personas** -- each with a distinct playstyle and exploitable leak:
 
 | Persona | VPIP | PFR | Aggression | Leak |
 |---------|------|-----|------------|------|
@@ -70,6 +70,23 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 | Tricky Tina | 24% | 18% | 1.15 | Slow-plays big hands, check-raises too often |
 | Solid Sam | 22% | 17% | 1.00 | Nearly GTO -- the toughest bot at the table |
 | Wild Wendy | 34% | 28% | 1.50 | Massive over-aggression, 25% bluff frequency |
+
+**10 Pro Player Bots** -- modeled after real-world poker legends with per-persona tilt sensitivity:
+
+| Pro | VPIP | Style | Tilt |
+|-----|------|-------|------|
+| Phil Hellmuth | 20% | Near-GTO, massive tilt after losses | 2.5x |
+| Daniel Negreanu | 32% | Suited connectors from any position, creative | 0.5x |
+| Phil Ivey | 23% | Near-perfect, rare mistakes, almost untiltable | 0.3x |
+| Doyle Brunson | 28% | Power poker, traps with monsters | 0.4x |
+| Jennifer Tilly | 30% | Unpredictable tight/loose mix | 0.7x |
+| Phil Laak | 27% | Unorthodox, analytical, float bets | 0.6x |
+| Antonio Esfandiari | 29% | Charismatic aggressor, constant pressure | 0.9x |
+| Gabe Kaplan | 26% | Steady, intelligent, solid fundamentals | 0.8x |
+| Jean-Robert Bellande | 36% | Fearless gambler, huge bluffs | 1.4x |
+| Mike Matusow | 28% | Solid until tilt -- then reckless all-ins | 2.2x |
+
+Max 2 pro bots per randomly generated table. No duplicates. Users can manually pick any combo in Advanced setup.
 
 **6 Quick-Select Presets** for instant archetype assignment:
 

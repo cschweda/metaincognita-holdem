@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-03-29
+
+Pro player bots with real-world playstyles and per-persona tilt.
+
+### Added
+
+#### 10 Pro Player Bots
+- **Phil Hellmuth** (VPIP 20%, tilt 2.5x) — Near-GTO baseline but goes on massive tilt after just 1-2 losses. Becomes a maniac when frustrated.
+- **Daniel Negreanu** (VPIP 32%, tilt 0.5x) — Loves suited connectors from any position. Highest creative frequency among pros. Very tilt-resistant.
+- **Phil Ivey** (VPIP 23%, tilt 0.3x) — Near-perfect play with rare, unpredictable mistakes. Almost untiltable — needs 10+ consecutive losses. The hardest bot to exploit.
+- **Doyle Brunson** (VPIP 28%, tilt 0.4x) — Old-school power poker. Traps with monsters, overvalues top pair. Stoic under pressure.
+- **Jennifer Tilly** (VPIP 30%, tilt 0.7x) — Unpredictable tight/loose mix. Plays position well but occasionally overcommits with draws.
+- **Phil Laak** (VPIP 27%, tilt 0.6x) — Unorthodox and analytical. Highest creative frequency of all bots. Float bets, delayed aggression, hard to put on a hand.
+- **Antonio Esfandiari** (VPIP 29%, tilt 0.9x) — Charismatic aggressor. Constant pressure with well-timed bluffs but can overplay position.
+- **Gabe Kaplan** (VPIP 26%, tilt 0.8x) — Steady, intelligent, solid fundamentals. Rarely makes big mistakes but predictable bet sizing.
+- **Jean-Robert Bellande** (VPIP 36%, tilt 1.4x) — Fearless gambler. Plays wide, bets big, loves action. Will bluff massive pots but tilts when caught.
+- **Mike Matusow** (VPIP 28%, tilt 2.2x) — "The Mouth." Solid player who self-destructs on tilt. Explosive outbursts lead to reckless all-ins and wild bluffs.
+
+#### Per-Persona Tilt System
+- Each bot has a `tiltMultiplier` that scales how fast they tilt and how hard it hits
+- Hellmuth (2.5x): tilts after 1 loss, massive stat swings
+- Ivey (0.3x): needs 10+ losses, barely changes even when tilted
+- Tilt trigger threshold, severity, and effect magnitude all scale per bot
+- Caps raised: VPIP 65%, aggression 3.0, bluffFreq 50% to accommodate extreme tilt
+
+#### Table Composition Rules
+- Max 2 pro bots per randomly generated table
+- No duplicate personas — every bot at the table is unique
+- 17 total personas (7 fictional + 10 pro) — enough for any table size
+- Users can manually swap any bot via the Advanced setup section
+
+#### Pro Bot Tests (46 new tests in `phase4-pro-bots.test.ts`)
+- All 9 pros exist with valid fields, PFR <= VPIP
+- Per-persona behavioral verification: Hellmuth, Negreanu, Ivey, Brunson, Tilly
+- Comparative ordering: VPIP, tilt multipliers, creative frequency, aggression
+- Tilt multiplier mechanics: faster trigger at high mult, larger effect, default 1.0 unchanged
+- Table composition: max 2 pros verified over 100 random generations, no duplicates
+
 ## [0.8.1] - 2026-03-29
 
 ### Fixed
@@ -480,6 +518,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.9.0]: https://github.com/cschweda/holdem-simulator/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/cschweda/holdem-simulator/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/cschweda/holdem-simulator/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/cschweda/holdem-simulator/compare/v0.7.0...v0.7.1

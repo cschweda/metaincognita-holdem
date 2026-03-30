@@ -133,6 +133,7 @@ export default {
     { name: 'Antonio Esfandiari', vpip: 0.29, pfr: 0.23, aggression: 1.30, bluffFreq: 0.19, creativeFreq: 0.08, tiltMultiplier: 0.9, leak: 'Charismatic aggressor — applies constant pressure with well-timed bluffs but can overplay position' },
     { name: 'Gabe Kaplan',     vpip: 0.26, pfr: 0.18, aggression: 1.00, bluffFreq: 0.11, creativeFreq: 0.05, tiltMultiplier: 0.8, leak: 'Steady, intelligent player — solid fundamentals but predictable bet sizing. Rarely makes big mistakes.' },
     { name: 'Jean-Robert Bellande', vpip: 0.36, pfr: 0.24, aggression: 1.35, bluffFreq: 0.22, creativeFreq: 0.09, tiltMultiplier: 1.4, leak: 'Fearless gambler — plays wide, bets big, and loves action. Will bluff massive pots but tilts when caught.' },
+    { name: 'Mike Matusow',    vpip: 0.28, pfr: 0.22, aggression: 1.25, bluffFreq: 0.17, creativeFreq: 0.06, tiltMultiplier: 2.2, leak: '"The Mouth" — solid player who self-destructs on tilt. Explosive outbursts lead to reckless all-ins and wild bluffs.' },
   ],
 
   // ─── Bot Presets (quick-select archetypes for bot configurator) ─
