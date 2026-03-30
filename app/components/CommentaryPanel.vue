@@ -11,6 +11,7 @@ const props = defineProps<{
   mode: CommentaryMode
   normanSilence: number
   lonAnalysis: number
+  handOver?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +26,11 @@ const userScrolled = ref(false)
 
 function switchToTV() {
   if (props.mode === 'tv') return
+  // No warning needed if the hand is over (showdown) — cards are already revealed
+  if (props.handOver) {
+    emit('update:mode', 'tv')
+    return
+  }
   if (confirm('TV Broadcast mode flips all bot cards face-up — like watching the WSOP on TV. You still make all your own decisions.\n\nEnable TV mode?')) {
     emit('update:mode', 'tv')
   }
