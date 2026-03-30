@@ -1145,4 +1145,4 @@ This project draws inspiration from the poker software and communities that shap
 
 ## License
 
-Private project.
+Public project.
