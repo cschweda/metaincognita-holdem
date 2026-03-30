@@ -56,11 +56,47 @@ A browser-based No-Limit Texas Hold'em poker simulator with intelligent bot oppo
 - Prominent bankroll display with running P&L and +/- from starting stack
 
 ### Bot Configurator
-- **7 named personas**: Tight Tony, Loose Lucy, Aggressive Alex, Calling Carl, Tricky Tina, Solid Sam, Wild Wendy
-- **6 archetype presets**: Nit, Tight, TAG (Tight-Aggressive), LAG (Loose-Aggressive), Loose-Passive, Maniac
-- **Custom sliders**: VPIP (10-50%), PFR (5-40%), Aggression (0.3-2.0), Bluff Frequency (3-30%), Creative Frequency (1-15%)
-- **Dynamic bot names**: Auto-update based on stat adjustments ("Loose Lucy" becomes "Aggro Lucy" when aggression is cranked up)
-- **Plain-English descriptions**: Real-time playstyle summaries ("This is a very loose, passive player who prefers calling over raising preflop. Bluffs frequently -- call them down with medium-strength hands.")
+
+The advanced setup section lets you fine-tune every opponent at the table. Each bot can use a named persona, a quick-select preset, or fully custom stats.
+
+**7 Named Personas** -- each with a distinct playstyle and exploitable leak:
+
+| Persona | VPIP | PFR | Aggression | Leak |
+|---------|------|-----|------------|------|
+| Tight Tony | 14% | 11% | 0.85 | Folds too much to 3-bets, won't bluff rivers |
+| Loose Lucy | 38% | 22% | 1.10 | Plays too many hands, especially suited junk |
+| Aggressive Alex | 26% | 22% | 1.40 | Over-bets draws, 3-bets too wide |
+| Calling Carl | 30% | 12% | 0.60 | Calls too much postflop, rarely raises |
+| Tricky Tina | 24% | 18% | 1.15 | Slow-plays big hands, check-raises too often |
+| Solid Sam | 22% | 17% | 1.00 | Nearly GTO -- the toughest bot at the table |
+| Wild Wendy | 34% | 28% | 1.50 | Massive over-aggression, 25% bluff frequency |
+
+**6 Quick-Select Presets** for instant archetype assignment:
+
+| Preset | VPIP | PFR | Aggression | Style |
+|--------|------|-----|------------|-------|
+| Nit | 12% | 9% | 0.70 | Ultra-tight, folds everything marginal |
+| Tight | 18% | 14% | 0.90 | Solid, conservative, few leaks |
+| TAG | 22% | 18% | 1.20 | The winning style -- selective but aggressive |
+| LAG | 30% | 24% | 1.40 | Wide range, lots of pressure |
+| Loose-Passive | 35% | 14% | 0.50 | Calls everything, rarely raises |
+| Maniac | 40% | 32% | 1.60 | Plays almost every hand, maximum aggression |
+
+**Custom Sliders** -- tweak any individual stat per bot:
+
+| Stat | Range | What it controls |
+|------|-------|------------------|
+| VPIP | 10-50% | How many hands the bot plays (tight vs loose) |
+| PFR | 5-40% | How often it raises preflop (passive vs aggressive) |
+| Aggression | 0.3-2.0 | Multiplier on postflop bets and raises |
+| Bluff Frequency | 3-30% | How often it bets with nothing |
+| Creative Frequency | 1-15% | Limp-reraises, donk bets, check-raise bluffs |
+
+**Dynamic features:**
+- **Auto-naming**: Bot names update when stats drift from the preset ("Loose Lucy" becomes "Aggro Lucy" if you crank aggression, or "Nitty Lucy" if you tighten VPIP)
+- **Plain-English summary**: A real-time description below each bot explains the combined effect of all sliders ("This is a very loose, passive player who prefers calling over raising preflop. Bluffs frequently -- call them down with medium-strength hands.")
+- **Randomize All**: Shuffle persona assignments across all seats
+- **All Same**: Set every bot to the same preset for controlled experiments
 
 ### Authentic Deal Sequence
 - Fisher-Yates shuffled 52-card deck (statistically uniform, no duplicates)
