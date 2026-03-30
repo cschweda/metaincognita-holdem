@@ -73,6 +73,7 @@ interface PlayerState {
   currentBetAmount: number
   betThisRound: number
   tilt: TiltState
+  tiltMultiplier: number
 }
 
 const playerStates = ref<PlayerState[]>([])
@@ -154,6 +155,12 @@ function handleStart(gameSettings: GameSettings) {
   setTimeout(dealNewHand, 300)
 }
 
+function findPersonaTiltMultiplier(name?: string): number {
+  if (!name) return 1.0
+  const persona = config.personas.find(p => p.name === name)
+  return persona?.tiltMultiplier ?? 1.0
+}
+
 function shuffleDeck(): Card[] {
   const deck: Card[] = []
   const suits: Card['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades']
@@ -196,6 +203,7 @@ function dealNewHand() {
       currentBetAmount: 0,
       betThisRound: 0,
       tilt: prevTilt,
+      tiltMultiplier: !isHero ? (findPersonaTiltMultiplier(botConfig?.name) ?? 1.0) : 1.0,
     })
   }
   playerStates.value = states
@@ -390,7 +398,7 @@ function makeBotDecision(p: PlayerState): { type: string; amount?: number } {
   }
 
   // Apply tilt modifiers (widens range, boosts aggression + bluffs)
-  const profile = applyTilt(baseProfile, p.tilt, config.tilt)
+  const profile = applyTilt(baseProfile, p.tilt, config.tilt, p.tiltMultiplier)
 
   return decideBotAction(
     profile,
@@ -536,7 +544,7 @@ function endHand() {
     const chipsAtStart = startingStack.value // approximate
     const lostBigPot = !won && !p.folded && pot.value > chipsAtStart * config.tilt.bigLossThreshold
 
-    updateTilt(p.tilt, won, lostBigPot, config.tilt)
+    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier)
   }
 
   // Record hand for session stats

@@ -117,13 +117,18 @@ export default {
 
   // ─── Bot Personas ────────────────────────────────────────────
   personas: [
-    { name: 'Tight Tony',     vpip: 0.14, pfr: 0.11, aggression: 0.85, bluffFreq: 0.08, creativeFreq: 0.03, leak: 'Folds too much to 3-bets; won\'t bluff rivers' },
-    { name: 'Loose Lucy',     vpip: 0.38, pfr: 0.22, aggression: 1.10, bluffFreq: 0.14, creativeFreq: 0.05, leak: 'Plays too many hands, especially suited junk' },
-    { name: 'Aggressive Alex', vpip: 0.26, pfr: 0.22, aggression: 1.40, bluffFreq: 0.20, creativeFreq: 0.06, leak: 'Over-bets draws, 3-bets too wide' },
-    { name: 'Calling Carl',   vpip: 0.30, pfr: 0.12, aggression: 0.60, bluffFreq: 0.08, creativeFreq: 0.04, leak: 'Calls too much postflop, rarely raises' },
-    { name: 'Tricky Tina',    vpip: 0.24, pfr: 0.18, aggression: 1.15, bluffFreq: 0.16, creativeFreq: 0.08, leak: 'Slow-plays big hands, check-raises too often' },
-    { name: 'Solid Sam',      vpip: 0.22, pfr: 0.17, aggression: 1.00, bluffFreq: 0.12, creativeFreq: 0.05, leak: 'Very few leaks — tightest to GTO baseline' },
-    { name: 'Wild Wendy',     vpip: 0.34, pfr: 0.28, aggression: 1.50, bluffFreq: 0.25, creativeFreq: 0.07, leak: 'Massive over-aggression, huge bluff frequency' },
+    { name: 'Tight Tony',      vpip: 0.14, pfr: 0.11, aggression: 0.85, bluffFreq: 0.08, creativeFreq: 0.03, tiltMultiplier: 1.0, leak: 'Folds too much to 3-bets; won\'t bluff rivers' },
+    { name: 'Loose Lucy',      vpip: 0.38, pfr: 0.22, aggression: 1.10, bluffFreq: 0.14, creativeFreq: 0.05, tiltMultiplier: 1.0, leak: 'Plays too many hands, especially suited junk' },
+    { name: 'Aggressive Alex',  vpip: 0.26, pfr: 0.22, aggression: 1.40, bluffFreq: 0.20, creativeFreq: 0.06, tiltMultiplier: 1.2, leak: 'Over-bets draws, 3-bets too wide' },
+    { name: 'Calling Carl',    vpip: 0.30, pfr: 0.12, aggression: 0.60, bluffFreq: 0.08, creativeFreq: 0.04, tiltMultiplier: 0.8, leak: 'Calls too much postflop, rarely raises' },
+    { name: 'Tricky Tina',     vpip: 0.24, pfr: 0.18, aggression: 1.15, bluffFreq: 0.16, creativeFreq: 0.08, tiltMultiplier: 1.0, leak: 'Slow-plays big hands, check-raises too often' },
+    { name: 'Solid Sam',       vpip: 0.22, pfr: 0.17, aggression: 1.00, bluffFreq: 0.12, creativeFreq: 0.05, tiltMultiplier: 0.6, leak: 'Very few leaks — tightest to GTO baseline' },
+    { name: 'Wild Wendy',      vpip: 0.34, pfr: 0.28, aggression: 1.50, bluffFreq: 0.25, creativeFreq: 0.07, tiltMultiplier: 1.3, leak: 'Massive over-aggression, huge bluff frequency' },
+    { name: 'Phil Hellmuth',   vpip: 0.20, pfr: 0.16, aggression: 1.05, bluffFreq: 0.10, creativeFreq: 0.04, tiltMultiplier: 2.5, leak: 'Plays near-GTO but goes on massive tilt after losses — becomes a maniac when frustrated' },
+    { name: 'Daniel Negreanu', vpip: 0.32, pfr: 0.20, aggression: 1.10, bluffFreq: 0.15, creativeFreq: 0.10, tiltMultiplier: 0.5, leak: 'Plays suited connectors and small pairs from any position — great reads but overplays speculative hands OOP' },
+    { name: 'Phil Ivey',       vpip: 0.23, pfr: 0.19, aggression: 1.15, bluffFreq: 0.13, creativeFreq: 0.06, tiltMultiplier: 0.3, leak: 'Near-perfect play with rare, unpredictable mistakes — the hardest bot to read or exploit' },
+    { name: 'Doyle Brunson',   vpip: 0.28, pfr: 0.20, aggression: 1.20, bluffFreq: 0.16, creativeFreq: 0.09, tiltMultiplier: 0.4, leak: 'Old-school power poker — loves big pairs and big pots. Will trap with monsters but overvalues top pair.' },
+    { name: 'Jennifer Tilly',  vpip: 0.30, pfr: 0.16, aggression: 0.90, bluffFreq: 0.12, creativeFreq: 0.07, tiltMultiplier: 0.7, leak: 'Unpredictable mix of tight and loose — plays position well but occasionally overcommits with draws' },
   ],
 
   // ─── Bot Presets (quick-select archetypes for bot configurator) ─

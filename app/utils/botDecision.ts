@@ -41,20 +41,21 @@ export function updateTilt(
     fullTiltThreshold: number
     decayHands: [number, number]
   },
+  tiltMultiplier: number = 1.0,
 ): void {
   if (won) {
-    // Winning resets consecutive loss count (but doesn't instantly cure tilt)
     state.consecutiveLosses = 0
     return
   }
 
-  // Lost this hand
   state.consecutiveLosses++
 
-  // Check triggers
+  // Tilt-prone bots (high multiplier) trigger faster
+  // Hellmuth (2.5x) tilts after just 1-2 losses; Ivey (0.3x) needs 10+
+  const effectiveThreshold = Math.max(1, Math.round(config.consecutiveLosses / tiltMultiplier))
   const shouldTilt =
     lostBigPot ||
-    state.consecutiveLosses >= config.consecutiveLosses
+    state.consecutiveLosses >= effectiveThreshold
 
   if (shouldTilt && !state.tilted) {
     state.tilted = true
@@ -64,13 +65,14 @@ export function updateTilt(
 
   // Scale severity
   if (state.tilted) {
-    if (lostBigPot || state.consecutiveLosses >= config.fullTiltThreshold) {
+    const effectiveFull = Math.max(1, Math.round(config.fullTiltThreshold / tiltMultiplier))
+    const effectiveMild = Math.max(1, Math.round(config.mildTiltThreshold / tiltMultiplier))
+    if (lostBigPot || state.consecutiveLosses >= effectiveFull) {
       state.severity = 1.0
-    } else if (state.consecutiveLosses >= config.mildTiltThreshold) {
+    } else if (state.consecutiveLosses >= effectiveMild) {
       state.severity = 0.5
     }
-    // Extend tilt if losses keep coming
-    if (state.consecutiveLosses > config.fullTiltThreshold) {
+    if (state.consecutiveLosses > effectiveFull) {
       state.handsRemaining = Math.max(state.handsRemaining, 3)
     }
   }
@@ -91,19 +93,27 @@ export function decayTilt(state: TiltState): void {
 /**
  * Returns a tilt-modified profile. The base profile is not mutated.
  */
+/**
+ * Returns a tilt-modified profile. The base profile is not mutated.
+ * tiltMultiplier scales how hard tilt hits this specific bot:
+ *   - Hellmuth (2.5): massive tilt swings
+ *   - Ivey (0.3): barely affected
+ *   - Default (1.0): standard tilt
+ */
 export function applyTilt(
   base: BotProfile,
   tilt: TiltState,
   boosts: { aggressionBoost: number; vpipWiden: number; bluffBoost: number; pfrBoost: number },
+  tiltMultiplier: number = 1.0,
 ): BotProfile {
   if (!tilt.tilted) return base
-  const s = tilt.severity
+  const s = tilt.severity * tiltMultiplier
   return {
-    vpip: Math.min(base.vpip + boosts.vpipWiden * s, 0.60),
-    pfr: Math.min(base.pfr + boosts.pfrBoost * s, 0.50),
-    aggression: Math.min(base.aggression + boosts.aggressionBoost * s, 2.5),
-    bluffFreq: Math.min(base.bluffFreq + boosts.bluffBoost * s, 0.40),
-    creativeFreq: Math.min(base.creativeFreq + 0.03 * s, 0.20),
+    vpip: Math.min(base.vpip + boosts.vpipWiden * s, 0.65),
+    pfr: Math.min(base.pfr + boosts.pfrBoost * s, 0.55),
+    aggression: Math.min(base.aggression + boosts.aggressionBoost * s, 3.0),
+    bluffFreq: Math.min(base.bluffFreq + boosts.bluffBoost * s, 0.50),
+    creativeFreq: Math.min(base.creativeFreq + 0.03 * s, 0.25),
   }
 }
 

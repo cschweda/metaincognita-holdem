@@ -28,6 +28,7 @@ export interface BotConfig {
   aggression: number
   bluffFreq: number
   creativeFreq: number
+  tiltMultiplier: number
 }
 
 const playerCount = ref(6)
@@ -85,20 +86,31 @@ const botConfigs = ref<BotConfig[]>(
   generateDefaultBots(config.table.maxPlayers - 1)
 )
 
+// Pro bots are real player personas; fictional bots are the originals
+const proBots = config.personas.filter(p =>
+  ['Phil Hellmuth', 'Daniel Negreanu', 'Phil Ivey', 'Doyle Brunson', 'Jennifer Tilly'].includes(p.name)
+)
+const fictionalBots = config.personas.filter(p => !proBots.includes(p))
+
 function generateDefaultBots(count: number): BotConfig[] {
-  const shuffled = [...config.personas].sort(() => Math.random() - 0.5)
-  return Array.from({ length: count }, (_, i) => {
-    const persona = shuffled[i % shuffled.length]
-    return {
-      preset: persona.name,
-      name: persona.name,
-      vpip: persona.vpip,
-      pfr: persona.pfr,
-      aggression: persona.aggression,
-      bluffFreq: persona.bluffFreq,
-      creativeFreq: persona.creativeFreq,
-    }
-  })
+  // Max 2 pro bots per table, no duplicates of any persona
+  const shuffledPros = [...proBots].sort(() => Math.random() - 0.5).slice(0, 2)
+  const shuffledFictional = [...fictionalBots].sort(() => Math.random() - 0.5)
+
+  // Combine: up to 2 pros first, then fill with fictional (no duplicates)
+  const pool = [...shuffledPros, ...shuffledFictional]
+  const selected = pool.slice(0, count)
+
+  return selected.map(persona => ({
+    preset: persona.name,
+    name: persona.name,
+    vpip: persona.vpip,
+    pfr: persona.pfr,
+    aggression: persona.aggression,
+    bluffFreq: persona.bluffFreq,
+    creativeFreq: persona.creativeFreq,
+    tiltMultiplier: persona.tiltMultiplier ?? 1.0,
+  }))
 }
 
 function applyPreset(botIndex: number, presetName: string) {
@@ -111,6 +123,7 @@ function applyPreset(botIndex: number, presetName: string) {
   bot.aggression = preset.aggression
   bot.bluffFreq = preset.bluffFreq
   bot.creativeFreq = preset.creativeFreq
+  bot.tiltMultiplier = ('tiltMultiplier' in preset) ? (preset as any).tiltMultiplier : 1.0
   if ('leak' in preset) {
     bot.name = presetName
   }
