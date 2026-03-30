@@ -287,8 +287,50 @@ const expandedHand = ref<string | null>(null)
                   <span class="flex-1" />
                   <span class="text-[0.6rem] px-2 py-0.5 rounded bg-amber-900/40 text-amber-400 whitespace-nowrap">{{ hand.interestReason }}</span>
                 </button>
-                <div v-if="expandedHand === (sim.dlLabel + '-' + hand.handNumber)" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10">
-                  <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3">{{ hand.psFormat }}</pre>
+                <div v-if="expandedHand === (sim.dlLabel + '-' + hand.handNumber)" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10 space-y-3">
+                  <!-- Hand summary -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-900/50 rounded-lg p-3">
+                      <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Board</div>
+                      <div class="text-base font-mono text-white">{{ hand.board || 'No flop' }}</div>
+                    </div>
+                    <div class="bg-gray-900/50 rounded-lg p-3">
+                      <div class="text-[0.6rem] text-gray-500 uppercase mb-1">Pot</div>
+                      <div class="text-base font-mono text-yellow-400">${{ hand.potSize }}</div>
+                      <div class="text-[0.55rem] text-gray-600 mt-0.5">
+                        {{ hand.reachedShowdown ? 'Showdown' : hand.reachedRiver ? 'River fold' : hand.reachedFlop ? 'Postflop fold' : 'Preflop' }}
+                        {{ hand.wasAllIn ? '· All-in' : '' }}
+                        {{ hand.was3Bet ? '· 3-bet pot' : '' }}
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Players -->
+                  <div>
+                    <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Players</div>
+                    <div class="grid grid-cols-2 gap-1.5">
+                      <div
+                        v-for="p in hand.players.filter(pp => pp.holeCards)"
+                        :key="p.name"
+                        class="flex items-center justify-between bg-gray-900/40 rounded px-2.5 py-1.5 text-xs"
+                        :class="p.folded ? 'opacity-40' : ''"
+                      >
+                        <div class="flex items-center gap-1.5">
+                          <span :class="p.name === hand.winnerName ? 'text-green-400' : 'text-gray-300'" class="font-semibold">{{ p.name }}</span>
+                          <span class="text-gray-600 text-[0.55rem]">{{ p.position }}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <span class="font-mono text-white">{{ p.holeCards }}</span>
+                          <span v-if="p.folded" class="text-red-400/50 text-[0.5rem]">FOLD</span>
+                          <span v-if="p.name === hand.winnerName" class="text-green-400 text-[0.5rem]">WIN</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Full PokerStars hand history -->
+                  <details>
+                    <summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-semibold">PokerStars Hand History</summary>
+                    <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3 mt-2">{{ hand.psFormat }}</pre>
+                  </details>
                 </div>
               </div>
             </div>

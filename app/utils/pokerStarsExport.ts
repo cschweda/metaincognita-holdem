@@ -91,7 +91,13 @@ export function toPokerStarsFormat(
   lines.push('*** HOLE CARDS ***')
   const hero = players.find(p => p.isHero)
   if (hero?.holeCards) {
+    // Normal game: show hero's cards
     lines.push(`Dealt to ${hero.name} [${cardsToPS(hero.holeCards)}]`)
+  } else {
+    // Bot-vs-bot simulation: show all players' cards
+    for (const p of players) {
+      if (p.holeCards) lines.push(`Dealt to ${p.name} [${cardsToPS(p.holeCards)}]`)
+    }
   }
 
   // Parse actions into streets
