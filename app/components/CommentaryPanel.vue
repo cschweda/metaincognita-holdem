@@ -172,10 +172,12 @@ const typeStyles: Record<string, string> = {
         v-for="line in lines"
         :key="line.id"
         class="text-xs leading-relaxed"
-        :class="typeStyles[line.type] || 'text-gray-400'"
+        :class="mode === 'tv' && line.voice
+          ? (line.voice === 'lon' ? 'text-blue-300/80' : 'text-amber-300/80')
+          : (typeStyles[line.type] || 'text-gray-400')"
       >
         <template v-if="mode === 'tv' && line.voice">
-          <span class="font-semibold mr-1" :class="line.voice === 'lon' ? 'text-blue-400/70' : 'text-amber-400/70'">{{ line.voice === 'lon' ? 'Mon:' : 'Chorman:' }}</span>
+          <span class="font-semibold mr-1" :class="line.voice === 'lon' ? 'text-blue-400' : 'text-amber-400'">{{ line.voice === 'lon' ? 'Mon:' : 'Chorman:' }}</span>
         </template>
         <span v-else class="text-gray-700 mr-1">&#9679;</span>{{ line.text }}
       </div>
