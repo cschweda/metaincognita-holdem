@@ -204,23 +204,35 @@ const expandedHand = ref<string | null>(null)
                   <tr class="border-b border-gray-700 text-gray-400 text-xs">
                     <th class="text-left py-2 px-2">Bot</th>
                     <th class="text-right px-2">
-                      <UTooltip text="Voluntarily Put $ In Pot — % of hands played (not counting blinds). Higher = looser.">
+                      <UTooltip text="Voluntarily Put $ In Pot — % of hands played (not counting blinds). Higher = looser. This is the OBSERVED value from the simulation.">
                         <span class="cursor-help border-b border-dotted border-gray-600">VPIP</span>
                       </UTooltip>
                     </th>
-                    <th class="text-right px-2 text-gray-600">Cfg</th>
+                    <th class="text-right px-2 text-gray-600">
+                      <UTooltip text="Configured — the target VPIP set in the bot's persona profile (holdem.config.ts). The observed value should be close to this over many hands.">
+                        <span class="cursor-help border-b border-dotted border-gray-700">Target</span>
+                      </UTooltip>
+                    </th>
                     <th class="text-right px-2">
-                      <UTooltip text="Preflop Raise — % of hands raised preflop. Gap between VPIP and PFR = flat-call rate.">
+                      <UTooltip text="Preflop Raise — % of hands raised preflop. Gap between VPIP and PFR = flat-call rate. This is the OBSERVED value.">
                         <span class="cursor-help border-b border-dotted border-gray-600">PFR</span>
                       </UTooltip>
                     </th>
-                    <th class="text-right px-2 text-gray-600">Cfg</th>
+                    <th class="text-right px-2 text-gray-600">
+                      <UTooltip text="Configured — the target PFR set in the bot's persona profile. Should converge toward this over 1,000+ hands.">
+                        <span class="cursor-help border-b border-dotted border-gray-700">Target</span>
+                      </UTooltip>
+                    </th>
                     <th class="text-right px-2">
-                      <UTooltip text="Aggression Factor — ratio of (bets + raises) / calls. Higher = more aggressive postflop.">
+                      <UTooltip text="Aggression Factor — ratio of (bets + raises) / calls. Higher = more aggressive postflop. This is the OBSERVED value.">
                         <span class="cursor-help border-b border-dotted border-gray-600">AF</span>
                       </UTooltip>
                     </th>
-                    <th class="text-right px-2 text-gray-600">Cfg</th>
+                    <th class="text-right px-2 text-gray-600">
+                      <UTooltip text="Configured — the target aggression multiplier from the bot's persona profile.">
+                        <span class="cursor-help border-b border-dotted border-gray-700">Target</span>
+                      </UTooltip>
+                    </th>
                     <th class="text-right px-2">
                       <UTooltip text="Win rate — % of hands won by this bot.">
                         <span class="cursor-help border-b border-dotted border-gray-600">Win%</span>
