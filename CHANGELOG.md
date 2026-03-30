@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-03-29
+
+### Added
+
+#### Consistency System (Human Variance)
+- New `consistency` field on every persona (0.88–0.99)
+- Before each decision, rolls against consistency. On fail, bot makes a random off-strategy play — fold when they should call, raise with nothing, etc.
+- Near-perfect (0.98-0.99): Phil Ivey, Chip Reese, Erik Seidel — misplay ~1-2% of decisions
+- Very disciplined (0.95-0.97): Solid Sam, Hellmuth (calm), Doyle, Antonius, Chan, Dwan — 3-5%
+- Mostly solid (0.92-0.94): Negreanu, Stu Ungar, Moneymaker, Laak, Esfandiari — 6-8%
+- Inconsistent (0.88-0.91): Wild Wendy, Bellande, Matusow, Scotty Nguyen — 9-12%
+- Random actions are weighted: facing a bet → 40% fold / 40% call / 20% raise; unchallenged → 60% check / 40% random bet
+- Simulates fatigue, distraction, overconfidence, and bad reads in a single knob
+
 ## [0.10.0] - 2026-03-29
 
 25 personas, 18 pro bots, PokerStars export, universal tests, all 517 tests passing.
@@ -598,6 +612,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.10.1]: https://github.com/cschweda/holdem-simulator/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/cschweda/holdem-simulator/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/cschweda/holdem-simulator/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/cschweda/holdem-simulator/compare/v0.9.0...v0.9.1

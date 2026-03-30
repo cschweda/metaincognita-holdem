@@ -429,6 +429,10 @@ function makeBotDecision(p: PlayerState): { type: string; amount?: number } {
   // Apply tilt modifiers (widens range, boosts aggression + bluffs)
   const profile = applyTilt(baseProfile, p.tilt, config.tilt, p.tiltMultiplier)
 
+  // Consistency: how reliably this bot plays on-strategy
+  const personaConfig = config.personas.find(per => per.name === botConfig.name)
+  const consistency = personaConfig?.consistency ?? 0.95
+
   return decideBotAction(
     profile,
     {
@@ -441,6 +445,7 @@ function makeBotDecision(p: PlayerState): { type: string; amount?: number } {
       bb: bb.value,
       numActivePlayers: activePlayers.value.length,
     },
+    consistency,
   )
 }
 

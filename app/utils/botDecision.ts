@@ -116,6 +116,26 @@ export function applyTilt(
   }
 }
 
+/**
+ * Generate a random off-strategy action — the "brain fart" play.
+ * Weighted so it's not completely insane: folds and calls are more
+ * common than random raises.
+ */
+function generateRandomAction(ctx: DecisionContext): BotAction {
+  const r = Math.random()
+  if (ctx.toCall === 0) {
+    // Not facing a bet: check (60%) or random bet (40%)
+    if (r < 0.60) return { type: 'check' }
+    const betSize = Math.round(ctx.pot * (0.3 + Math.random() * 0.5))
+    return { type: 'raise', amount: Math.min(Math.max(betSize, ctx.bb), ctx.chips) }
+  }
+  // Facing a bet: fold (40%), call (40%), raise (20%)
+  if (r < 0.40) return { type: 'fold' }
+  if (r < 0.80) return { type: 'call' }
+  const raiseSize = Math.round(ctx.currentBet * (1.5 + Math.random()))
+  return { type: 'raise', amount: Math.min(raiseSize, ctx.chips + ctx.playerBet) }
+}
+
 export interface DecisionContext {
   street: 'preflop' | 'flop' | 'turn' | 'river'
   toCall: number       // amount needed to call (0 = no bet facing)
@@ -134,12 +154,23 @@ export interface BotAction {
 
 /**
  * Make a bot decision based on persona config and game context.
- * Designed to produce behavior that statistically matches the config
- * over a large sample of decisions.
+ * Includes a small consistency check — inconsistent bots occasionally
+ * make a random off-strategy play (fold when they should call, raise
+ * with nothing, etc.). Fires rarely: 1-3% for disciplined pros,
+ * up to 8-10% for loose cannons.
  */
-export function decideBotAction(profile: BotProfile, ctx: DecisionContext): BotAction {
-  const rand = Math.random()
+export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consistency?: number): BotAction {
   const { toCall, pot, chips, bb, street, currentBet, playerBet, numActivePlayers } = ctx
+
+  // ─── Consistency check: occasional off-strategy play ─────
+  if (consistency !== undefined && consistency < 1.0) {
+    const missplayChance = 1.0 - consistency // e.g., 0.97 consistency = 3% chance
+    if (Math.random() < missplayChance) {
+      return generateRandomAction(ctx)
+    }
+  }
+
+  const rand = Math.random()
 
   // ─── Preflop ───────────────────────────────────────────────
   if (street === 'preflop') {
