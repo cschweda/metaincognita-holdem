@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mon said "Hero has 9 outs to the flush draw" on the river. `onHeroTurn()` now skips `detectDraws()` entirely on the river.
   - Mon said a player was "chasing the flush draw" when calling on the river. `onAction()` call handler now skips draw detection on the river.
 
+### Changed
+- **Chorman slider accuracy** — The serious slider now fully controls Chorman's tone. When set high (50%+), Chorman prefers strategic observations first, Mon-banter second ("What Mon said. I understood about half of it."), and quips only as fallback. When set low, pure quips dominate. Previously many quip paths bypassed the slider entirely.
+- **Player names in action quips** — Chorman now occasionally names the player when commenting on their play (~35%): "Degreanu there. Another one bites the dust." / "Oh, Hero. Fold. The most underrated play in poker." Only on action-specific quips — generic banter stays impersonal.
+- **TV commentary color-coded by speaker** — All Mon lines are blue, all Chorman lines are amber. Previously text color varied by type (green/cyan/amber/gray) regardless of speaker.
+
 ### Added (Position-Aware Commentary)
 - **Mon fold assessments with position** — `lonFoldAssessment()` generates dynamic, context-aware fold analysis considering hand strength, position, street, and whether facing a raise. Examples: "Degreanu folds Ah Qd from the cutoff facing a raise. Disciplined. Most players can't fold that." / "Pvey folds 7h 2d from under the gun. Easy decision."
 - **Chorman reacts to fold assessments** — 15 new `normanFoldReactionQuips`: "Mon's right. That fold makes sense. I would have called, which is why I'm broke and they're not."
