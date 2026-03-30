@@ -80,6 +80,8 @@ const playerStates = ref<PlayerState[]>([])
 const heroWonHand = ref(false)
 const heroWinAmount = ref(0)
 const heroTotalWagered = ref(0)   // total chips hero put in this hand
+const handWinnerName = ref('')
+const handWinnerId = ref(-1)
 const dealerSeat = ref(0)
 const street = ref<'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('preflop')
 const dealt = ref(false)
@@ -226,6 +228,8 @@ function dealNewHand() {
   heroWonHand.value = false
   heroWinAmount.value = 0
   heroTotalWagered.value = 0
+  handWinnerId.value = -1
+  handWinnerName.value = ''
   streetAtEnd.value = 'preflop'
   handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
 
@@ -531,9 +535,11 @@ function endHand() {
     winner.chips += pot.value
   }
 
-  // Track hero result for stats panel
+  // Track result for stats panel
   heroWonHand.value = winnerId === 0
   heroWinAmount.value = pot.value
+  handWinnerId.value = winnerId
+  handWinnerName.value = playerStates.value[winnerId]?.name || 'Unknown'
   // heroTotalWagered is already tracked incrementally via applyAction + blinds
 
   // Update tilt state for all non-hero players
@@ -879,6 +885,8 @@ function formatPot(n: number): string {
           :win-amount="heroWinAmount"
           :hero-wagered="heroTotalWagered"
           :hero-net-profit="heroWonHand ? heroWinAmount - heroTotalWagered : -heroTotalWagered"
+          :winner-name="handWinnerName"
+          :winner-cards="handWinnerId >= 0 && playerStates[handWinnerId]?.holeCards ? playerStates[handWinnerId].holeCards!.map(c => displayCard(c)).join(' ') : ''"
           :session-stats="session"
           :supabase-connected="supabaseReady"
           @fold="handleFold"

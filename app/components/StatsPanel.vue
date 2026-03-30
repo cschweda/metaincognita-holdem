@@ -33,6 +33,8 @@ const props = defineProps<{
   winAmount?: number
   heroWagered?: number
   heroNetProfit?: number
+  winnerName?: string
+  winnerCards?: string
   sessionStats?: {
     handsPlayed: number
     handsWon: number
@@ -382,20 +384,35 @@ function afLabel(af: number): string {
             <div v-else class="text-xs text-gray-500 italic">No active draws</div>
           </div>
 
-          <!-- Win/Loss result (showdown) -->
-          <div v-if="street === 'showdown' && !heroFolded" class="border-t border-gray-700/50 pt-3 space-y-3">
+          <!-- Hand result (showdown or fold) -->
+          <div v-if="street === 'showdown'" class="border-t border-gray-700/50 pt-3 space-y-3">
             <!-- Result banner -->
             <div
               class="rounded-lg px-4 py-3 text-center"
-              :class="heroWon ? 'bg-green-600/30 border border-green-500/30' : 'bg-red-600/20 border border-red-500/20'"
+              :class="heroWon ? 'bg-green-600/30 border border-green-500/30' : heroFolded ? 'bg-gray-700/30 border border-gray-600/30' : 'bg-red-600/20 border border-red-500/20'"
             >
-              <div class="text-2xl font-bold" :class="heroWon ? 'text-green-400' : 'text-red-400'">
-                {{ heroWon ? 'YOU WIN' : 'YOU LOSE' }}
+              <div class="text-2xl font-bold" :class="heroWon ? 'text-green-400' : heroFolded ? 'text-gray-400' : 'text-red-400'">
+                {{ heroWon ? 'YOU WIN' : heroFolded ? 'YOU FOLDED' : 'YOU LOSE' }}
+              </div>
+            </div>
+
+            <!-- Winner info (always shown) -->
+            <div v-if="winnerName" class="bg-gray-800/40 rounded-lg p-3">
+              <div class="text-xs text-gray-400 mb-1">Winner</div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-base font-semibold" :class="heroWon ? 'text-green-400' : 'text-white'">
+                    {{ winnerName }}
+                  </span>
+                  <span v-if="winnerCards" class="text-sm font-mono text-gray-300 ml-2">{{ winnerCards }}</span>
+                </div>
+                <span class="text-green-400 font-mono font-bold">+${{ winAmount || 0 }}</span>
               </div>
             </div>
 
             <!-- Detailed hand financials -->
             <div class="bg-gray-800/40 rounded-lg p-3 space-y-2">
+              <div class="text-xs text-gray-400 mb-1">Your Result</div>
               <div class="flex justify-between text-xs">
                 <span class="text-gray-400">Pot size</span>
                 <span class="text-yellow-400 font-mono">${{ winAmount || 0 }}</span>
@@ -419,8 +436,8 @@ function afLabel(af: number): string {
               </div>
             </div>
 
-            <!-- Hand made -->
-            <div v-if="analysis?.madeHand" class="bg-gray-800/40 rounded-lg p-3">
+            <!-- Hand made (if hero didn't fold) -->
+            <div v-if="analysis?.madeHand && !heroFolded" class="bg-gray-800/40 rounded-lg p-3">
               <div class="text-xs text-gray-400 mb-1">Your hand</div>
               <div class="text-sm font-semibold text-white">{{ analysis.handDescription }}</div>
               <div class="text-xs text-gray-500">{{ HAND_RANK_NAMES[analysis.madeHand.rank] }}</div>
