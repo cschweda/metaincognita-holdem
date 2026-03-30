@@ -355,6 +355,39 @@ const expandedHand = ref<string | null>(null)
                       </div>
                     </div>
                   </div>
+                  <!-- Hand insights -->
+                  <div v-if="hand.insights && hand.insights.length > 0">
+                    <div class="text-[0.6rem] text-gray-500 uppercase mb-1.5">Analysis</div>
+                    <div class="space-y-1.5">
+                      <div
+                        v-for="(insight, ii) in hand.insights"
+                        :key="ii"
+                        class="flex items-start gap-2 text-xs rounded-lg px-2.5 py-1.5"
+                        :class="{
+                          'bg-red-900/20 border border-red-800/20': insight.type === 'leak',
+                          'bg-green-900/20 border border-green-800/20': insight.type === 'good-play',
+                          'bg-amber-900/15 border border-amber-800/20': insight.type === 'interesting',
+                          'bg-blue-900/15 border border-blue-800/20': insight.type === 'teaching',
+                        }"
+                      >
+                        <span
+                          class="text-[0.55rem] font-bold uppercase tracking-wider shrink-0 mt-0.5 px-1.5 py-0.5 rounded"
+                          :class="{
+                            'text-red-400 bg-red-900/40': insight.type === 'leak',
+                            'text-green-400 bg-green-900/40': insight.type === 'good-play',
+                            'text-amber-400 bg-amber-900/40': insight.type === 'interesting',
+                            'text-blue-400 bg-blue-900/40': insight.type === 'teaching',
+                          }"
+                        >
+                          {{ insight.type === 'leak' ? 'Leak' : insight.type === 'good-play' ? 'Good' : insight.type === 'interesting' ? 'Note' : 'Info' }}
+                        </span>
+                        <div>
+                          <span class="text-white font-semibold">{{ insight.player }}:</span>
+                          <span class="text-gray-300 ml-1">{{ insight.text }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <!-- Full PokerStars hand history -->
                   <details>
                     <summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-semibold">PokerStars Hand History</summary>

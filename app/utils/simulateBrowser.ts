@@ -22,15 +22,21 @@ interface SimPlayer {
   consistency: number; profile: BotProfile
 }
 
+export interface HandInsight {
+  type: 'leak' | 'good-play' | 'interesting' | 'teaching'
+  player: string
+  text: string
+}
+
 export interface SimHandRecord {
   handNumber: number; potSize: number; winnerName: string
   reachedFlop: boolean; reachedRiver: boolean; reachedShowdown: boolean
   was3Bet: boolean; wasAllIn: boolean
   players: { name: string; holeCards: string; position: string; folded: boolean; chips: number }[]
   board: string; actions: string[]
-  // Interest scoring
   interestScore: number
   interestReason: string
+  insights: HandInsight[]
   psFormat: string
 }
 
@@ -277,6 +283,79 @@ export async function runSimulation(
       }
     }
 
+    // ─── Hand insights: leaks, good plays, teaching moments ───
+    const insights: HandInsight[] = []
+
+    // Analyze each player's play
+    for (const p of players) {
+      if (p.eliminated || !p.holeCards) continue
+      const chen = chenScore(p.holeCards)
+      const pos = positions[p.id] || ''
+      const isEP = ['UTG', 'UTG+1'].includes(pos)
+      const isLP = ['BTN', 'D', 'D/BTN', 'CO'].includes(pos)
+
+      // Leak: called preflop with junk from early position
+      if (!p.folded && chen <= 4 && isEP && actions.some(a => a.startsWith(p.name) && (a.includes('calls') || a.includes('raises')))) {
+        insights.push({ type: 'leak', player: p.name, text: `Entered the pot from ${pos} with ${p.holeCards.map(displayCard).join(' ')} (Chen ${chen}). This hand is too weak for early position.` })
+      }
+
+      // Good play: folded a marginal hand under pressure
+      if (p.folded && chen >= 7 && chen <= 9 && preflopRaiseLevel >= 2) {
+        insights.push({ type: 'good-play', player: p.name, text: `Folded ${p.holeCards.map(displayCard).join(' ')} to a 3-bet. Disciplined laydown of a marginal hand.` })
+      }
+
+      // Leak: called all-in with weak hand
+      if (!p.folded && handHadAllIn && p.id !== winnerId) {
+        const hand = community.length >= 3 ? bestHand(Array.from(p.holeCards), community) : null
+        if (hand && hand.rank <= HAND_RANKS.ONE_PAIR && pot > STARTING_STACK) {
+          insights.push({ type: 'leak', player: p.name, text: `Called an all-in with only ${HAND_RANK_NAMES[hand.rank]} in a $${pot} pot. Likely a losing call long-term.` })
+        }
+      }
+    }
+
+    // Board-level insights
+    if (isShowdown && remaining.length >= 2) {
+      const showdownHands = remaining.filter(p => p.holeCards).map(p => ({
+        name: p.name, result: bestHand(Array.from(p.holeCards!), community), cards: p.holeCards!,
+      })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
+
+      // Teaching: show what the winning hand was and why
+      if (showdownHands.length >= 1) {
+        const winner = showdownHands[0]
+        insights.push({ type: 'teaching', player: winner.name, text: `Won at showdown with ${HAND_RANK_NAMES[winner.result!.rank]} (${winner.cards.map(displayCard).join(' ')}).` })
+      }
+
+      // Teaching: loser's hand and why they lost
+      if (showdownHands.length >= 2) {
+        const loser = showdownHands[showdownHands.length - 1]
+        if (loser.result!.rank < showdownHands[0].result!.rank) {
+          insights.push({ type: 'teaching', player: loser.name, text: `Lost at showdown with ${HAND_RANK_NAMES[loser.result!.rank]} — beaten by ${HAND_RANK_NAMES[showdownHands[0].result!.rank]}.` })
+        }
+      }
+
+      // Interesting: overbet bluff that got called
+      const bluffActions = actions.filter(a => a.includes('ALL-IN') || (a.includes('raises to') && a.match(/\$(\d+)/)?.[1] && parseInt(a.match(/\$(\d+)/)![1]) > pot * 0.8))
+      for (const a of bluffActions) {
+        const blufferName = a.split(' ')[0]
+        const bluffer = showdownHands.find(h => h.name === blufferName)
+        if (bluffer && bluffer.result!.rank <= HAND_RANKS.ONE_PAIR && bluffer.name !== showdownHands[0].name) {
+          insights.push({ type: 'interesting', player: blufferName, text: `Made a large bet/raise with only ${HAND_RANK_NAMES[bluffer.result!.rank]} — bluff that got caught.` })
+          break
+        }
+      }
+    }
+
+    // Big fold insight
+    for (const p of players) {
+      if (!p.folded || !p.holeCards) continue
+      if (community.length >= 3) {
+        const wouldHaveHad = bestHand(Array.from(p.holeCards), community)
+        if (wouldHaveHad && wouldHaveHad.rank >= HAND_RANKS.TWO_PAIR) {
+          insights.push({ type: 'interesting', player: p.name, text: `Folded but would have made ${HAND_RANK_NAMES[wouldHaveHad.rank]} on the board. Sometimes good folds cost you.` })
+        }
+      }
+    }
+
     let boardStr = ''
     if (reachedFlop) boardStr = community.slice(0, 3).map(displayCard).join(' ')
     if (reachedTurn) boardStr += ' ' + displayCard(community[3])
@@ -298,7 +377,7 @@ export async function runSimulation(
       handNumber: h + 1, potSize: pot, winnerName, reachedFlop, reachedRiver, reachedShowdown: isShowdown,
       was3Bet: preflopRaiseLevel >= 2, wasAllIn: handHadAllIn,
       players: players.map(p => ({ name: p.name, holeCards: p.holeCards ? p.holeCards.map(displayCard).join(' ') : '', position: positions[p.id] || '', folded: p.folded, chips: p.chips })),
-      board: boardStr.trim(), actions, interestScore, interestReason, psFormat,
+      board: boardStr.trim(), actions, interestScore, interestReason, insights, psFormat,
     })
 
     dealerSeat = (dealerSeat + 1) % count
