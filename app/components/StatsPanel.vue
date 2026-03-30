@@ -145,6 +145,36 @@ const actionColor = computed(() => {
   }
 })
 
+const positionTooltip = computed(() => {
+  const pos = props.position
+  if (pos.includes('BTN') || pos === 'D' || pos.includes('D/')) {
+    return 'Button — best position. You act last postflop, giving you maximum information. Play a wide range.'
+  }
+  if (pos === 'CO') return 'Cutoff — second-best position. Wide opening range, good for steals.'
+  if (pos === 'SB' || pos === 'D/SB') return 'Small Blind — worst postflop position. You act first every street. Play tighter unless stealing.'
+  if (pos === 'BB') return 'Big Blind — you already have money in. Defend wider vs steals, but you\'re out of position postflop.'
+  if (pos.startsWith('UTG')) return 'Under the Gun — earliest position. Play only strong hands (top 15%). Everyone acts after you.'
+  if (pos.startsWith('MP')) return 'Middle Position — play solid hands. Tighter than late position, wider than UTG.'
+  return `Position: ${pos}`
+})
+
+// Color for the recommendation reasoning text
+const reasoningColor = computed(() => {
+  if (!analysis.value) return 'text-gray-300'
+  const eq = analysis.value.equity
+  const action = analysis.value.action
+  // Green: strong position, confident play
+  if (action === 'RAISE' && eq >= 55) return 'text-green-400'
+  if (action === 'RAISE') return 'text-green-400/80'
+  // Yellow: marginal, proceed with caution
+  if (action === 'CALL') return 'text-yellow-400/80'
+  if (action === 'CHECK' && eq >= 40) return 'text-yellow-400/70'
+  if (action === 'CHECK') return 'text-gray-400'
+  // Red: weak, not recommended to continue
+  if (action === 'FOLD') return 'text-red-400/80'
+  return 'text-gray-300'
+})
+
 // ─── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref<'hand' | 'ranges' | 'opponents' | 'session'>('hand')
 
@@ -214,8 +244,12 @@ function afLabel(af: number): string {
               <span class="px-2 py-0.5 rounded text-xs font-semibold text-white" :class="tierColor">
                 {{ analysis.preflopTierLabel }}
               </span>
-              <span class="text-gray-300 text-xs">Chen: {{ analysis.chenScore }}</span>
-              <span class="text-gray-500 text-xs">Pos: {{ position }}</span>
+              <UTooltip text="Chen formula — a quick preflop hand strength score (0-20). Higher = stronger starting hand. Accounts for pairs, suited cards, connectedness, and high cards.">
+                <span class="text-gray-300 text-xs border-b border-dotted border-gray-600 cursor-help">Chen: {{ analysis.chenScore }}</span>
+              </UTooltip>
+              <UTooltip :text="positionTooltip">
+                <span class="text-gray-500 text-xs border-b border-dotted border-gray-600 cursor-help">Pos: {{ position }}</span>
+              </UTooltip>
             </div>
           </div>
 
@@ -231,7 +265,9 @@ function afLabel(af: number): string {
           <!-- Equity -->
           <div class="border-t border-gray-700/50 pt-3">
             <div class="flex items-center justify-between mb-1">
-              <span class="text-xs text-gray-400">Equity vs {{ numOpponents }} opponent{{ numOpponents > 1 ? 's' : '' }}</span>
+              <UTooltip text="Your chance of winning this hand if all remaining cards are dealt out. Calculated via Monte Carlo simulation (300-500 random runouts).">
+                <span class="text-xs text-gray-400 border-b border-dotted border-gray-600 cursor-help">Equity vs {{ numOpponents }} opponent{{ numOpponents > 1 ? 's' : '' }}</span>
+              </UTooltip>
               <span class="text-lg font-bold font-mono" :class="equityColor">{{ analysis.equity }}%</span>
             </div>
             <div class="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -245,9 +281,11 @@ function afLabel(af: number): string {
 
           <!-- Hand Probabilities -->
           <div v-if="analysis.handProbabilities && analysis.handProbabilities.length > 0" class="border-t border-gray-700/50 pt-3">
-            <div class="text-xs text-gray-400 mb-2">
-              {{ street === 'preflop' ? 'Chance by River' : street === 'river' || street === 'showdown' ? 'Final Hand' : 'Chance to Improve' }}
-            </div>
+            <UTooltip text="Probability of making each hand rank by the river, calculated from 400 random board runouts. Green = your current hand. Blue/yellow = possible improvements.">
+              <div class="text-xs text-gray-400 mb-2 border-b border-dotted border-gray-600 cursor-help inline-block">
+                {{ street === 'preflop' ? 'Chance by River' : street === 'river' || street === 'showdown' ? 'Final Hand' : 'Chance to Improve' }}
+              </div>
+            </UTooltip>
             <div class="space-y-1">
               <template v-for="hp in analysis.handProbabilities" :key="hp.rank">
                 <div
@@ -277,7 +315,9 @@ function afLabel(af: number): string {
 
           <!-- Pot Odds -->
           <div v-if="potOdds" class="border-t border-gray-700/50 pt-3">
-            <div class="text-xs text-gray-400 mb-1">Pot Odds</div>
+            <UTooltip text="The ratio between the pot and the amount you need to call. If your equity exceeds the required percentage, calling is mathematically profitable.">
+              <div class="text-xs text-gray-400 mb-1 border-b border-dotted border-gray-600 cursor-help inline-block">Pot Odds</div>
+            </UTooltip>
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="bg-gray-800/50 rounded px-2 py-1">
                 <div class="text-gray-500">Ratio</div>
@@ -297,7 +337,9 @@ function afLabel(af: number): string {
           <!-- SPR -->
           <div v-if="heroChips && pot" class="border-t border-gray-700/50 pt-3">
             <div class="flex items-center justify-between text-xs">
-              <span class="text-gray-400">SPR (Stack-to-Pot)</span>
+              <UTooltip text="Stack-to-Pot Ratio — your remaining stack divided by the pot. Low SPR (<4) means you're committed; high SPR (>10) means be careful putting your whole stack in.">
+                <span class="text-gray-400 border-b border-dotted border-gray-600 cursor-help">SPR (Stack-to-Pot)</span>
+              </UTooltip>
               <span class="text-white font-mono">{{ spr }}</span>
             </div>
             <div class="text-[0.6rem] text-gray-500 mt-0.5">
@@ -309,7 +351,9 @@ function afLabel(af: number): string {
 
           <!-- Draws & Outs -->
           <div v-if="street !== 'preflop'" class="border-t border-gray-700/50 pt-3">
-            <div class="text-xs text-gray-400 mb-1.5">Draws &amp; Outs</div>
+            <UTooltip text="Draws are incomplete hands that could improve (e.g., 4 cards to a flush). Outs are the specific cards that complete your draw. More outs = better chance of improving.">
+              <div class="text-xs text-gray-400 mb-1.5 border-b border-dotted border-gray-600 cursor-help inline-block">Draws &amp; Outs</div>
+            </UTooltip>
             <template v-if="analysis.draws.length > 0">
               <div class="space-y-1.5">
                 <div v-for="(draw, i) in analysis.draws" :key="i"
@@ -385,7 +429,9 @@ function afLabel(af: number): string {
 
           <!-- Recommendation (hidden after fold or showdown) -->
           <div v-if="!heroFolded && street !== 'showdown'" class="border-t border-gray-700/50 pt-3">
-            <div class="text-xs text-gray-400 mb-1.5">Recommendation</div>
+            <UTooltip text="Suggested action based on your equity, position, draws, and pot odds. Green = confident play. Yellow = marginal, proceed carefully. Red = weak, consider folding.">
+              <div class="text-xs text-gray-400 mb-1.5 border-b border-dotted border-gray-600 cursor-help inline-block">Recommendation</div>
+            </UTooltip>
             <button
               class="w-full rounded-lg px-3 py-2 text-center transition-all"
               :class="[
@@ -404,7 +450,7 @@ function afLabel(af: number): string {
                 click to {{ analysis.action.toLowerCase() }}
               </div>
             </button>
-            <p class="mt-2 text-xs text-gray-300 leading-relaxed">{{ analysis.reasoning }}</p>
+            <p class="mt-2 text-xs leading-relaxed" :class="reasoningColor">{{ analysis.reasoning }}</p>
           </div>
         </template>
         <div v-else class="text-center text-gray-500 text-xs py-8">Waiting for deal...</div>
