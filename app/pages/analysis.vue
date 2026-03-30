@@ -294,7 +294,7 @@ const expandedHand = ref<string | null>(null)
                 </tbody>
               </table>
             </div>
-            <p class="text-xs text-gray-600 mt-2">Green = within 5% of config. Amber = &gt;5% deviation (tilt, table dynamics, variance).</p>
+            <p class="text-xs text-gray-600 mt-2"><span class="text-green-400">Green</span> = within 5% of target. <span class="text-amber-400">Amber</span> = &gt;5% deviation — hover for details on what likely caused the deviation.</p>
           </div>
           <!-- Interesting hands for this run -->
           <div v-if="sim.r.interestingHands.length > 0" class="mt-6">
