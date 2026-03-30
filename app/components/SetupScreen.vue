@@ -4,7 +4,7 @@
  * and bot personas before starting a game.
  */
 import config from '@config'
-import { isGitHubUser } from '~/composables/useSupabase'
+import { isGitHubUser, signInWithGitHub } from '~/composables/useSupabase'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
@@ -35,9 +35,7 @@ const stakeLevel = ref(config.defaultStakeLevel)
 const stackBB = ref(config.stackRange.defaultBB)
 const heroName = ref(config.betting.defaultHeroName)
 const showAdvanced = ref(false)
-const guestMode = ref(false)
 const isLoggedIn = ref(false)
-const showGuestWarning = ref(false)
 
 onMounted(async () => {
   isLoggedIn.value = await isGitHubUser()
@@ -191,7 +189,7 @@ function handleStart() {
     stackBB: stackBB.value,
     heroName: heroName.value,
     botConfigs: activeBots.value,
-    guestMode: guestMode.value,
+    guestMode: false,
   })
 }
 </script>
@@ -377,24 +375,30 @@ function handleStart() {
       </div>
     </div>
 
-    <!-- Guest mode toggle -->
-    <div class="flex items-center justify-between bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3">
-      <div>
-        <div class="text-sm text-gray-200">Guest mode</div>
-        <div class="text-xs text-gray-500">Play without saving — no stats tracked, no Supabase</div>
+    <!-- Auth status + Start -->
+    <div v-if="isLoggedIn" class="bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-green-500" />
+        <span class="text-sm text-green-300">Signed in with GitHub</span>
       </div>
-      <USwitch v-model="guestMode" />
+      <div class="text-xs text-green-400/60 mt-0.5">Hands and stats will be saved to your account</div>
     </div>
-
-    <!-- Guest warning for logged-in users -->
-    <div
-      v-if="guestMode && isLoggedIn"
-      class="bg-yellow-900/20 border border-yellow-700/30 rounded-lg px-4 py-3"
-    >
-      <div class="text-sm text-yellow-300">You're signed in with GitHub.</div>
-      <div class="text-xs text-yellow-400/70 mt-0.5">
-        Guest mode won't save any hands or session data. Your existing stats are safe — this session just won't be tracked.
+    <div v-else class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3 space-y-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-yellow-500" />
+          <span class="text-sm text-gray-300">Not signed in</span>
+        </div>
+        <div class="text-xs text-gray-500 mt-0.5">Stats tracked for this session only. Sign in for lifetime stats across sessions and devices.</div>
       </div>
+      <button
+        class="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold
+               bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 transition-all active:scale-[0.98]"
+        @click="signInWithGitHub()"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        Sign in with GitHub
+      </button>
     </div>
 
     <!-- Start Button -->
@@ -404,7 +408,7 @@ function handleStart() {
       block
       @click="handleStart"
     >
-      {{ guestMode ? 'Play as Guest' : 'Deal Me In' }}
+      Deal Me In
     </UButton>
   </div>
 </template>

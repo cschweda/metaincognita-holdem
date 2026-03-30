@@ -45,7 +45,7 @@ function handleTimeout() {
     waitingForHero.value = false
   }
   // Save session and show timeout screen
-  if (!guestMode.value) saveSessionToSupabase()
+  saveSessionToSupabase()
   phase.value = 'timeout'
 }
 
@@ -145,16 +145,11 @@ const opponentStats = computed(() => {
 })
 
 // ─── Game Flow ─────────────────────────────────────────────────
-const guestMode = ref(false)
-
 function handleStart(gameSettings: GameSettings) {
   settings.value = gameSettings
-  guestMode.value = gameSettings.guestMode
   dealerSeat.value = Math.floor(Math.random() * gameSettings.playerCount)
   phase.value = 'table'
-  if (!guestMode.value) {
-    initSession(gameSettings.stakeLevel, gameSettings.playerCount, startingStack.value)
-  }
+  initSession(gameSettings.stakeLevel, gameSettings.playerCount, startingStack.value)
   resetTimeout()
   setTimeout(dealNewHand, 300)
 }
@@ -561,7 +556,7 @@ function endHand() {
       isHero: p.isHero,
     }))
 
-    if (!guestMode.value) recordHand({
+    recordHand({
       handNumber: session.value.handsPlayed + 1,
       holeCards: holeStr,
       board: boardStr,
@@ -583,7 +578,7 @@ function endHand() {
 
   // Hero bust-out check
   if (heroState && heroState.chips <= 0) {
-    if (!guestMode.value) saveSessionToSupabase()
+    saveSessionToSupabase()
     phase.value = 'busted'
   }
 }
@@ -594,7 +589,7 @@ function sleep(ms: number): Promise<void> {
 
 function handleRebuy() {
   // Save the bust-out session, start a fresh one
-  if (!guestMode.value) saveSessionToSupabase()
+  saveSessionToSupabase()
   initSession(settings.value!.stakeLevel, settings.value!.playerCount, startingStack.value)
   // Reset all player states
   playerStates.value = []
@@ -605,7 +600,7 @@ function handleRebuy() {
 
 function backToSetup() {
   if (timeoutTimer) clearTimeout(timeoutTimer)
-  if (!guestMode.value) saveSessionToSupabase()
+  saveSessionToSupabase()
   phase.value = 'setup'
   settings.value = null
   playerStates.value = []
@@ -742,19 +737,12 @@ function formatPot(n: number): string {
         </div>
 
         <div class="flex items-center gap-2">
-          <template v-if="guestMode">
-            <span class="text-[0.6rem] text-gray-500 bg-gray-800/60 border border-gray-700/40 rounded-full px-2.5 py-1">
-              Guest Mode
-            </span>
-          </template>
-          <template v-else>
-            <SupabaseStatus />
-            <NuxtLink to="/stats">
-              <UButton variant="ghost" color="neutral" size="sm" icon="i-lucide-bar-chart-2">
-                Stats
-              </UButton>
-            </NuxtLink>
-          </template>
+          <SupabaseStatus />
+          <NuxtLink to="/stats">
+            <UButton variant="ghost" color="neutral" size="sm" icon="i-lucide-bar-chart-2">
+              Stats
+            </UButton>
+          </NuxtLink>
           <UColorModeButton />
         </div>
       </div>

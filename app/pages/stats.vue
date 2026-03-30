@@ -3,7 +3,7 @@
  * Full hero stats page — cross-session analytics from Supabase.
  * Shows lifetime stats, session history, hand history, and trends.
  */
-import { useSupabase, ensureAnonSession } from '~/composables/useSupabase'
+import { useSupabase, ensureAnonSession, getCurrentUser } from '~/composables/useSupabase'
 
 interface SessionRow {
   id: string
@@ -45,23 +45,56 @@ const sessions = ref<SessionRow[]>([])
 const hands = ref<HandRow[]>([])
 const userId = ref<string | null>(null)
 const activeTab = ref<'overview' | 'sessions' | 'hands'>('overview')
+const isGitHubAuth = ref(false)
+const localSession = ref<any>(null)
 
 onMounted(async () => {
+  // Always load localStorage session data
+  try {
+    const saved = localStorage.getItem('holdem-session-stats')
+    if (saved) localSession.value = JSON.parse(saved)
+  } catch {}
+
   const sb = useSupabase()
   if (!sb) {
-    error.value = 'Supabase not configured. Add SUPABASE_URL and SUPABASE_KEY to your .env file.'
     loading.value = false
     return
   }
 
   userId.value = await ensureAnonSession()
   if (!userId.value) {
-    error.value = 'Could not establish anonymous session. Enable Anonymous auth in Supabase Dashboard > Authentication > Providers.'
     loading.value = false
     return
   }
 
-  await loadData(sb)
+  // Check if this is a GitHub user
+  const user = await getCurrentUser()
+  isGitHubAuth.value = !!user && !user.is_anonymous
+
+  if (isGitHubAuth.value) {
+    await loadData(sb)
+  } else {
+    // Not signed in — use localStorage data only, show local session hands
+    if (localSession.value?.hands) {
+      hands.value = localSession.value.hands.map((h: any, i: number) => ({
+        id: `local-${i}`,
+        session_id: localSession.value.id,
+        hand_number: h.handNumber,
+        hole_cards: h.holeCards,
+        board: h.board,
+        result: h.result,
+        profit: h.profit,
+        position: h.position,
+        pot_size: h.potSize,
+        stake_level: localSession.value.stakeLevel,
+        player_count: localSession.value.playerCount,
+        played_at: new Date().toISOString(),
+        actions: h.actions || null,
+        players: h.players || null,
+      }))
+    }
+    loading.value = false
+  }
 })
 
 // ─── Delete Functions ──────────────────────────────────────────
@@ -273,7 +306,10 @@ function boardCards(board: string): string[] {
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold">Hero Stats</h1>
-          <p class="text-sm text-gray-500 mt-0.5">Cross-session analytics from Supabase</p>
+          <p class="text-sm text-gray-500 mt-0.5">
+            <template v-if="isGitHubAuth">Lifetime stats for your GitHub account</template>
+            <template v-else>Current session stats (sign in with GitHub for lifetime tracking)</template>
+          </p>
         </div>
         <div class="flex items-center gap-2">
           <SupabaseStatus />
@@ -306,8 +342,12 @@ function boardCards(board: string): string[] {
       </div>
 
       <!-- No data -->
-      <div v-else-if="hands.length === 0" class="text-center py-20">
+      <div v-else-if="hands.length === 0" class="text-center py-20 space-y-4">
         <p class="text-gray-400">No hands recorded yet.</p>
+        <p v-if="!isGitHubAuth" class="text-xs text-gray-600">
+          You're not signed in. Session stats are stored locally and reset when you close the browser.
+          Sign in with GitHub for persistent lifetime stats.
+        </p>
         <NuxtLink to="/">
           <UButton color="primary" class="mt-4">Play Your First Hand</UButton>
         </NuxtLink>
