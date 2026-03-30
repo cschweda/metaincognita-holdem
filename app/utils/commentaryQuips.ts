@@ -908,35 +908,89 @@ export function lonFoldAssessment(name: string, cards: string, position: string,
 
   if (street === 'preflop') {
     if (chen >= 12 && !facingRaise) {
-      return `${name} folds ${cards} from ${posLabel}. A premium hand thrown away — that's unusual. Must have read something we didn't.`
+      return `${name} folds ${cards} from ${posLabel}. ` + pick([
+        `A premium hand thrown away — that's unusual. Must have read something we didn't.`,
+        `Folding a hand that strong unprovoked? That takes either discipline or fear.`,
+        `Surprising. Most players would open that without thinking twice.`,
+      ])
     }
     if (chen >= 12 && facingRaise) {
-      return `${name} lays down ${cards} from ${posLabel} facing a raise. Disciplined. Most players can't fold that.`
+      return `${name} lays down ${cards} from ${posLabel} facing a raise. ` + pick([
+        `Disciplined. Most players can't fold that.`,
+        `A big laydown. Respecting the raise — that's experience talking.`,
+        `Premium hand meets premium discipline. Not easy to do.`,
+      ])
     }
     if (chen >= 8 && latePos && !facingRaise) {
-      return `${name} folds ${cards} on ${posLabel}. That's a playable hand in late position — surprising fold.`
+      return `${name} folds ${cards} on ${posLabel}. ` + pick([
+        `That's a playable hand in late position — surprising fold.`,
+        `Most players would open that on the button. Tight decision.`,
+        `Passing up a late-position opportunity. Conservative but not wrong.`,
+      ])
     }
     if (chen >= 8 && earlyPos && facingRaise) {
-      return `${name} folds ${cards} from ${posLabel} facing action. Correct. This hand doesn't play well out of position against a raise.`
+      return `${name} folds ${cards} from ${posLabel} facing action. ` + pick([
+        `Correct. This hand doesn't play well out of position against a raise.`,
+        `Smart. Out of position against a raise, this hand is a clear fold.`,
+        `The right decision. Position disadvantage plus a raise — no reason to continue.`,
+      ])
     }
     if (chen >= 8 && earlyPos) {
-      return `${name} folds ${cards} from ${posLabel}. Tight, but defensible from early position.`
+      return `${name} folds ${cards} from ${posLabel}. ` + pick([
+        `Tight, but defensible from early position.`,
+        `From early position, that's a reasonable fold. Still have the whole table behind you.`,
+        `Position matters. From ${posLabel}, the standards are higher.`,
+      ])
     }
     if (chen <= 4 && latePos) {
-      return `${name} folds ${cards} on ${posLabel}. Even in late position, some hands are just trash.`
+      return `${name} folds ${cards} on ${posLabel}. ` + pick([
+        `Even in late position, some hands are just trash.`,
+        `Position can't save everything. That hand needed to go.`,
+        `Late position gives you options, but not with that hand.`,
+        `Smart. Just because you're on the button doesn't mean you play everything.`,
+        `Good position, bad cards. Position loses that argument.`,
+        `The button forgives a lot of sins, but not that hand.`,
+        `Some hands aren't worth the blind steal attempt. This is one of them.`,
+      ])
     }
     if (chen <= 4) {
-      return `${name} folds ${cards} from ${posLabel}. Easy decision. No reason to get involved with that.`
+      return `${name} folds ${cards} from ${posLabel}. ` + pick([
+        `Easy decision. No reason to get involved with that.`,
+        `Into the muck where it belongs.`,
+        `Nobody's going to miss that hand. Least of all ${name}.`,
+        `Textbook fold. Some hands play themselves — right into the muck.`,
+        `That hand has no business being in a pot. Quick fold.`,
+        `The only correct play. Move on to the next one.`,
+        `Nothing to think about there. Instant muck.`,
+      ])
     }
     // Mid-strength hands
     if (latePos) {
-      return `${name} folds ${cards} from ${posLabel}. Could have opened that in position, but chose discipline.`
+      return `${name} folds ${cards} from ${posLabel}. ` + pick([
+        `Could have opened that in position, but chose discipline.`,
+        `A tight fold for late position. Waiting for a better spot.`,
+        `Passing. Not every late-position hand needs to be played.`,
+        `Has the position to play it, but not the conviction. Fair enough.`,
+        `Choosy from late position. That's the mark of a patient player.`,
+      ])
     }
-    return `${name} folds ${cards} from ${posLabel}. Standard. Position matters, and ${posLabel} isn't ideal for this hand.`
+    return `${name} folds ${cards} from ${posLabel}. ` + pick([
+      `Standard. Position matters, and ${posLabel} isn't ideal for this hand.`,
+      `No reason to force it from this seat.`,
+      `The right fold for the wrong position.`,
+      `Can't play everything. Especially not from ${posLabel}.`,
+      `Waiting for a better hand or a better seat. Both will come.`,
+    ])
   }
 
   // Postflop fold
-  return `${name} folds ${cards} from ${posLabel}. The board didn't cooperate.`
+  return `${name} folds ${cards} from ${posLabel}. ` + pick([
+    `The board didn't cooperate.`,
+    `Sometimes you have to give it up when the board misses you.`,
+    `Nothing there. Smart to let it go.`,
+    `The flop missed and continuing doesn't make sense.`,
+    `No connection to this board. Clean fold.`,
+  ])
 }
 
 // Chorman reacts to Mon's fold assessment (position-aware)
