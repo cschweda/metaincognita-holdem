@@ -555,49 +555,55 @@ function afLabel(af: number): string {
               </div>
             </div>
 
-            <!-- Winner info (always shown) -->
-            <div v-if="winnerName" class="bg-gray-800/40 rounded-lg p-3">
-              <div class="text-xs text-gray-400 mb-1">Winner</div>
+            <!-- Side-by-side hand comparison -->
+            <div v-if="winnerName && !heroWon && !heroFolded" class="grid grid-cols-2 gap-2">
+              <div class="bg-red-900/15 border border-red-800/20 rounded-lg p-3">
+                <div class="text-[0.6rem] text-red-400/70 uppercase mb-1">Your Hand</div>
+                <div v-if="holeCards" class="text-sm font-mono text-white">{{ formatHoleCards(holeCards) }}</div>
+                <div v-if="analysis?.handDescription" class="text-xs text-gray-300 mt-1">{{ analysis.handDescription }}</div>
+                <div class="text-red-400 font-mono font-bold text-sm mt-1">{{ (heroNetProfit || 0) >= 0 ? '+' : '' }}${{ heroNetProfit || 0 }}</div>
+              </div>
+              <div class="bg-green-900/15 border border-green-800/20 rounded-lg p-3">
+                <div class="text-[0.6rem] text-green-400/70 uppercase mb-1">{{ winnerName }}</div>
+                <div v-if="winnerCards" class="text-sm font-mono text-white">{{ winnerCards }}</div>
+                <div v-if="winnerHand" class="text-xs text-gray-300 mt-1">{{ winnerHand }}</div>
+                <div class="text-green-400 font-mono font-bold text-sm mt-1">+${{ winAmount || 0 }}</div>
+              </div>
+            </div>
+            <!-- Kicker explanation -->
+            <div
+              v-if="!heroWon && !heroFolded && winnerHand && analysis?.handDescription && winnerHand.split(',')[0] === analysis.handDescription.split(',')[0]"
+              class="text-xs text-amber-400/80 bg-amber-900/10 rounded-lg px-3 py-2"
+            >
+              Same hand type — {{ winnerName }} wins on kicker.
+            </div>
+
+            <!-- Winner info (hero won or folded) -->
+            <div v-if="winnerName && (heroWon || heroFolded)" class="bg-gray-800/40 rounded-lg p-3">
+              <div class="text-xs text-gray-400 mb-1">{{ heroWon ? 'You Win' : 'Winner' }}</div>
               <div class="flex items-center justify-between">
                 <div>
-                  <span class="text-base font-semibold" :class="heroWon ? 'text-green-400' : 'text-white'">
-                    {{ winnerName }}
-                  </span>
+                  <span class="text-base font-semibold" :class="heroWon ? 'text-green-400' : 'text-white'">{{ winnerName }}</span>
                   <span v-if="winnerCards" class="text-sm font-mono text-gray-300 ml-2">{{ winnerCards }}</span>
                 </div>
                 <span class="text-green-400 font-mono font-bold">+${{ winAmount || 0 }}</span>
               </div>
               <div v-if="winnerHand" class="text-sm font-semibold text-white mt-1">{{ winnerHand }}</div>
-              <!-- Kicker/split pot explanation when hero lost with same hand type -->
-              <div
-                v-if="!heroWon && !heroFolded && winnerHand && analysis?.handDescription && analysis.madeHand && winnerHand.split(',')[0] === analysis.handDescription.split(',')[0]"
-                class="text-xs text-amber-400/80 mt-1"
-              >
-                Same hand type — {{ winnerName }} wins on kicker.
-              </div>
             </div>
 
-            <!-- Detailed hand financials -->
+            <!-- Financials -->
             <div class="bg-gray-800/40 rounded-lg p-3 space-y-2">
-              <div class="text-xs text-gray-400 mb-1">Your Result</div>
               <div class="flex justify-between text-xs">
-                <span class="text-gray-400">Pot size</span>
+                <span class="text-gray-400">Pot</span>
                 <span class="text-yellow-400 font-mono">${{ winAmount || 0 }}</span>
               </div>
               <div class="flex justify-between text-xs">
                 <span class="text-gray-400">You wagered</span>
                 <span class="text-gray-200 font-mono">${{ heroWagered || 0 }}</span>
               </div>
-              <div v-if="heroWon" class="flex justify-between text-xs">
-                <span class="text-gray-400">You collected</span>
-                <span class="text-green-400 font-mono">${{ winAmount || 0 }}</span>
-              </div>
               <div class="flex justify-between text-xs border-t border-gray-700/30 pt-2">
-                <span class="text-gray-300 font-semibold">Net profit</span>
-                <span
-                  class="font-mono font-bold text-sm"
-                  :class="(heroNetProfit || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
-                >
+                <span class="text-gray-300 font-semibold">Net</span>
+                <span class="font-mono font-bold text-sm" :class="(heroNetProfit || 0) >= 0 ? 'text-green-400' : 'text-red-400'">
                   {{ (heroNetProfit || 0) >= 0 ? '+' : '' }}${{ heroNetProfit || 0 }}
                 </span>
               </div>

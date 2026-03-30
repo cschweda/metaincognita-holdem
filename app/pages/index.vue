@@ -204,6 +204,23 @@ const engine = useGameEngine({
 
 const commentary = useCommentary(gs)
 
+// ─── Keyboard shortcuts ──────────────────────────────────────────
+function onGameKeydown(e: KeyboardEvent) {
+  if (phase.value !== 'table') return
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+  if (!gs.heroTurn.value) return
+
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); engine.handleFold() }
+  else if (e.key === 'c' || e.key === 'C') {
+    e.preventDefault()
+    if (gs.toCall.value > 0) engine.handleCall(Math.min(gs.toCall.value, gs.maxRaise.value))
+    else engine.handleCheck()
+  }
+  else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); engine.handleRaise(Math.round(gs.pot.value * 0.5)) }
+}
+onMounted(() => window.addEventListener('keydown', onGameKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onGameKeydown))
+
 // ─── Game Flow ─────────────────────────────────────────────────
 function handleStart(gameSettings: GameSettings) {
   settings.value = gameSettings
@@ -542,6 +559,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
         </UButton>
 
         <div class="flex items-center gap-4">
+          <span class="text-xs text-gray-600 font-mono">Hand #{{ session.handsPlayed + (gs.dealt.value ? 1 : 0) }}</span>
           <span class="text-sm text-gray-400">
             {{ stake?.name }} — ${{ stake?.sb }}/${{ stake?.bb }}
           </span>
@@ -720,12 +738,13 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             v-if="gs.heroTurn.value"
             class="flex justify-center"
           >
-            <div class="inline-flex items-center gap-3 bg-amber-900/30 border border-amber-700/40 rounded-full px-5 py-2.5">
-              <div class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-              <span class="text-sm font-semibold text-amber-200">
+            <div class="inline-flex items-center gap-3 bg-amber-900/40 border-2 border-amber-500/60 rounded-full px-6 py-3 shadow-lg shadow-amber-500/10 animate-pulse">
+              <div class="w-3 h-3 rounded-full bg-amber-400" />
+              <span class="text-base font-bold text-amber-200">
                 Your Turn
-                <span class="text-amber-400/60 font-normal ml-1 font-mono tabular-nums">{{ gs.toCall.value > 0 ? `— $${gs.toCall.value} to call` : '— check or bet' }}</span>
+                <span class="text-amber-400/70 font-normal ml-1 font-mono tabular-nums">{{ gs.toCall.value > 0 ? `— $${gs.toCall.value} to call` : '— check or bet' }}</span>
               </span>
+              <span class="text-[0.55rem] text-amber-500/50 ml-1">F/C/R</span>
             </div>
           </div>
 

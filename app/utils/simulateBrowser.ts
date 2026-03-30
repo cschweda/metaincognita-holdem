@@ -78,6 +78,7 @@ export async function runSimulation(
   numPlayers: number,
   onProgress: (pct: number, hand: number) => void,
   stakeLevel: number = 3,
+  abortSignal?: { aborted: boolean },
 ): Promise<SimResult> {
   const STAKE = config.stakes.find(s => s.level === stakeLevel) || config.stakes.find(s => s.level === 3)!
   const BB = STAKE.bb, SB = STAKE.sb, STARTING_STACK = BB * 100
@@ -118,6 +119,7 @@ export async function runSimulation(
   for (let h = 0; h < numHands; h++) {
     // Yield to UI every 10 hands
     if (h % 10 === 0) {
+      if (abortSignal?.aborted) break
       onProgress(h / numHands, h)
       await new Promise(r => setTimeout(r, 0))
     }

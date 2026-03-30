@@ -59,7 +59,12 @@ const passwordValidation = computed(() => validatePassword(passwordInput.value))
 // Commentary mode: 'off' | 'hero' | 'tv' — syncs with the composable's localStorage keys
 type CommentaryChoice = 'off' | 'hero' | 'tv'
 function getInitialCommentaryChoice(): CommentaryChoice {
-  // Always default to Off — user must choose Hero POV or TV Broadcast each session
+  if (typeof localStorage === 'undefined') return 'off'
+  const enabled = localStorage.getItem('holdem-commentary-enabled')
+  if (enabled === 'false') return 'off'
+  const mode = localStorage.getItem('holdem-commentary-mode')
+  if (mode === 'tv') return 'tv'
+  if (enabled === 'true') return 'hero'
   return 'off'
 }
 const commentaryChoice = ref<CommentaryChoice>(getInitialCommentaryChoice())

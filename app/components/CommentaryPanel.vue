@@ -154,12 +154,12 @@ const typeStyles: Record<string, string> = {
     </div>
 
     <!-- Commentary feed -->
-    <div
-      v-if="enabled"
-      ref="scrollContainer"
-      class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2"
-      @scroll="onScroll"
-    >
+    <div v-if="enabled" class="flex-1 min-h-0 relative">
+      <div
+        ref="scrollContainer"
+        class="absolute inset-0 overflow-y-auto p-3 space-y-2"
+        @scroll="onScroll"
+      >
       <div v-if="lines.length === 0" class="text-center text-gray-600 text-xs py-8">
         Waiting for the action to start...
       </div>
@@ -174,6 +174,15 @@ const typeStyles: Record<string, string> = {
         </template>
         <span v-else class="text-gray-700 mr-1">&#9679;</span>{{ line.text }}
       </div>
+      </div>
+      <!-- Scroll to bottom button -->
+      <button
+        v-if="userScrolled && lines.length > 0"
+        class="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-gray-700/90 border border-gray-600/50 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 transition-colors shadow-lg"
+        @click="scrollContainer?.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' }); userScrolled = false"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
     </div>
 
     <!-- Disabled state -->

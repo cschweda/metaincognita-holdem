@@ -221,6 +221,18 @@ function backToInput() {
   phase.value = 'input'
 }
 
+async function loadSample() {
+  try {
+    const res = await fetch('/sample-hands.txt')
+    if (!res.ok) { parseError.value = 'Could not load sample hands file'; return }
+    const text = await res.text()
+    // Take first 3 hands only
+    const hands = text.split(/\n\s*\n(?=PokerStars Hand #)/).slice(0, 3)
+    inputText.value = hands.join('\n\n')
+    parseAndLoad()
+  } catch { parseError.value = 'Failed to fetch sample hands' }
+}
+
 // ─── Query param / mount ──────────────────────────────────
 
 onMounted(() => {
@@ -285,6 +297,9 @@ Seat 1: Player1 ($200 in chips)
       <div class="flex items-center gap-3 mt-4">
         <UButton color="primary" size="lg" @click="parseAndLoad">
           Load &amp; Replay
+        </UButton>
+        <UButton variant="outline" color="neutral" size="lg" @click="loadSample">
+          Load Sample Hands
         </UButton>
         <span class="text-xs text-gray-600">Supports single or multiple hands. All cards shown face-up.</span>
       </div>

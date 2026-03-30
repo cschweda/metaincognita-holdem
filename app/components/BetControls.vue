@@ -77,7 +77,18 @@ function applyCustom() {
   showCustom.value = false
 }
 
+// Fold confirmation: first click shows "Confirm?", second click folds
+const foldConfirming = ref(false)
+let foldTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleFold() {
+  if (!foldConfirming.value) {
+    foldConfirming.value = true
+    foldTimer = setTimeout(() => { foldConfirming.value = false }, 2000)
+    return
+  }
+  if (foldTimer) clearTimeout(foldTimer)
+  foldConfirming.value = false
   emit('fold')
 }
 
@@ -108,15 +119,16 @@ function formatAmount(n: number): string {
   >
     <!-- Row 1: Main action buttons -->
     <div class="flex gap-2">
-      <!-- Fold -->
-      <UTooltip text="Surrender your hand and lose any chips already in the pot" class="flex-1">
+      <!-- Fold (double-click confirmation) -->
+      <UTooltip :text="foldConfirming ? 'Click again to confirm fold' : 'Surrender your hand and lose any chips already in the pot'" class="flex-1">
         <button
-          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all
-                 bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40
-                 active:scale-[0.97]"
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all active:scale-[0.97]"
+          :class="foldConfirming
+            ? 'bg-red-700/80 text-white border-2 border-red-400 animate-pulse'
+            : 'bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40'"
           @click="handleFold"
         >
-          Fold
+          {{ foldConfirming ? 'Confirm Fold' : 'Fold' }}
         </button>
       </UTooltip>
 
@@ -169,8 +181,8 @@ function formatAmount(n: number): string {
 
     <!-- Row 2: Raise presets + custom (only when raising is possible) -->
     <div v-if="canRaise" class="space-y-2">
-      <!-- Preset buttons -->
-      <div class="flex gap-1.5">
+      <!-- Preset buttons (primary raise interaction) -->
+      <div class="flex gap-2">
         <UTooltip
           v-for="preset in presets"
           :key="preset.label"
@@ -180,30 +192,30 @@ function formatAmount(n: number): string {
           class="flex-1"
         >
           <button
-            class="w-full py-1.5 rounded-md text-xs font-semibold transition-all border
+            class="w-full py-2.5 rounded-lg text-sm font-bold transition-all border
                    active:scale-[0.97]"
             :class="[
               raiseAmount === preset.amount
-                ? 'bg-green-700/60 text-green-100 border-green-500/50'
-                : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60',
-              preset.isClamped ? 'opacity-50 cursor-not-allowed' : '',
+                ? 'bg-green-700/70 text-green-100 border-green-500/60 shadow-sm shadow-green-500/10'
+                : 'bg-gray-800/70 text-gray-200 border-gray-700/50 hover:bg-gray-700/70 hover:border-gray-600/50',
+              preset.isClamped ? 'opacity-40 cursor-not-allowed' : '',
             ]"
             :disabled="preset.isClamped"
             @click="!preset.isClamped && raisePreset(preset.amount)"
           >
             {{ preset.label }}
-            <span class="block text-[0.6rem] opacity-60 mt-0.5 tabular-nums">{{ formatAmount(preset.raw) }}</span>
+            <span class="block text-xs opacity-70 mt-0.5 tabular-nums font-mono">{{ formatAmount(preset.raw) }}</span>
           </button>
         </UTooltip>
 
         <!-- All-in button -->
         <UTooltip :text="`Go all-in for ${formatAmount(maxRaise)}`" class="flex-1">
           <button
-            class="w-full py-1.5 rounded-md text-xs font-semibold transition-all border
+            class="w-full py-2.5 rounded-lg text-sm font-bold transition-all border
                    active:scale-[0.97]"
             :class="raiseAmount === maxRaise
-              ? 'bg-amber-700/60 text-amber-100 border-amber-500/50'
-              : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60'"
+              ? 'bg-amber-700/70 text-amber-100 border-amber-500/60 shadow-sm shadow-amber-500/10'
+              : 'bg-gray-800/70 text-gray-200 border-gray-700/50 hover:bg-gray-700/70'"
             @click="raisePreset(maxRaise)"
           >
             All-In

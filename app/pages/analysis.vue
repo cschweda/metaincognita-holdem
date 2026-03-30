@@ -18,27 +18,39 @@ const stakeName = computed(() => {
 
 const running = ref(false)
 const runPhase = ref('')
+const abortSignal = ref({ aborted: false })
 const result2p = ref<SimResult | null>(null)
 const result6p = ref<SimResult | null>(null)
 const result8p = ref<SimResult | null>(null)
 const runTimestamp = ref<string | null>(null)
 const runDuration = ref<number>(0)
 
+function cancelAnalysis() {
+  abortSignal.value.aborted = true
+  running.value = false
+  runPhase.value = 'Cancelled'
+}
+
 async function runAnalysis() {
   running.value = true
+  abortSignal.value = { aborted: false }
   result2p.value = null
   result6p.value = null
   result8p.value = null
   const startTime = Date.now()
+  const signal = abortSignal.value
 
   runPhase.value = 'Running heads-up (2-player) simulation...'
-  result2p.value = await runSimulation(1000, 2, () => {}, stakeLevel.value)
+  result2p.value = await runSimulation(1000, 2, () => {}, stakeLevel.value, signal)
+  if (signal.aborted) { running.value = false; return }
 
   runPhase.value = 'Running 6-player simulation...'
-  result6p.value = await runSimulation(1000, 6, () => {}, stakeLevel.value)
+  result6p.value = await runSimulation(1000, 6, () => {}, stakeLevel.value, signal)
+  if (signal.aborted) { running.value = false; return }
 
   runPhase.value = 'Running 8-player simulation...'
-  result8p.value = await runSimulation(1000, 8, () => {}, stakeLevel.value)
+  result8p.value = await runSimulation(1000, 8, () => {}, stakeLevel.value, signal)
+  if (signal.aborted) { running.value = false; return }
 
   runDuration.value = Math.round((Date.now() - startTime) / 1000)
   runTimestamp.value = new Date().toLocaleString('en-US', {
@@ -125,7 +137,7 @@ const expandedHand = ref<string | null>(null)
           </div>
         </div>
 
-        <!-- Spinner -->
+        <!-- Spinner + Cancel -->
         <div v-if="running" class="mt-4 flex items-center gap-3">
           <div class="flex gap-1.5">
             <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 0ms;" />
@@ -133,6 +145,7 @@ const expandedHand = ref<string | null>(null)
             <div class="w-2 h-2 rounded-full bg-green-400 animate-bounce" style="animation-delay: 300ms;" />
           </div>
           <span class="text-sm text-gray-400">{{ runPhase }}</span>
+          <button class="text-xs text-red-400 hover:text-red-300 underline underline-offset-2 ml-2" @click="cancelAnalysis">Cancel</button>
         </div>
       </div>
 
