@@ -15,6 +15,13 @@ Five improvements that push bot decision-making toward solver-level play while k
 - **Minimum Defense Frequency (MDF)** — When facing a bet, bots compute MDF = 1 - (bet / (pot + bet)) and defend if their hand is within that threshold. Prevents exploitable over-folding to large bets. Applied to draws, weak made hands, and even air (25% of the time on flop/turn).
 - **Hero bet-sizing exploitation** — Bots detect if hero bets big with value and small with bluffs (or vice versa). When a tell is detected, bots adjust: call big "value" bets less (0.7x), call small "bluff" bets more (1.4x). Requires 8+ showdown hands with bet-sizing data.
 - **Commentator name swap** — Lon McEachern → Mon LeEachern, Norman Chad → Chorman Nad. Same initial-swap pattern as the pro player bots. Real names remain in the README homage section.
+- **Interactive bot analysis page** (`/analysis`) — Runs a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with animated spinner, timestamped results, per-table metrics with tooltips, observed vs config bot stats, auto-selected interesting hands (coolers, huge pots, all-in showdowns), and per-sim PokerStars hand history downloads.
+- **3-way commentary selector on setup screen** — Off (no commentary, standard trainer) / Hero POV (default — your cards only, opponents face-down, straight analysis) / TV Broadcast (all cards face-up, Chorman & Mon banter). Replaces the simple on/off toggle.
+- **Raise defaults to half-pot** — Raise button now shows 50% pot (clamped to min/max) instead of the minimum raise. On a $248 pot, shows $124 instead of $2.
+- **Chorman slider fixed** — Slide right = more quips, left = fewer. 0 = off. Quip text uses "Chorman" throughout.
+- **Color mode toggle removed** — App is dark-mode only by design (casino aesthetic).
+- **Top status bar on setup screen** — Nav links (Stats, Bot Analysis) on the left, Supabase status on the right.
+- **Footer bar** — Bots, Bot Analysis, and GitHub links at the bottom of the game page. Bots link moved from top bar.
 
 ## [0.13.2] - 2026-03-29
 

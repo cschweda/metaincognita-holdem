@@ -36,11 +36,12 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Action recommendation** -- FOLD/CHECK/CALL/RAISE pinned at top of stats panel, always visible
 
 ### Live Text Commentary
-- **Two simultaneous modes** -- Hero POV (first-person, your cards only) and TV Broadcast (Chorman Nad & Mon LeEachern style dual-voice — homage to the real Norman Chad & Lon McEachern)
-- **TV mode shows all cards face-up** -- like watching WSOP on TV, hero still has full agency
+- **3-way setup selector** -- Off (standard trainer) / Hero POV (default — your cards only, opponents face-down) / TV Broadcast (all cards face-up, dual-voice banter)
+- **Hero POV** -- first-person analysis commentary, straight play-by-play from your perspective
+- **TV Broadcast** -- Chorman Nad & Mon LeEachern style dual-voice (homage to Norman Chad & Lon McEachern). All bot cards shown face-up, like watching WSOP on TV. Confirmation alert before enabling.
 - **400+ unique Chorman Nad quips** -- ex-wife jokes, self-deprecating humor, poker puns, persona-specific references (Gaplan/Sweathogs, Phellmuth/tantrums, Twan/durrrr)
 - **Self-aware moments** -- Chorman knows he's commentating a simulation with bots
-- **Mon/Chorman voice sliders** -- dial analysis depth and quip frequency independently
+- **Mon/Chorman voice sliders** -- dial analysis depth and quip frequency independently (right = more)
 - Text only, no audio
 
 ### Tools & Export
@@ -49,6 +50,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
 - **Hand replay** -- re-live any hand with different decisions, compare outcomes
 - **Hand detail modal** -- click any hand for PokerStars history, copy to clipboard, replay, analyze
+- **Interactive bot analysis** (`/analysis`) -- run a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with metrics, bot stats, auto-selected interesting hands, and downloadable PokerStars hand histories per table size
 - **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth (optional)
 
 ## Table of Contents
