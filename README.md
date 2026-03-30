@@ -116,20 +116,41 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 - **Stats navigation preserves game state**: Click Stats mid-hand, view your analytics, click "Back to Table" — cards, bets, and street are exactly as you left them
 
 ### Action Status Indicators
-- **Bot thinking**: Displayed above the stats panel — bot name, bouncing dots, animated progress bar. Large and visible.
-- **Your Turn**: Amber pulsing indicator with call amount or "Check or bet" hint above the stats panel
+- **Bot thinking**: Centered pill between table and bet controls — bot name with bouncing dots
+- **Your Turn**: Amber pill between table and bet controls — shows call amount or "check or bet" hint
+
+### Stat Tooltips
+- Hover any dotted-underlined label to learn what it means
+- **Equity**: Monte Carlo simulation methodology
+- **Chen Score**: Preflop hand strength formula (0-20)
+- **Position**: Context-specific guidance (BTN=wide range, UTG=top 15%, SB=worst postflop)
+- **Pot Odds**: When calling is mathematically profitable
+- **SPR**: Stack-to-pot ratio and commitment thresholds
+- **Draws & Outs**: What draws and outs mean, how they affect your chances
+- **Recommendation**: Color-coding system (green=confident, yellow=marginal, red=fold)
 
 ### Authentication
-- **Guest mode**: Play without saving — no Supabase, no stats tracking. Toggle on setup screen.
-- **Anonymous**: Default for visitors. Stats saved to Supabase under a per-browser user ID. Yellow "Local" indicator.
-- **GitHub OAuth**: Sign in to sync stats across devices. Green indicator with username. One-click sign in/out.
+- **Not signed in**: Default for visitors. Session stats saved to localStorage only. Yellow "Local" indicator.
+- **GitHub OAuth**: Sign in to sync stats across devices and sessions. Green indicator with username.
+- **Email/Password**: Create an account with email + password (8+ chars, uppercase, lowercase, number). Bcrypt hashed by Supabase.
+- Prominent sign-in options on the setup screen
+
+### Hand Replay (`/replay`)
+- Click **"Replay"** on any hand in the stats page to re-live it
+- Same hole cards, same board, same players and positions
+- Hero gets full bet controls at each decision point to try different lines
+- Bots re-run their AI (probabilistic — may vary slightly each replay)
+- **Comparison panel** at showdown: Original result vs Replay result with profit difference
+- Original and replay play-by-play shown side by side
+- **"Replay Again"** button to try the same hand multiple times
+- Works with both localStorage and Supabase hand data
 
 ### Stats Page (`/stats`)
 - **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position
-- **Sessions**: History cards with per-session stats, individual delete, per-session JSON/CSV export
-- **Hands**: Click any row to expand — full hand summary with scrollable play-by-play action log (street markers highlighted in yellow)
+- **Sessions**: History cards with per-session stats, individual delete with confirmation, per-session JSON/CSV export
+- **Hands**: Click any row to expand — hero cards, board with labeled streets (Flop/Turn/River), all players' hole cards + positions + fold status, scrollable play-by-play action log, replay button
 - **Export**: Lifetime JSON/CSV (all data) and per-session JSON/CSV
-- **Delete**: Per-session delete with confirmation, or delete all lifetime data (with warning)
+- **Delete**: Per-session delete or delete all lifetime data — both with confirmation dialogs. Deletes from Supabase and localStorage simultaneously.
 - Supabase connection indicator on every page
 - Works on Netlify — all queries run client-side
 
@@ -242,6 +263,7 @@ holdem-simulator/
 │   │   └── useSupabase.ts         # Supabase client + anonymous auth
 │   ├── pages/
 │   │   ├── index.vue              # Main game page
+│   │   ├── replay.vue             # Hand replay — re-live any hand with different choices
 │   │   └── stats.vue              # Cross-session analytics from Supabase
 │   ├── public/
 │   │   ├── og-image.svg           # Open Graph social image (SVG source)

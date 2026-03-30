@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-03-29
+
+### Fixed
+- **Delete all stats now actually deletes** — Supabase RLS was missing DELETE policies on `hands` and `sessions` tables. Deletes were silently rejected. Added `"Users can delete own hands"` and `"Users can delete own sessions"` policies.
+- **Stale data after delete** — localStorage and local state fully cleared on delete. Navigating back to stats page no longer shows deleted data.
+- **Delete session** also clears localStorage if the deleted session was the active one.
+- Error logging added for failed Supabase deletes (visible in browser console).
+
 ## [0.8.0] - 2026-03-29
 
 Hand replay, email/password auth, stat tooltips, and UI improvements.
@@ -472,6 +480,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.8.1]: https://github.com/cschweda/holdem-simulator/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/cschweda/holdem-simulator/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/cschweda/holdem-simulator/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/cschweda/holdem-simulator/compare/v0.6.0...v0.7.0
