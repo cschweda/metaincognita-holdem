@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-03-29
+
+### Changed
+- **Renamed to "No Limit Hold'em Simulator"** everywhere — page title, meta tags, OG image, setup screen, README, config
+- **Bust screen delayed until after showdown** — when hero hits 0 chips, showdown results display first (winner, cards, financials). Then two options appear:
+  - "Buy More Chips ($200)" — rebuys at the same table, starts a new session
+  - "Cash Out" — saves session, shows bust screen with summary
+- **Winner info shown for every outcome** — win, loss, or fold. Stats panel at showdown shows winner's name, hole cards, and pot won alongside hero's financials. Stays visible until Deal Next Hand.
+
+### Fixed
+- Bust screen no longer appears before the hand resolves
+- Hero no longer eliminated from the table before seeing showdown results
+- SetupScreen initialization order: `proBots` defined before `generateDefaultBots` call
+
 ## [0.9.1] - 2026-03-29
 
 ### Changed
@@ -524,6 +538,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.9.2]: https://github.com/cschweda/holdem-simulator/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/cschweda/holdem-simulator/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/cschweda/holdem-simulator/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/cschweda/holdem-simulator/compare/v0.8.0...v0.8.1
