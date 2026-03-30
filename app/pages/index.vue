@@ -131,6 +131,7 @@ const minRaise = computed(() => {
 })
 const maxRaise = computed(() => hero.value?.chips || 0)
 const heroTurn = computed(() => waitingForHero.value && !hero.value?.folded && street.value !== 'showdown')
+const heroBusted = computed(() => hero.value && hero.value.chips <= 0 && street.value === 'showdown')
 
 const activePlayers = computed(() => playerStates.value.filter(p => !p.folded && !p.eliminated))
 const activeNonAllIn = computed(() => activePlayers.value.filter(p => p.chips > 0))
@@ -583,18 +584,13 @@ function endHand() {
     }, heroState.chips)
   }
 
-  // Eliminate busted players
+  // Eliminate busted bots (not hero — hero gets buy-in option at showdown)
   for (const p of playerStates.value) {
-    if (p.chips <= 0 && !p.eliminated) {
+    if (p.chips <= 0 && !p.eliminated && !p.isHero) {
       p.eliminated = true
     }
   }
-
-  // Hero bust-out check
-  if (heroState && heroState.chips <= 0) {
-    saveSessionToSupabase()
-    phase.value = 'busted'
-  }
+  // Hero bust-out: showdown displays first, then "Buy More Chips" button appears
 }
 
 function sleep(ms: number): Promise<void> {
@@ -855,9 +851,28 @@ function formatPot(n: number): string {
             @raise="handleRaise"
           />
 
-          <!-- Deal next hand -->
-          <div v-if="street === 'showdown'" class="flex justify-center">
+          <!-- Showdown actions -->
+          <div v-if="street === 'showdown'" class="flex justify-center gap-3">
+            <template v-if="heroBusted">
+              <UButton
+                v-if="config.session.rebuyEnabled"
+                color="primary"
+                size="lg"
+                @click="handleRebuy"
+              >
+                Buy More Chips (${{ startingStack }})
+              </UButton>
+              <UButton
+                variant="outline"
+                color="neutral"
+                size="lg"
+                @click="() => { saveSessionToSupabase(); phase = 'busted' }"
+              >
+                Cash Out
+              </UButton>
+            </template>
             <UButton
+              v-else
               color="primary"
               size="lg"
               @click="dealNewHand"
