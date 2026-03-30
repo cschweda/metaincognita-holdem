@@ -37,6 +37,7 @@ const props = defineProps<{
   heroNetProfit?: number
   winnerName?: string
   winnerCards?: string
+  winnerHand?: string
   sessionStats?: {
     handsPlayed: number
     handsWon: number
@@ -554,6 +555,7 @@ function afLabel(af: number): string {
                 </div>
                 <span class="text-green-400 font-mono font-bold">+${{ winAmount || 0 }}</span>
               </div>
+              <div v-if="winnerHand" class="text-sm font-semibold text-white mt-1">{{ winnerHand }}</div>
             </div>
 
             <!-- Detailed hand financials -->

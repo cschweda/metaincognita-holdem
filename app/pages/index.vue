@@ -12,7 +12,7 @@ import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
 import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } from '~/utils/botDecision'
-import { bestHand } from '~/utils/handAnalysis'
+import { bestHand, HAND_RANK_NAMES, describeHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
 import type { HeroProfile } from '~/utils/botDecision'
 import { displayCard } from '~/utils/cards'
@@ -793,6 +793,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           :hero-net-profit="gs.heroWonHand.value ? gs.heroWinAmount.value - gs.heroTotalWagered.value : -gs.heroTotalWagered.value"
           :winner-name="gs.handWinnerName.value"
           :winner-cards="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards ? gs.playerStates.value[gs.handWinnerId.value].holeCards!.map(c => displayCard(c)).join(' ') : ''"
+          :winner-hand="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards && gs.visibleCommunity.value.length >= 3 ? describeHand(gs.playerStates.value[gs.handWinnerId.value].holeCards!, gs.visibleCommunity.value) : ''"
           :session-stats="session"
           :supabase-connected="supabaseReady"
           @fold="engine.handleFold"
