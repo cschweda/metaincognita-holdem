@@ -47,6 +47,7 @@ const props = defineProps<{
     currentStack: number
     startingStack: number
     peakStack: number
+    startedAt?: string
   } | null
   milestones?: { label: string; hand: number }[]
   supabaseConnected?: boolean
@@ -794,6 +795,18 @@ function afLabel(af: number): string {
                 <span class="text-amber-400">{{ m.label }}</span>
                 <span class="text-gray-500 font-mono text-[0.6rem]">Hand #{{ m.hand }}</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Session info -->
+          <div class="border-t border-gray-700/50 pt-3">
+            <div class="flex justify-between text-xs text-gray-500">
+              <span>Hands this session</span>
+              <span class="text-white font-mono">{{ sessionStats.handsPlayed }}</span>
+            </div>
+            <div v-if="sessionStats.startedAt" class="flex justify-between text-xs text-gray-500 mt-1">
+              <span>Session started</span>
+              <span class="text-gray-400">{{ new Date(sessionStats.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
             </div>
           </div>
 
