@@ -27,7 +27,27 @@ const props = defineProps<{
   toCall?: number
   heroChips?: number
   playerStats?: PlayerStat[]
+  heroTurn?: boolean
 }>()
+
+const emit = defineEmits<{
+  fold: []
+  check: []
+  call: [amount: number]
+}>()
+
+function handleActionClick() {
+  if (!props.heroTurn || !analysis.value) return
+  const action = analysis.value.action
+  if (action === 'FOLD') emit('fold')
+  else if (action === 'CHECK') emit('check')
+  else if (action === 'CALL') emit('call', props.toCall || 0)
+}
+
+const isClickableAction = computed(() => {
+  if (!props.heroTurn || !analysis.value) return false
+  return ['FOLD', 'CHECK', 'CALL'].includes(analysis.value.action)
+})
 
 // ─── Hand Analysis ─────────────────────────────────────────────
 const analysis = computed<HandAnalysis | null>(() => {
@@ -269,9 +289,24 @@ function afLabel(af: number): string {
           <!-- Recommendation -->
           <div class="border-t border-gray-700/50 pt-3">
             <div class="text-xs text-gray-400 mb-1.5">Recommendation</div>
-            <div class="rounded-lg px-3 py-2 text-center" :class="actionColor">
-              <div class="text-lg font-bold text-white tracking-wide">{{ analysis.action }}</div>
-            </div>
+            <button
+              class="w-full rounded-lg px-3 py-2 text-center transition-all"
+              :class="[
+                actionColor,
+                isClickableAction
+                  ? 'cursor-pointer hover:brightness-125 active:scale-[0.97] ring-1 ring-white/10'
+                  : 'cursor-default',
+              ]"
+              :disabled="!isClickableAction"
+              @click="handleActionClick"
+            >
+              <div class="text-lg font-bold text-white tracking-wide">
+                {{ analysis.action }}
+              </div>
+              <div v-if="isClickableAction && heroTurn" class="text-[0.6rem] text-white/50 mt-0.5">
+                click to {{ analysis.action.toLowerCase() }}
+              </div>
+            </button>
             <p class="mt-2 text-xs text-gray-300 leading-relaxed">{{ analysis.reasoning }}</p>
           </div>
         </template>

@@ -595,6 +595,10 @@ function formatPot(n: number): string {
           :to-call="toCall"
           :hero-chips="hero?.chips || 0"
           :player-stats="opponentStats"
+          :hero-turn="heroTurn"
+          @fold="handleFold"
+          @check="handleCheck"
+          @call="handleCall"
         />
       </div>
     </div>

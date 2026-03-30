@@ -49,12 +49,12 @@ const formattedChips = computed(() => {
 const actionBadge = computed(() => {
   if (!props.lastAction) return null
   switch (props.lastAction) {
-    case 'fold': return { text: 'FOLD', color: 'bg-red-600/80 text-red-100' }
-    case 'check': return { text: 'CHECK', color: 'bg-gray-600/80 text-gray-200' }
-    case 'call': return { text: `CALL $${props.currentBetAmount}`, color: 'bg-blue-600/80 text-blue-100' }
-    case 'raise': return { text: `RAISE $${props.currentBetAmount}`, color: 'bg-green-600/80 text-green-100' }
-    case 'bet': return { text: `BET $${props.currentBetAmount}`, color: 'bg-green-600/80 text-green-100' }
-    case 'all-in': return { text: 'ALL-IN', color: 'bg-amber-600/80 text-amber-100' }
+    case 'fold': return { text: 'FOLD', color: 'bg-red-600/90 text-red-100' }
+    case 'check': return { text: 'CHECK', color: 'bg-gray-600/90 text-gray-200' }
+    case 'call': return { text: `CALL $${props.currentBetAmount}`, color: 'bg-blue-600/90 text-blue-100' }
+    case 'raise': return { text: `RAISE $${props.currentBetAmount}`, color: 'bg-green-600/90 text-green-100' }
+    case 'bet': return { text: `BET $${props.currentBetAmount}`, color: 'bg-green-600/90 text-green-100' }
+    case 'all-in': return { text: 'ALL-IN', color: 'bg-amber-600/90 text-amber-100 animate-pulse' }
     case 'sb': return { text: `SB $${props.currentBetAmount}`, color: 'bg-gray-600/60 text-gray-300' }
     case 'bb': return { text: `BB $${props.currentBetAmount}`, color: 'bg-gray-600/60 text-gray-300' }
     default: return null
@@ -63,16 +63,26 @@ const actionBadge = computed(() => {
 </script>
 
 <template>
-  <!-- Hidden if eliminated -->
   <div
     v-if="!eliminated"
-    class="flex flex-col items-center gap-1 transition-all duration-300"
+    class="flex flex-col items-center gap-1 transition-all duration-300 relative"
     :class="{ 'opacity-30 grayscale': folded }"
   >
+    <!-- Action badge (floats above everything) -->
+    <div
+      v-if="actionBadge"
+      class="absolute -top-5 left-1/2 -translate-x-1/2 z-20
+             px-2.5 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide
+             shadow-lg whitespace-nowrap"
+      :class="actionBadge.color"
+    >
+      {{ actionBadge.text }}
+    </div>
+
     <!-- Hole cards (hidden once folded) -->
     <div
       v-if="!folded"
-      class="flex gap-2 -mb-1"
+      class="flex gap-2"
       :class="{ 'cursor-pointer': peekable && !isHero && holeCards }"
       @click="togglePeek"
     >
@@ -99,15 +109,6 @@ const actionBadge = computed(() => {
       <span class="text-xs text-red-400/60 uppercase tracking-wide font-semibold">Folded</span>
     </div>
 
-    <!-- Action badge -->
-    <div
-      v-if="actionBadge && !folded"
-      class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold uppercase tracking-wide transition-all duration-300"
-      :class="actionBadge.color"
-    >
-      {{ actionBadge.text }}
-    </div>
-
     <!-- Nameplate -->
     <div
       class="rounded-lg px-3 py-1.5 text-center min-w-24 border shadow-lg transition-all duration-300"
@@ -129,13 +130,5 @@ const actionBadge = computed(() => {
         {{ formattedChips }}
       </div>
     </div>
-
-    <!-- Chip stack visual -->
-    <ChipStack
-      v-if="chips > 0 && !folded"
-      :amount="chips"
-      :stake-level="stakeLevel"
-      compact
-    />
   </div>
 </template>
