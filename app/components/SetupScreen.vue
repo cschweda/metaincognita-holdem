@@ -67,11 +67,14 @@ function getInitialCommentaryChoice(): CommentaryChoice {
   return 'hero'
 }
 const commentaryChoice = ref<CommentaryChoice>(getInitialCommentaryChoice())
-watch(commentaryChoice, (v) => {
+// Write immediately on init AND on change so composable always gets the right state
+function syncCommentaryChoice(v: CommentaryChoice) {
   if (typeof localStorage === 'undefined') return
   localStorage.setItem('holdem-commentary-enabled', v === 'off' ? 'false' : 'true')
-  if (v !== 'off') localStorage.setItem('holdem-commentary-mode', v)
-})
+  localStorage.setItem('holdem-commentary-mode', v === 'off' ? 'hero' : v)
+}
+syncCommentaryChoice(commentaryChoice.value)
+watch(commentaryChoice, syncCommentaryChoice)
 
 onMounted(async () => {
   isLoggedIn.value = await isGitHubUser()
