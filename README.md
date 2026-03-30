@@ -86,7 +86,11 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 | Jean-Robert Bellande | 36% | Fearless gambler, huge bluffs | 1.4x |
 | Mike Matusow | 28% | Solid until tilt -- then reckless all-ins | 2.2x |
 
-Max 2 pro bots per randomly generated table. No duplicates. Users can manually pick any combo in Advanced setup.
+Max 2 pro bots per randomly generated table. No duplicates. Full roster visible on setup screen with:
+- **Shuffle Players** button to randomize the mix (click repeatedly)
+- **Inline swap dropdown** on each seat to pick any persona
+- **PRO badge** on pro bots, VPIP and aggression stats at a glance
+- Pro/fictional count summary
 
 **6 Quick-Select Presets** for instant archetype assignment:
 

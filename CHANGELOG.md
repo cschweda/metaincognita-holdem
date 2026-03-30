@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-03-29
+
+### Changed
+- **Setup screen shows full table roster** — all active bots listed with seat number, name, PRO badge, VPIP, aggression, and inline swap dropdown. No need to open Advanced to see or change who's playing.
+- **"Shuffle Players" button** always visible above the player list — click repeatedly to randomize the mix. Shows pro/fictional count summary.
+
 ## [0.9.0] - 2026-03-29
 
 Pro player bots with real-world playstyles and per-persona tilt.
@@ -518,6 +524,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.9.1]: https://github.com/cschweda/holdem-simulator/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/cschweda/holdem-simulator/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/cschweda/holdem-simulator/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/cschweda/holdem-simulator/compare/v0.7.1...v0.8.0
