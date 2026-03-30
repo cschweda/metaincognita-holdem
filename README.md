@@ -114,10 +114,16 @@ The advanced setup section lets you fine-tune every opponent at the table. Each 
 - **Session stats tab**: Hands played, W/L/F breakdown, bankroll (current/peak/start), win rate, Supabase sync indicator
 - **Export**: Download session as JSON or CSV
 
+### Authentication
+- **Guest mode**: Play without saving — no Supabase, no stats tracking. Toggle on setup screen.
+- **Anonymous**: Default for visitors. Stats saved to Supabase under a per-browser user ID. Yellow "Local" indicator.
+- **GitHub OAuth**: Sign in to sync stats across devices. Green indicator with username. One-click sign in/out.
+
 ### Stats Page (`/stats`)
 - **Overview**: Lifetime hands, profit, avg pot, hands/session, winning/losing session counts, best/worst session, win rate, showdown rate, won-at-showdown %, fold rate, profit trend sparkline, performance by position
-- **Sessions**: History cards with per-session stats and individual delete
-- **Hands**: Full table with hole cards, board, position, result, profit, pot size, timestamp
+- **Sessions**: History cards with per-session stats, individual delete, per-session JSON/CSV export
+- **Hands**: Click any row to expand — full hand summary with scrollable play-by-play action log (street markers highlighted in yellow)
+- **Export**: Lifetime JSON/CSV (all data) and per-session JSON/CSV
 - **Delete**: Per-session delete with confirmation, or delete all lifetime data (with warning)
 - Supabase connection indicator on every page
 - Works on Netlify — all queries run client-side

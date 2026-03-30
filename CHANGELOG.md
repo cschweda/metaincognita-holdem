@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-03-29
+
+GitHub OAuth, guest mode, hand replay, action logging, and auth UI improvements.
+
+### Added
+
+#### GitHub OAuth Login
+- Sign in with GitHub to persist stats across devices and browsers
+- GitHub username shown in green with green dot when authenticated
+- Sign-out reverts to anonymous session (app keeps working)
+- OAuth redirect flow via Supabase — works on both localhost and Netlify
+
+#### Guest Mode
+- Toggle on setup screen: "Play without saving — no stats tracked, no Supabase"
+- Button changes to "Play as Guest"
+- All Supabase saves skipped: no session init, no hand recording, no auto-save
+- Top bar shows "Guest Mode" badge instead of connection status
+- Stats link hidden in guest mode
+
+#### Hand Action Logging & Replay
+- Every action recorded during gameplay: folds, checks, calls ($), raises ($), all-ins
+- Street markers logged: "--- FLOP: A♠ K♦ 7♣ ---", "--- TURN: 2♥ ---", etc.
+- Actions stored in Supabase `hands.actions` column (text array)
+- Stats page hands tab: click any row to expand detailed view
+  - Large hole cards, board, position, pot, profit
+  - Scrollable play-by-play log with street transitions highlighted in yellow
+- Included in JSON/CSV exports
+
+#### Export on Stats Page
+- **Lifetime export**: JSON (full dump with stats, positions, all sessions + hands) and CSV (flat hand table)
+- **Per-session export**: JSON and CSV buttons on each session card
+- All via browser file download
+
+### Changed
+
+#### Auth Status Indicator
+- **Anonymous sessions**: Yellow dot + "Local" (no Supabase branding). Click to see GitHub sign-in option.
+- **GitHub sessions**: Green dot + username. Click for sign-out and stats link.
+- **Connecting**: Yellow pulsing dot. **Offline**: Red dot.
+- Dropdown menu only shows relevant options per auth state
+
 ## [0.6.0] - 2026-03-29
 
 Hero timeout, bust-out handling, re-buy, and data deletion.
@@ -359,6 +400,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.7.0]: https://github.com/cschweda/holdem-simulator/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/cschweda/holdem-simulator/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/cschweda/holdem-simulator/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/cschweda/holdem-simulator/compare/v0.4.0...v0.5.0
