@@ -57,18 +57,21 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 
 ## Table of Contents
 
-- [Features](#features) -- poker table, hand analysis, ranges, HUD, betting, bot configurator, tilt, consistency, sessions, replay, stats
-- [How Bot Behavior Works](#how-bot-behavior-works) -- persona config fields, Chen+, board texture, table flow, hero adaptation, preflop/postflop decision flows
-- [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation for analysis and tuning
+- [Features](#features) -- poker table, hand analysis, ranges, HUD, betting, bot configurator, tilt, consistency, sessions, replay, stats, commentary
+- [How Bot Behavior Works](#how-bot-behavior-works) -- persona config fields, Chen+, board texture, table flow, hero adaptation, poker realism audit, preflop/postflop decision flows
+- [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation, analysis page, hand history replay viewer
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 737 tests across 16 files
+- [Test Suites](#test-suites) -- 765 tests across 17 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- audit results, defense-in-depth, CSP headers, credential validation
 - [Roadmap](#roadmap)
 - [Future Enhancements](#future-enhancements)
+- [Influences](#influences) -- Poker Academy Pro, PokerStars, Full Tilt, 2+2, Sklansky, ESPN WSOP
+- [What Makes This Different](#what-makes-this-different)
+- [License](#license)
 
 ## Features
 
