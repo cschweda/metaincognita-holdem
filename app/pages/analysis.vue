@@ -70,16 +70,8 @@ function pct(n: number, total: number): string {
   return total > 0 ? (n / total * 100).toFixed(1) + '%' : '0%'
 }
 
-const expandedHand = ref<number | null>(null)
+const expandedHand = ref<string | null>(null)
 
-const allInteresting = computed(() => {
-  const hands = [
-    ...(result2p.value?.interestingHands || []),
-    ...(result6p.value?.interestingHands || []),
-    ...(result8p.value?.interestingHands || []),
-  ]
-  return hands.sort((a, b) => b.interestScore - a.interestScore).slice(0, 3)
-})
 </script>
 
 <template>
@@ -263,39 +255,38 @@ const allInteresting = computed(() => {
             </div>
             <p class="text-xs text-gray-600 mt-2">Green = within 5% of config. Amber = &gt;5% deviation (tilt, table dynamics, variance).</p>
           </div>
+          <!-- Interesting hands for this run -->
+          <div v-if="sim.r.interestingHands.length > 0" class="mt-6">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Interesting Hands</h3>
+            <p class="text-xs text-gray-600 mb-3">Auto-selected: coolers, huge pots, all-in showdowns, 4-bet+ pots, multiway action.</p>
+            <div class="space-y-2">
+              <div
+                v-for="hand in sim.r.interestingHands"
+                :key="sim.dlLabel + '-' + hand.handNumber"
+                class="bg-gray-900/60 border border-gray-800/60 rounded-xl overflow-hidden"
+              >
+                <button
+                  class="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-gray-800/20 transition-colors text-sm"
+                  @click="expandedHand = expandedHand === (sim.dlLabel + '-' + hand.handNumber) ? null : (sim.dlLabel + '-' + hand.handNumber)"
+                >
+                  <span class="text-gray-600 text-xs">{{ expandedHand === (sim.dlLabel + '-' + hand.handNumber) ? '&#9660;' : '&#9654;' }}</span>
+                  <span class="text-xs text-gray-500 font-mono">#{{ hand.handNumber }}</span>
+                  <span class="text-white font-medium">{{ hand.winnerName }} wins ${{ hand.potSize }}</span>
+                  <span class="flex-1" />
+                  <span class="text-[0.6rem] px-2 py-0.5 rounded bg-amber-900/40 text-amber-400 whitespace-nowrap">{{ hand.interestReason }}</span>
+                </button>
+                <div v-if="expandedHand === (sim.dlLabel + '-' + hand.handNumber)" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10">
+                  <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3">{{ hand.psFormat }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="mt-4">
             <button class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(sim.r, sim.dlLabel)">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Download {{ sim.label }} hand history (PokerStars format)
             </button>
-          </div>
-        </section>
-
-        <!-- Interesting Hands -->
-        <section v-if="allInteresting.length > 0" class="mb-10">
-          <h2 class="text-xl font-bold text-white mb-2">Most Interesting Hands</h2>
-          <p class="text-xs text-gray-500 mb-4">Auto-selected by interest score: huge pots, coolers, all-in showdowns, 4-bet+ pots, multiway action.</p>
-          <div class="space-y-3">
-            <div
-              v-for="hand in allInteresting"
-              :key="'h-' + hand.handNumber + hand.potSize"
-              class="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden"
-            >
-              <button
-                class="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-800/20 transition-colors"
-                @click="expandedHand = expandedHand === hand.handNumber ? null : hand.handNumber"
-              >
-                <span class="text-gray-600 text-xs">{{ expandedHand === hand.handNumber ? '&#9660;' : '&#9654;' }}</span>
-                <span class="text-xs text-gray-500 font-mono">#{{ hand.handNumber }}</span>
-                <span class="text-white text-sm font-medium">{{ hand.winnerName }} wins ${{ hand.potSize }}</span>
-                <span class="flex-1" />
-                <span class="text-xs px-2 py-0.5 rounded bg-amber-900/40 text-amber-400 whitespace-nowrap">{{ hand.interestReason }}</span>
-              </button>
-              <div v-if="expandedHand === hand.handNumber" class="border-t border-gray-800/30 px-4 py-4 bg-gray-800/10">
-                <div class="text-[0.6rem] text-gray-500 uppercase mb-2">PokerStars Format</div>
-                <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3">{{ hand.psFormat }}</pre>
-              </div>
-            </div>
           </div>
         </section>
 
