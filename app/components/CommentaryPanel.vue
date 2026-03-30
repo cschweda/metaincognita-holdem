@@ -54,7 +54,7 @@ const typeStyles: Record<string, string> = {
   action: 'text-gray-300',
   street: 'text-cyan-300',
   showdown: 'text-green-400 font-semibold',
-  aside: 'text-gray-500 italic',
+  aside: 'text-gray-400',
 }
 </script>
 

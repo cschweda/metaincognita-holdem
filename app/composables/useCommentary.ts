@@ -502,22 +502,87 @@ const normanBoardQuips = {
     `Three of one suit on the flop. If you don't have a flush draw, it's time to panic. Quietly. With dignity.`,
     `Monotone board. Someone has a flush or a flush draw. Maybe both. The drama!`,
     `All one suit. This is either very good news for somebody or very bad news for everybody.`,
+    `Three hearts. Or diamonds. Or whatever. Point is, somebody's drawing to a flush and somebody else is terrified.`,
+    `Monotone flop. This board just narrowed everybody's range to "do I have a flush draw or not?"`,
+    `All one suit. The board is wearing a matching outfit. Very coordinated. Very dangerous.`,
+    `Three of the same suit. In poker, that's called "danger." In fashion, it's called "a bold choice."`,
   ],
   paired: [
     `Paired board. Full house territory. That's either exciting or terrifying, depending on which side you're on.`,
     `The board paired. Somebody just got very happy or very worried. In poker, those two feelings are neighbors.`,
+    `Paired flop. The trips lottery is open for business.`,
+    `Board pairs up. If someone has trips, they're doing backflips internally. Externally, they're stone-faced. Poker, baby.`,
+    `A pair on the board. Full house draws everywhere. This just got interesting.`,
+    `Paired board. Half the table just checked their hole cards again. That's never a good sign.`,
   ],
   allBroadway: [
     `All broadway cards. This board favors the raiser's range. That's fancy talk for "the aggressive player is happy."`,
     `Broadway board. Kings, queens, jacks everywhere. It's like a royal convention. Without the corgis.`,
+    `Big cards everywhere. This flop is wearing a tuxedo.`,
+    `All face cards. The preflop raiser is smiling. Everyone else is pretending to smile.`,
+    `Broadway flop. This board screams "I was meant for premium hands." My hands never get invited to these parties.`,
+    `All high cards. This is the board that premium hands dream about at night.`,
   ],
   allLow: [
     `All small cards. This is the caller's dream board. The raiser? Not so much.`,
     `Low board. Sets and two pairs are everywhere. This is where the small ball players shine. And where I lose.`,
+    `All baby cards. The raiser is suddenly less confident. The caller with pocket fives is doing a victory dance.`,
+    `Low flop. If you've got a small pair, congratulations. If you've got ace-king, my condolences.`,
+    `Small cards across the board. This is where the scrappy underdogs make their money.`,
+    `All low cards. This board is the equivalent of a participation trophy.`,
+    `Baby board. The kind of flop that makes ace-king cry and pocket threes sing.`,
   ],
   ace: [
     `Ace on the flop. The most feared card in poker. If you raised preflop and have an ace, you're smiling. If you don't, you're pretending to smile.`,
     `There's the ace. The great equalizer. Or the great un-equalizer, depending on your hand.`,
+    `An ace hits the board. Half the table just relaxed. The other half just clenched.`,
+    `Ace on the flop. The card that launched a thousand c-bets.`,
+    `There it is. The ace. The big one. The card that changes everything and nothing at the same time.`,
+    `Ace on board. If you don't have one, start thinking about your exit strategy.`,
+  ],
+  connected: [
+    `Connected board. Straight draws are everywhere. This is a board that punishes slow-playing.`,
+    `Very coordinated flop. Straights, two pairs, and draws galore. This is a minefield.`,
+    `The board is connected. Like a puzzle where everyone has different pieces. And some of those pieces are dangerous.`,
+    `Coordinated flop. If you have a set here, you better charge the draws. Otherwise they're getting in cheap.`,
+    `Connected cards everywhere. This board has more draws than my art class. And my art class had a LOT of draws.`,
+  ],
+  dry: [
+    `Dry board. Rainbow, disconnected. This is where overpairs go to make money.`,
+    `About as dry as the Sahara. No draws, no drama. Just pure hand-strength poker.`,
+    `Dry flop. Nothing connects. This is the kind of board where you either have it or you don't. I usually don't.`,
+    `Rainbow and disconnected. The safest flop in poker. Relatively speaking. Nothing in poker is actually safe.`,
+    `Dry board. No flush draws, no straight draws. Just two people staring at each other with their hands.`,
+  ],
+  scary: [
+    `That's a scary board. If you don't have a strong hand, this is a good time to reconsider your life choices.`,
+    `Dangerous board texture. Someone has something. The question is who, and how much it's going to cost.`,
+    `This board just got terrifying. Like a horror movie, but with chips instead of screaming. Actually, there might be screaming.`,
+  ],
+  turnBrick: [
+    `Blank on the turn. Nothing changed. Status quo. The most boring and also sometimes the most important card.`,
+    `Turn is a brick. No draws completed. The pot stays the same size. For now.`,
+    `Complete blank. The turn card showed up and contributed absolutely nothing. Like me at family dinners.`,
+    `Brick. The deck just shrugged. "I got nothing for ya," it said.`,
+    `Nothing card on the turn. Sometimes the most interesting thing about a card is how uninteresting it is.`,
+  ],
+  turnScare: [
+    `Scare card on the turn. Somebody's plan just changed. Dramatically.`,
+    `The turn changes things. What was good might not be good anymore. What was bad might suddenly be great.`,
+    `That turn card just rewrote the script. New plot twist. New drama. Same table.`,
+    `Interesting turn card. The kind of card that makes you recalculate everything you thought you knew.`,
+  ],
+  riverBrick: [
+    `Brick on the river. If you were drawing, you missed. If you had a hand, you still have it. Exciting stuff.`,
+    `River blanks. The most anticlimactic ending in poker. Like a movie that just... stops.`,
+    `Nothing on the river. The deck said "that's all, folks." Very Looney Tunes of it.`,
+    `Complete brick river. Somewhere, a drawing hand is crying. I can hear it from the booth.`,
+  ],
+  riverComplete: [
+    `The river completes the draw! Somebody just got there. The question is: was anyone betting they would?`,
+    `Draw gets there on the river! This is why they call it the river — because it drowns people.`,
+    `The draw came in. If you were chasing, congratulations. If you weren't, my condolences.`,
+    `River completes it. The poker gods giveth. And they just gave.`,
   ],
 }
 
@@ -527,6 +592,9 @@ const normanDrawQuips = [
   `Chasing the draw. Some people chase dreams. Poker players chase flushes. Both end in disappointment about 65% of the time.`,
   `Lots of outs. That's good. Outs are like friends — the more you have, the better your chances. I have neither.`,
   `A big draw. The math says call. The heart says call. The wallet says "please stop."`,
+  `Drawing to the flush. The most seductive draw in poker. It whispers sweet nothings and then breaks your heart.`,
+  `Open-ended straight draw. Eight outs. In poker math, that's almost good. In real life math, that's terrible.`,
+  `Gutshot straight draw. Four outs. The long shot. The Hail Mary. The "I shouldn't be calling but here I am."`,
 ]
 
 const normanRiverQuips = [
@@ -534,6 +602,10 @@ const normanRiverQuips = [
   `River card coming. This is it. The last chance for redemption. Or the last chance for heartbreak.`,
   `The river. Where dreams come true and nightmares are born. Often simultaneously at the same table.`,
   `Final card. In poker, the river is where heroes are made. And where my bankroll goes to die.`,
+  `One card to decide it all. No more draws. No more hope. Just cold, hard reality. My least favorite kind.`,
+  `The river. Named after the place where they used to dump the bodies of poker cheats. Fun fact. Allegedly.`,
+  `Last card. This is it. The moment we've all been waiting for. Well, I've been waiting for lunch, but this too.`,
+  `River time. Five cards on the board. No more chances. This is poker's final exam. No extra credit.`,
 ]
 
 const normanPotSizeQuips = [
@@ -541,13 +613,34 @@ const normanPotSizeQuips = [
   `Look at the size of that pot. I've had apartments smaller than that pot.`,
   `Monster pot building here. This is the kind of pot that makes poker worth watching. And worth losing sleep over.`,
   `The pot just keeps growing. It's like a snowball rolling downhill. A very expensive snowball.`,
+  `That's a lot of chips in the middle. More than I've ever had. In any situation. Ever.`,
+  `Big pot alert. This is the kind of pot that changes sessions. And moods. And relationships.`,
 ]
 
 const normanHeadsUpQuips = [
   `Heads up now. One on one. Mano a mano. Bot a... boto? This is where it gets personal.`,
   `Just two players left. It's a duel. A showdown. A... whatever you call it when two people fight over chips.`,
   `Heads up! The purest form of poker. Just you, your opponent, and a pile of chips that belongs to one of you.`,
+  `Down to two. Like a Western showdown. High noon. Except it's at a poker table. And nobody has a gun. Hopefully.`,
 ]
+
+// ─── Random banter interjections (sprinkled between actions) ──────
+const normanRandomBanter = new UniquePool([
+  `You know what the difference between poker and life is? In poker, the bad beats only last one hand.`,
+  `I was thinking about my ex-wife during that last hand. Not because of the cards. Just because I always think about my ex-wife.`,
+  `Someone once asked me if poker is a sport. I said it's the only sport where you can eat nachos while competing.`,
+  `My poker philosophy: play tight, be patient, and always tip the dealer. I follow one of those consistently.`,
+  `Fun fact: the odds of getting dealt pocket aces are about 1 in 221. The odds of me playing them correctly? Much lower.`,
+  `I love the sound of chips shuffling. It's the sound of money being indecisive. Like me at a restaurant.`,
+  `They say poker is a game of incomplete information. My entire life is incomplete information.`,
+  `Poker tip from Chorman Nad: never play poker with a guy named after a city. Vegas Dave. Atlantic City Mike. Cleveland Steve. Actually, Cleveland Steve is fine.`,
+  `I've been commentating poker for years and I still get nervous when there's an all-in. In a simulation. Against bots. I need help.`,
+  `You know what separates a good poker player from a great one? About $10 million. And better cards. And better decisions. So... everything.`,
+  `People ask me, "Chorman, what's your secret to poker success?" I say, "I commentate. I don't play. That IS the secret."`,
+  `The beauty of poker is that anyone can win any hand. The tragedy of poker is that I never do.`,
+  `Someone once told me that poker is 90% mental and 10% cards. I'm 0% mental and 100% confused, so the math checks out.`,
+  `This is good poker. Clean. Professional. Nothing like my home game, which usually ends with someone owing someone else a lawn mower.`,
+])
 
 // ─── Self-aware quips (Norman knows it's a simulation) ───────────
 const normanSelfAwareQuips = [
@@ -679,7 +772,7 @@ export function useCommentary(gs: GS) {
     normanAllinQuips.reset(); normanAllinJunkQuips.reset()
     normanShowdownWinQuips.reset(); normanShowdownLoseQuips.reset(); normanCoolerQuips.reset()
     normanForeshadowQuips.reset(); normanStreetHitQuips.reset(); normanStreetMissQuips.reset()
-    normanGenericQuips.reset()
+    normanGenericQuips.reset(); normanRandomBanter.reset()
   }
 
   // ─── Helpers ─────────────────────────────────────────────
@@ -961,7 +1054,10 @@ export function useCommentary(gs: GS) {
       const name = checkM[1]
       addHero(pick([`${name} checks.`, `Check from ${name}.`, `${name} taps the table.`]), 'action')
       addTV(`${name} checks.`, 'action', 'lon')
-      if (normanFeelsLikeIt()) addTV(normanCheckQuips.pick(), 'action', 'norman')
+      if (normanFeelsLikeIt()) {
+        // Randomly pick between action-specific quip and random banter
+        addTV(Math.random() < 0.85 ? normanCheckQuips.pick() : normanRandomBanter.pick(), 'action', 'norman')
+      }
     }
   }
 
@@ -993,16 +1089,31 @@ export function useCommentary(gs: GS) {
       const flopCards = community.slice(0, 3)
       const suits = flopCards.map(c => c.suit)
       const ranks = flopCards.map(c => c.rank)
-      if (suits[0] === suits[1] && suits[1] === suits[2]) {
+      const isMonotone = suits[0] === suits[1] && suits[1] === suits[2]
+      const isPaired = ranks[0] === ranks[1] || ranks[1] === ranks[2] || ranks[0] === ranks[2]
+      const sortedRanks = [...ranks].sort((a, b) => a - b)
+      const maxGap = Math.max(sortedRanks[1] - sortedRanks[0], sortedRanks[2] - sortedRanks[1])
+      const isConnected = maxGap <= 2
+      const isRainbow = suits[0] !== suits[1] && suits[1] !== suits[2] && suits[0] !== suits[2]
+      const isDry = isRainbow && !isConnected && !isPaired
+
+      if (isMonotone) {
         addTV(pick(normanBoardQuips.allOneSuit), 'street', 'norman')
-      } else if (ranks[0] === ranks[1] || ranks[1] === ranks[2] || ranks[0] === ranks[2]) {
+      } else if (isPaired) {
         addTV(pick(normanBoardQuips.paired), 'street', 'norman')
       } else if (ranks.every(r => r >= 11)) {
         addTV(pick(normanBoardQuips.allBroadway), 'street', 'norman')
       } else if (ranks.every(r => r <= 9)) {
         addTV(pick(normanBoardQuips.allLow), 'street', 'norman')
+      } else if (isConnected) {
+        addTV(pick(normanBoardQuips.connected), 'street', 'norman')
+      } else if (isDry) {
+        addTV(pick(normanBoardQuips.dry), 'street', 'norman')
       } else if (ranks.includes(14)) {
-        if (normanFeelsLikeIt()) addTV(pick(normanBoardQuips.ace), 'street', 'norman')
+        addTV(pick(normanBoardQuips.ace), 'street', 'norman')
+      } else {
+        // Generic scary/interesting board
+        if (normanFeelsLikeIt()) addTV(pick(normanBoardQuips.scary), 'street', 'norman')
       }
 
       // Analyze all players
@@ -1053,6 +1164,14 @@ export function useCommentary(gs: GS) {
       }
 
       addTV(`Turn: ${turnCard}.`, 'street', 'lon')
+      // Turn board texture quip
+      if (normanFeelsLikeIt()) {
+        const turnC = community[3]
+        const flopSuits = community.slice(0, 3).map(c => c.suit)
+        const flushPossible = flopSuits.filter(s => s === turnC.suit).length >= 2
+        if (flushPossible) addTV(pick(normanBoardQuips.turnScare), 'street', 'norman')
+        else addTV(pick(normanBoardQuips.turnBrick), 'street', 'norman')
+      }
       for (const p of players) {
         if (!p.holeCards) continue
         const flopH = bestHand(Array.from(p.holeCards), community.slice(0, 3))
@@ -1086,7 +1205,19 @@ export function useCommentary(gs: GS) {
       }
 
       addTV(`River: ${riverCard}.`, 'street', 'lon')
-      if (normanFeelsLikeIt()) addTV(pick(normanRiverQuips), 'street', 'norman')
+      // River board quip — check if a draw completed
+      const riverC = community[4]
+      const riverSuit = riverC.suit
+      const flushComplete = community.filter(c => c.suit === riverSuit).length >= 3
+      if (flushComplete) {
+        addTV(pick(normanBoardQuips.riverComplete), 'street', 'norman')
+      } else if (normanFeelsLikeIt()) {
+        // Random choice: river quip, brick quip, or random banter
+        const r = Math.random()
+        if (r < 0.4) addTV(pick(normanRiverQuips), 'street', 'norman')
+        else if (r < 0.7) addTV(pick(normanBoardQuips.riverBrick), 'street', 'norman')
+        else addTV(normanRandomBanter.pick(), 'aside', 'norman')
+      }
       const hands = players.filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
       if (hands.length >= 2) {
         const best = hands[0]
