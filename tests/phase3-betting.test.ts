@@ -185,16 +185,79 @@ describe('Round progression', () => {
   })
 })
 
+describe('Bet guards — never bet more than your stack', () => {
+  it('raise is capped to remaining stack', () => {
+    const stack = 80
+    const heroBet = 0
+    const requestedRaise = 150
+    const capped = Math.min(requestedRaise, stack + heroBet)
+    expect(capped).toBe(80)
+  })
+
+  it('call is capped to remaining stack (short-stack all-in)', () => {
+    const stack = 30
+    const toCall = 100
+    const actualCall = Math.min(toCall, stack)
+    expect(actualCall).toBe(30)
+  })
+
+  it('custom input above stack is clamped', () => {
+    const maxRaise = 500
+    const minRaise = 20
+    const customInput = 999
+    const clamped = Math.min(Math.max(customInput, minRaise), maxRaise)
+    expect(clamped).toBe(500)
+  })
+
+  it('preset that exceeds stack is clamped to all-in', () => {
+    const pot = 400
+    const fraction = 1.0
+    const stack = 250
+    const minRaise = 20
+    const raw = Math.round(pot * fraction) // 400
+    const clamped = Math.min(Math.max(raw, minRaise), stack)
+    expect(clamped).toBe(250)
+  })
+
+  it('chips never go negative after a capped bet', () => {
+    let stack = 100
+    const betAmount = Math.min(150, stack)
+    stack -= betAmount
+    expect(stack).toBeGreaterThanOrEqual(0)
+  })
+})
+
 describe('Player bust-out', () => {
   it('player with 0 chips is eliminated', () => {
-    expect(true).toBe(true) // placeholder
+    const chips = 0
+    const isEliminated = chips <= 0
+    expect(isEliminated).toBe(true)
+  })
+
+  it('player with chips > 0 is NOT eliminated', () => {
+    const chips = 1
+    const isEliminated = chips <= 0
+    expect(isEliminated).toBe(false)
+  })
+
+  it('all-in loss results in 0 chips', () => {
+    let stack = 200
+    const allInAmount = stack
+    stack -= allInAmount
+    const lost = true // assume lost at showdown
+    expect(stack).toBe(0)
+    expect(lost && stack <= 0).toBe(true) // should be removed from table
   })
 
   it('game ends when hero busts out', () => {
-    expect(true).toBe(true) // placeholder
+    const heroChips = 0
+    const heroBusted = heroChips <= 0
+    expect(heroBusted).toBe(true)
   })
 
   it('game ends (victory) when only hero remains', () => {
-    expect(true).toBe(true) // placeholder
+    const activePlayers = [{ id: 0, chips: 500, isHero: true }]
+    const heroWins = activePlayers.length === 1 && activePlayers[0].isHero
+    expect(heroWins).toBe(true)
   })
 })

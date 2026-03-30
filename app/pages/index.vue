@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Main game page — shows setup screen or poker table.
- * Phase 1: Visual foundation with authentic deal sequence + live stats.
+ * Phase 1: Visual foundation with authentic deal sequence, live stats, and bet controls.
  */
 import config from '~/holdem.config'
 import { assignPositions } from '~/utils/seats'
@@ -17,7 +17,13 @@ const holeCards = ref<Map<number, [Card, Card]>>(new Map())
 const street = ref<'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('preflop')
 const dealt = ref(false)
 
-// All 5 community cards generated at deal time, revealed per street
+// Betting state (simulated for Phase 1 — real game loop comes in Phase 3)
+const pot = ref(0)
+const heroChips = ref(0)
+const currentBet = ref(0)       // current bet hero must match
+const heroBet = ref(0)          // what hero has already put in this round
+const heroFolded = ref(false)
+
 const allCommunity = ref<Card[]>([])
 
 const visibleCommunity = computed(() => {
@@ -39,10 +45,19 @@ const positions = computed(() => {
 const heroPosition = computed(() => positions.value[0] || 'BTN')
 const heroHoleCards = computed(() => holeCards.value.get(0) || null)
 
+// Stake info
+const stake = computed(() => config.stakes.find(s => s.level === (settings.value?.stakeLevel || 3))!)
+const bb = computed(() => stake.value?.bb || 2)
+const startingStack = computed(() => bb.value * (settings.value?.stackBB || 100))
+
+// Bet control props
+const toCall = computed(() => Math.max(0, currentBet.value - heroBet.value))
+const minRaise = computed(() => Math.max(currentBet.value + bb.value, currentBet.value * 2))
+const maxRaise = computed(() => heroChips.value)
+const heroTurn = computed(() => dealt.value && !heroFolded.value && street.value !== 'showdown')
+
 const players = computed(() => {
   if (!settings.value) return []
-  const stake = config.stakes.find(s => s.level === settings.value!.stakeLevel)!
-  const startingStack = stake.bb * settings.value.stackBB
 
   return Array.from({ length: settings.value.playerCount }, (_, i) => {
     const isHero = i === 0
@@ -50,26 +65,14 @@ const players = computed(() => {
     return {
       id: i,
       name: isHero ? settings.value!.heroName : (botConfig?.name || `Bot ${i}`),
-      chips: startingStack,
+      chips: isHero ? heroChips.value : startingStack.value,
       position: positions.value[i] || '',
       isHero,
       holeCards: holeCards.value.get(i) || null,
-      // Hero always sees their cards; bots revealed at showdown
       showCards: isHero,
-      folded: false,
+      folded: isHero ? heroFolded.value : false,
     }
   })
-})
-
-const nextStreetLabel = computed(() => {
-  switch (street.value) {
-    case 'preflop': return 'Deal Flop'
-    case 'flop': return 'Deal Turn'
-    case 'turn': return 'Deal River'
-    case 'river': return 'Showdown'
-    case 'showdown': return 'New Hand'
-    default: return 'Deal'
-  }
 })
 
 function handleStart(gameSettings: GameSettings) {
@@ -78,9 +81,6 @@ function handleStart(gameSettings: GameSettings) {
   setTimeout(dealNewHand, 300)
 }
 
-/**
- * Deal from a shuffled deck (Fisher-Yates) to avoid duplicate cards.
- */
 function dealNewHand() {
   const count = settings.value?.playerCount || 2
 
@@ -92,35 +92,40 @@ function dealNewHand() {
       deck.push({ rank, suit })
     }
   }
-  // Fisher-Yates shuffle
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]]
   }
 
   let idx = 0
-
-  // Deal 2 hole cards to each player
   const cards = new Map<number, [Card, Card]>()
   for (let i = 0; i < count; i++) {
     cards.set(i, [deck[idx++], deck[idx++]])
   }
   holeCards.value = cards
 
-  // Burn + flop (3), burn + turn (1), burn + river (1) = 3 burns + 5 community
-  idx++ // burn before flop
+  idx++ // burn
   const community: Card[] = [deck[idx++], deck[idx++], deck[idx++]]
-  idx++ // burn before turn
+  idx++ // burn
   community.push(deck[idx++])
-  idx++ // burn before river
+  idx++ // burn
   community.push(deck[idx++])
-
   allCommunity.value = community
+
+  // Reset betting state
+  heroChips.value = startingStack.value
+  pot.value = bb.value + (bb.value / 2) // SB + BB
+  currentBet.value = bb.value
+  heroBet.value = 0
+  heroFolded.value = false
   street.value = 'preflop'
   dealt.value = true
 }
 
 function advanceStreet() {
+  currentBet.value = 0
+  heroBet.value = 0
+
   switch (street.value) {
     case 'preflop':
       street.value = 'flop'
@@ -136,7 +141,56 @@ function advanceStreet() {
       break
     case 'showdown':
       dealNewHand()
-      break
+      return
+  }
+
+  // Simulate a random bot bet for the new street (so there's something to react to)
+  if (street.value !== 'showdown') {
+    const betSizes = [0, 0, 0.33, 0.5, 0.66, 0.75, 1.0]
+    const randomBet = betSizes[Math.floor(Math.random() * betSizes.length)]
+    if (randomBet > 0) {
+      const betAmount = Math.round(pot.value * randomBet)
+      currentBet.value = betAmount
+      pot.value += betAmount
+    }
+  }
+}
+
+function handleFold() {
+  heroFolded.value = true
+  // Skip to next hand after a beat
+  setTimeout(() => {
+    dealNewHand()
+  }, 1500)
+}
+
+function handleCheck() {
+  advanceStreet()
+}
+
+function handleCall(amount: number) {
+  heroChips.value -= amount
+  heroBet.value += amount
+  pot.value += amount
+  advanceStreet()
+}
+
+function handleRaise(amount: number) {
+  // Guard: never bet more than stack
+  const cappedAmount = Math.min(amount, heroChips.value + heroBet.value)
+  const totalToAdd = cappedAmount - heroBet.value
+  heroChips.value -= totalToAdd
+  heroBet.value = cappedAmount
+  pot.value += totalToAdd
+  currentBet.value = cappedAmount
+  advanceStreet()
+}
+
+// Check for hero bust-out after each hand
+function checkBustOut() {
+  if (heroChips.value <= 0) {
+    heroFolded.value = true
+    // Could show a game-over screen here in Phase 3
   }
 }
 
@@ -152,6 +206,12 @@ function backToSetup() {
   holeCards.value = new Map()
   allCommunity.value = []
   dealt.value = false
+}
+
+function formatPot(n: number): string {
+  if (n >= 10000) return `$${(n / 1000).toFixed(1)}k`
+  if (Number.isInteger(n)) return `$${n}`
+  return `$${n.toFixed(2)}`
 }
 </script>
 
@@ -177,14 +237,30 @@ function backToSetup() {
           Setup
         </UButton>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4">
           <span class="text-sm text-gray-400">
-            {{ config.stakes.find(s => s.level === settings?.stakeLevel)?.name }}
-            — ${{ config.stakes.find(s => s.level === settings?.stakeLevel)?.sb }}/${{ config.stakes.find(s => s.level === settings?.stakeLevel)?.bb }}
+            {{ stake?.name }} — ${{ stake?.sb }}/${{ stake?.bb }}
           </span>
           <span class="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-300 uppercase tracking-wide">
             {{ street }}
           </span>
+          <!-- Hero bankroll -->
+          <div class="flex items-center gap-1.5 bg-gray-800/80 border border-gray-700/50 rounded-lg px-3 py-1">
+            <span class="text-xs text-gray-400">Stack</span>
+            <span
+              class="text-base font-bold font-mono"
+              :class="heroChips >= startingStack ? 'text-green-400' : 'text-red-400'"
+            >
+              {{ formatPot(heroChips) }}
+            </span>
+            <span
+              v-if="heroChips !== startingStack"
+              class="text-xs font-mono"
+              :class="heroChips >= startingStack ? 'text-green-500/60' : 'text-red-500/60'"
+            >
+              ({{ heroChips >= startingStack ? '+' : '' }}{{ formatPot(heroChips - startingStack) }})
+            </span>
+          </div>
         </div>
 
         <div class="flex items-center gap-2">
@@ -202,8 +278,8 @@ function backToSetup() {
 
       <!-- Main layout: Table + Stats Panel -->
       <div class="flex flex-col lg:flex-row gap-4 max-w-7xl mx-auto items-start">
-        <!-- Poker Table -->
-        <div class="flex-1 min-w-0">
+        <!-- Table + Controls column -->
+        <div class="flex-1 min-w-0 space-y-4">
           <PokerTable :player-count="settings?.playerCount || 6">
             <template #community>
               <PlayingCard
@@ -213,7 +289,6 @@ function backToSetup() {
                 :face-up="true"
                 size="md"
               />
-              <!-- Empty slots for unrevealed community cards -->
               <div
                 v-for="i in (5 - visibleCommunity.length)"
                 :key="'empty-' + i"
@@ -223,7 +298,7 @@ function backToSetup() {
 
             <template #pot>
               <div class="text-center text-yellow-400 font-bold text-sm">
-                Pot: ${{ (config.stakes.find(s => s.level === settings?.stakeLevel)?.bb || 2) * 3 }}
+                Pot: {{ formatPot(pot) }}
               </div>
             </template>
 
@@ -236,23 +311,37 @@ function backToSetup() {
                 :hole-cards="players[seatIndex].holeCards"
                 :show-cards="players[seatIndex].showCards"
                 :is-hero="players[seatIndex].isHero"
-                :is-active="seatIndex === 0 && street !== 'showdown'"
-                :folded="false"
+                :is-active="seatIndex === 0 && heroTurn"
+                :folded="players[seatIndex].folded"
                 :stake-level="settings?.stakeLevel || 3"
                 :peekable="!players[seatIndex].isHero"
               />
             </template>
           </PokerTable>
 
-          <!-- Street advancement controls -->
-          <div class="flex justify-center mt-6 gap-3">
+          <!-- Bet Controls -->
+          <BetControls
+            v-if="dealt && street !== 'showdown'"
+            :pot="pot"
+            :to-call="toCall"
+            :min-raise="minRaise"
+            :max-raise="maxRaise"
+            :bb="bb"
+            :enabled="heroTurn"
+            @fold="handleFold"
+            @check="handleCheck"
+            @call="handleCall"
+            @raise="handleRaise"
+          />
+
+          <!-- Showdown / folded state -->
+          <div v-if="street === 'showdown' || heroFolded" class="flex justify-center">
             <UButton
-              v-if="dealt"
               color="primary"
               size="lg"
-              @click="advanceStreet"
+              @click="dealNewHand"
             >
-              {{ nextStreetLabel }}
+              Deal Next Hand
             </UButton>
           </div>
         </div>
