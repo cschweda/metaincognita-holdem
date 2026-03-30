@@ -45,9 +45,9 @@ const presets = computed(() => {
   ]
   return fractions.map(f => {
     const raw = Math.round(props.pot * f.mult)
-    // Clamp: at least min-raise, at most all-in
     const clamped = Math.min(Math.max(raw, props.minRaise), props.maxRaise)
-    return { ...f, amount: clamped, disabled: clamped > props.maxRaise }
+    const isClamped = raw < props.minRaise // true if the fraction was below min-raise
+    return { ...f, amount: clamped, raw, isClamped, disabled: clamped > props.maxRaise }
   })
 })
 
@@ -153,13 +153,18 @@ function formatAmount(n: number): string {
           :key="preset.label"
           class="flex-1 py-1.5 rounded-md text-xs font-semibold transition-all border
                  active:scale-[0.97]"
-          :class="raiseAmount === preset.amount
-            ? 'bg-green-700/60 text-green-100 border-green-500/50'
-            : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60'"
-          @click="raisePreset(preset.amount)"
+          :class="[
+            raiseAmount === preset.amount
+              ? 'bg-green-700/60 text-green-100 border-green-500/50'
+              : 'bg-gray-800/60 text-gray-300 border-gray-700/40 hover:bg-gray-700/60',
+            preset.isClamped ? 'opacity-50' : '',
+          ]"
+          :disabled="preset.isClamped"
+          :title="preset.isClamped ? `${preset.label} ($${preset.raw}) is below min-raise ($${minRaise})` : ''"
+          @click="!preset.isClamped && raisePreset(preset.amount)"
         >
           {{ preset.label }}
-          <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(preset.amount) }}</span>
+          <span class="block text-[0.6rem] opacity-60 mt-0.5">{{ formatAmount(preset.raw) }}</span>
         </button>
 
         <!-- All-in button -->
