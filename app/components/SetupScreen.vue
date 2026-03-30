@@ -118,7 +118,7 @@ async function handleEmailAuth() {
 const proBots = config.personas.filter(p => !FICTIONAL_NAMES.includes(p.name))
 const fictionalBots = config.personas.filter(p => FICTIONAL_NAMES.includes(p.name))
 
-const maxPros = ref(99) // default: all pros
+const maxPros = ref(playerCount.value - 1) // default: all pros (table size minus hero)
 
 function generateDefaultBots(count: number): BotConfig[] {
   const proCount = Math.min(maxPros.value, proBots.length, count)
