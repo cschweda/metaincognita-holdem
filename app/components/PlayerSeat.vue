@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Player nameplate — name, chip count, position badge, hole cards, action label.
- * Shows last action taken. Cards disappear when folded.
+ * Player seat display — nameplate (name, chip count, position badge), hole cards
+ * with peek-to-reveal for bot cards, last-action badge (fold/check/call/raise/all-in/blinds),
+ * tilt indicator, and fold/eliminated states. Hero seat is visually distinguished.
  */
 import type { Card } from '~/utils/cards'
 

@@ -1,6 +1,7 @@
 /**
- * Seat position assignment for 2–8 player Hold'em tables.
- * Positions go clockwise from the dealer button.
+ * Seat position assignment and coordinate calculation for 2–8 player tables.
+ * Positions are assigned clockwise from the dealer button.
+ * Coordinates place seats around an elliptical table using polar math.
  */
 
 const POSITION_MAPS: Record<number, string[]> = {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * Game setup screen — configure opponents, stakes, hero name,
- * and bot personas before starting a game.
+ * Pre-game setup screen — configure hero name, opponent count, stake level,
+ * stack depth, and per-bot personas (with pro/fictional mix, preset selection,
+ * advanced stat sliders, and dynamic name/description generation).
+ * Includes GitHub OAuth and email/password auth for cross-session stat persistence.
  */
 import config from '@config'
 import { isGitHubUser, signInWithGitHub, signUpWithEmail, signInWithEmail, validatePassword } from '~/composables/useSupabase'

@@ -1,7 +1,8 @@
 /**
- * Export hand history in PokerStars hand history format.
- * Compatible with PokerTracker, Hold'em Manager, Equilab, and most
- * poker analysis tools.
+ * Export hand history in PokerStars hand history text format.
+ * Converts internal HandRecord/PlayerHand data (display cards like "A♠")
+ * to PokerStars notation ("[As]") with proper street markers, blinds, and showdown.
+ * Compatible with PokerTracker, Hold'em Manager, Equilab, and most poker analysis tools.
  */
 import type { HandRecord, PlayerHand } from '~/composables/useSessionStats'
 

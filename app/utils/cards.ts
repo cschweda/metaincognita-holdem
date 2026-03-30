@@ -1,5 +1,5 @@
 /**
- * Card representation and display utilities.
+ * Card types, suit/rank display mappings, and pip layouts for visual rendering.
  */
 
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades'

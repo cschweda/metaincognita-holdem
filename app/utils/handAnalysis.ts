@@ -1,8 +1,9 @@
 /**
- * Hand analysis engine — evaluates hand strength, detects draws,
- * counts outs, estimates equity, and generates action recommendations.
+ * Hand analysis engine — evaluates 5-card hand strength, detects flush/straight/overcard/set draws,
+ * counts deduplicated outs, runs Monte Carlo equity simulations, computes hand improvement
+ * probabilities, and generates preflop/postflop action recommendations.
  *
- * This is the real-time advisor engine. It works at every street.
+ * Powers the real-time StatsPanel advisor. Works at every street from preflop through river.
  */
 import type { Card, Suit } from './cards'
 import { RANK_DISPLAY, SUIT_SYMBOLS } from './cards'

@@ -1,6 +1,7 @@
 /**
  * Supabase client composable — singleton per app lifecycle.
- * Supports anonymous auth (default for visitors) and GitHub OAuth (for persistent identity).
+ * Supports anonymous auth (default), GitHub OAuth, and email/password auth.
+ * Falls back gracefully to localStorage-only mode when Supabase is not configured.
  */
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 
@@ -126,7 +127,7 @@ export function validatePassword(password: string): { valid: boolean; message: s
 }
 
 /**
- * Sign out and revert to anonymous.
+ * Sign out the current user and fall back to anonymous auth.
  */
 export async function signOut(): Promise<void> {
   const sb = useSupabase()
@@ -148,8 +149,8 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 /**
- * Check if the current user is authenticated (not anonymous).
- * Works for GitHub OAuth, email/password, or any other auth method.
+ * Check if the current user is a non-anonymous authenticated user.
+ * Despite the name, works for any auth method (GitHub, email, etc.).
  */
 export async function isGitHubUser(): Promise<boolean> {
   const user = await getCurrentUser()

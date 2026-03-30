@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Betting controls — fold, check/call, raise with presets and custom slider.
- * Sits below the table. Disabled when it's not the hero's turn.
+ * Hero betting controls — fold, check/call, and raise/all-in buttons,
+ * with pot-fraction presets (1/4, 1/2, 3/4, pot, all-in), a raise slider,
+ * and a custom exact-amount input. Disabled when it's not the hero's turn.
  */
 
 const props = withDefaults(defineProps<{

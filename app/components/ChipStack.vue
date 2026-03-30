@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
- * Visual chip stack display — colored discs stacked with 3D offset.
+ * Visual chip stack — breaks an amount into colored denomination discs
+ * using the stake-level chip tier, then renders them as stacked columns.
+ * Supports compact mode (max 3 chips per stack) for tight layouts.
  */
 import { computed } from 'vue'
 import { breakIntoChips, CHIP_COLORS } from '~/utils/chips'

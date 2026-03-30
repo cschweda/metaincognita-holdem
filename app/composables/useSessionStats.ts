@@ -1,6 +1,8 @@
 /**
- * Session stats tracking — persists to localStorage and optionally Supabase.
- * Tracks hands played, wins, losses, bankroll, and per-hand results.
+ * Session stats tracking — persists to localStorage with reactive watch,
+ * and syncs to Supabase in background (auto-save every 60s + sendBeacon on tab close).
+ * Tracks hands played, wins/losses/folds, bankroll, per-hand records, and
+ * provides JSON/CSV export downloads.
  */
 import { useSupabase, ensureAnonSession } from './useSupabase'
 

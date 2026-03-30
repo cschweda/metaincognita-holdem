@@ -6,26 +6,15 @@
  * kicker comparison, and split pots.
  */
 import { describe, it, expect } from 'vitest'
+import { bestHand, type HandResult } from '../app/utils/handAnalysis'
 
-// Placeholder: replace with actual import
-// import { evaluateHand, compareHands } from '~/utils/evaluator'
+type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades'
+interface Card { rank: number; suit: Suit }
 
-interface Card {
-  rank: number
-  suit: 'hearts' | 'diamonds' | 'clubs' | 'spades'
-}
-
-interface HandResult {
-  rank: number
-  name: string
-  score: number[]
-  bestFive: Card[]
-  kickers: number[]
-}
-
-// Stub — replace with real implementation
-function evaluateHand(_holeCards: Card[], _community: Card[]): HandResult {
-  throw new Error('Not implemented — wire up to ~/utils/evaluator.ts')
+function evaluateHand(holeCards: Card[], community: Card[]): HandResult {
+  const result = bestHand(holeCards, community)
+  if (!result) throw new Error('Failed to evaluate hand')
+  return result
 }
 
 function compareHands(a: HandResult, b: HandResult): number {
@@ -58,7 +47,7 @@ describe('Hand rank detection', () => {
       [c('9s'), c('Jc'), c('Kh'), c('4d'), c('6s')]
     )
     expect(result.rank).toBe(0)
-    expect(result.name).toContain('High Card')
+    expect(result.name).toContain('high') // e.g., "K-high"
   })
 
   it('detects one pair', () => {

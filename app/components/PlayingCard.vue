@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Playing card — clean, bold design: rank in corner + large suit symbol.
- * Red for hearts/diamonds, dark for clubs/spades. CSS 3D flip.
+ * Playing card with CSS 3D flip animation between face-down and face-up states.
+ * Shows rank in corners + large center suit symbol. Supports sm/md/lg sizes.
+ * Red for hearts/diamonds, dark for clubs/spades.
  */
 import { computed } from 'vue'
 import { RANK_DISPLAY, SUIT_SYMBOLS, type Card } from '~/utils/cards'

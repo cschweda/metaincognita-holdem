@@ -1,9 +1,11 @@
 /**
- * Bot decision engine — makes betting decisions based on persona config.
+ * Bot decision engine — makes preflop and postflop betting decisions based on persona config.
+ * Includes a tilt system that modifies bot behavior after consecutive losses or big pots lost.
  *
  * Each decision is probabilistic, driven by the bot's VPIP, PFR, aggression,
  * bluffFreq, and creativeFreq stats. Over many hands, a bot's observed
- * behavior should statistically match its config.
+ * behavior should statistically match its config. The tilt system widens ranges
+ * and boosts aggression proportionally to a per-bot tiltMultiplier.
  */
 
 export interface BotProfile {
@@ -246,8 +248,9 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 }
 
 /**
- * Simulate N decisions for a bot profile and return observed stats.
- * Used for testing that behavior matches config.
+ * Simulate N preflop + postflop decisions for a bot profile and return observed stats.
+ * Used for verifying that a profile's observed VPIP, PFR, fold rate, raise rate,
+ * and bluff rate statistically match its configured values.
  */
 export function simulateBotStats(
   profile: BotProfile,

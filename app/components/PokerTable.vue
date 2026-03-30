@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * The poker table — CSS ellipse with felt texture, walnut rail, and green glow.
- * Seats are positioned around the table using polar coordinates.
- * The table felt stays dark emerald green in both light and dark mode.
+ * Poker table layout — CSS ellipse with walnut rail, emerald felt, and center glow.
+ * Positions player seats around the perimeter using polar coordinates.
+ * Provides named slots for community cards, pot display, and per-seat content.
  */
 import { computed } from 'vue'
 import { getSeatCoordinates } from '~/utils/seats'

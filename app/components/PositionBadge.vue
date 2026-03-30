@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Position indicator badge (D, SB, BB, UTG, CO, etc.)
+ * Color-coded position badge — white for dealer/BTN, blue for SB,
+ * yellow for BB, gray for all other positions (UTG, MP, CO, etc.).
  */
 const props = defineProps<{
   position: string

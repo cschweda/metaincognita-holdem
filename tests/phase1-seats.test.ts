@@ -5,21 +5,7 @@
  * and that position labels match standard poker conventions.
  */
 import { describe, it, expect } from 'vitest'
-
-// These will import from actual modules once built.
-// For now, define the expected contract so tests are ready to wire up.
-
-// Placeholder: replace with actual import
-// import { assignPositions } from '~/utils/seats'
-
-/**
- * Given a player count and dealer seat index, returns an array of position labels.
- * Positions go clockwise from the dealer: D, SB, BB, then remaining seats.
- */
-function assignPositions(playerCount: number, dealerSeat: number): string[] {
-  // Stub — replace with real implementation
-  throw new Error('Not implemented — wire up to ~/utils/seats.ts')
-}
+import { assignPositions } from '../app/utils/seats'
 
 describe('Seat positions — heads-up (2 players)', () => {
   it('dealer is SB, other player is BB', () => {
