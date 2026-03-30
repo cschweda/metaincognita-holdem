@@ -141,8 +141,9 @@ export function toPokerStarsFormat(
   // Showdown
   lines.push('*** SHOW DOWN ***')
   // Determine winner: explicit winnerName, hero won, or last non-folded player
+  const heroPlayer = players.find(p => p.isHero)
   let winner = hand.winnerName || hand.winner_name || ''
-  if (!winner && hand.result === 'won') winner = hero?.name || 'Hero'
+  if (!winner && hand.result === 'won') winner = heroPlayer?.name || 'Hero'
   if (!winner) {
     const nonFolded = players.filter(p => !p.folded)
     if (nonFolded.length === 1) winner = nonFolded[0].name
