@@ -373,6 +373,10 @@ function endHand() {
     // Everyone folded — last player standing wins
     winnerId = gs.activePlayers.value[0].id
     gs.activePlayers.value[0].chips += gs.pot.value
+    gs.heroWonHand.value = winnerId === 0
+    gs.heroWinAmount.value = gs.pot.value
+    gs.handWinnerId.value = winnerId
+    gs.handWinnerName.value = gs.playerStates.value[winnerId]?.name || 'Unknown'
   } else {
     // Showdown — use all 5 community cards for evaluation
     const community = gs.allCommunity.value.slice(0, 5)
@@ -392,21 +396,32 @@ function endHand() {
       community,
     )
 
-    // Apply chip awards
+    // Apply chip awards and detect splits
     let maxAward = 0
+    const awardList: { pid: number; amount: number }[] = []
     for (const [pid, amount] of awards) {
       gs.playerStates.value[pid].chips += amount
+      awardList.push({ pid, amount })
       if (amount > maxAward) {
         maxAward = amount
         winnerId = pid
       }
     }
+    // Check for split pot (multiple players got equal max award)
+    const maxWinners = awardList.filter(a => a.amount === maxAward)
+    if (maxWinners.length > 1) {
+      const names = maxWinners.map(w => gs.playerStates.value[w.pid]?.name).filter(Boolean)
+      gs.handWinnerName.value = `Split: ${names.join(' & ')}`
+      gs.handWinnerId.value = maxWinners[0].pid
+      gs.heroWonHand.value = maxWinners.some(w => w.pid === 0)
+      gs.heroWinAmount.value = gs.pot.value
+    } else {
+      gs.heroWonHand.value = winnerId === 0
+      gs.heroWinAmount.value = gs.pot.value
+      gs.handWinnerId.value = winnerId
+      gs.handWinnerName.value = gs.playerStates.value[winnerId]?.name || 'Unknown'
+    }
   }
-
-  gs.heroWonHand.value = winnerId === 0
-  gs.heroWinAmount.value = gs.pot.value
-  gs.handWinnerId.value = winnerId
-  gs.handWinnerName.value = gs.playerStates.value[winnerId]?.name || 'Unknown'
 
   // Record winner for table flow dynamics
   if (winnerId >= 0) engine.recordHandWinner(winnerId)
