@@ -506,8 +506,8 @@ function afLabel(af: number): string {
             </div>
           </div>
 
-          <!-- Draws & Outs -->
-          <div v-if="street !== 'preflop'" class="border-t border-gray-700/50 pt-3">
+          <!-- Draws & Outs (not on river/showdown — no more cards to come) -->
+          <div v-if="street !== 'preflop' && street !== 'river' && street !== 'showdown'" class="border-t border-gray-700/50 pt-3">
             <UTooltip text="Draws are incomplete hands that could improve (e.g., 4 cards to a flush). Outs are the specific cards that complete your draw. More outs = better chance of improving.">
               <div class="text-xs text-gray-400 mb-1.5 border-b border-dotted border-gray-600 cursor-help inline-block">Draws &amp; Outs</div>
             </UTooltip>
