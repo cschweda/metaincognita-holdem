@@ -581,6 +581,8 @@ function endHand() {
       holeCards: p.holeCards ? p.holeCards.map(c => displayCard(c)).join(' ') : '',
       folded: p.folded,
       isHero: p.isHero,
+      chips: p.chips + (p.id === winnerId ? pot.value : 0), // approximate start-of-hand chips
+      seatIndex: i,
     }))
 
     recordHand({

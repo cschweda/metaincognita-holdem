@@ -10,6 +10,8 @@ export interface PlayerHand {
   holeCards: string      // e.g. "Ah Kd"
   folded: boolean
   isHero: boolean
+  chips?: number         // stack at start of hand
+  seatIndex?: number
 }
 
 export interface HandRecord {

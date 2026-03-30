@@ -4,6 +4,7 @@
  * Shows lifetime stats, session history, hand history, and trends.
  */
 import { useSupabase, ensureAnonSession, getCurrentUser } from '~/composables/useSupabase'
+import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
 
 interface SessionRow {
   id: string
@@ -284,6 +285,33 @@ function exportSessionCSV(s: SessionRow) {
     h.hand_number, h.hole_cards, h.board || '', h.position, h.result, h.profit, h.pot_size, h.played_at,
   ].join(','))
   downloadFile([headers.join(','), ...rows].join('\n'), `holdem-session-${s.id.slice(0, 8)}.csv`, 'text/csv')
+}
+
+function exportLifetimePokerStars() {
+  const stakeLevel = hands.value[0] ? getStakeFromLevel(hands.value[0].stake_level) : { sb: 1, bb: 2 }
+  const content = exportHandsAsPokerStars(hands.value, stakeLevel)
+  downloadFile(content, `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.txt`, 'text/plain')
+}
+
+function exportSessionPokerStars(s: SessionRow) {
+  const sessionHands = hands.value.filter(h => h.session_id === s.id)
+  const stakeLevel = getStakeFromLevel(s.stake_level)
+  const content = exportHandsAsPokerStars(sessionHands, stakeLevel)
+  downloadFile(content, `holdem-session-${s.id.slice(0, 8)}.txt`, 'text/plain')
+}
+
+function exportSingleHandPokerStars(h: any) {
+  const stakeLevel = getStakeFromLevel(h.stake_level)
+  const content = toPokerStarsFormat(h, stakeLevel)
+  downloadFile(content, `holdem-hand-${h.hand_number}.txt`, 'text/plain')
+}
+
+function getStakeFromLevel(level: number): { sb: number; bb: number } {
+  const stakes: Record<number, { sb: number; bb: number }> = {
+    1: { sb: 0.25, bb: 0.50 }, 2: { sb: 0.50, bb: 1 }, 3: { sb: 1, bb: 2 },
+    4: { sb: 2.50, bb: 5 }, 5: { sb: 5, bb: 10 }, 6: { sb: 25, bb: 50 },
+  }
+  return stakes[level] || { sb: 1, bb: 2 }
 }
 
 // ─── Profit Over Time (last 50 hands) ─────────────────────────
@@ -574,6 +602,11 @@ function boardCards(board: string): string[] {
               <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimeCSV">
                 CSV
               </UButton>
+              <UTooltip text="PokerStars hand history format — importable into PokerTracker, Hold'em Manager, Equilab">
+                <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-download" @click="exportLifetimePokerStars">
+                  PokerStars .txt
+                </UButton>
+              </UTooltip>
             </div>
           </div>
 
@@ -647,6 +680,9 @@ function boardCards(board: string): string[] {
                 </UButton>
                 <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionCSV(s)">
                   CSV
+                </UButton>
+                <UButton variant="ghost" color="neutral" size="2xs" icon="i-lucide-download" @click="exportSessionPokerStars(s)">
+                  PS .txt
                 </UButton>
               </div>
               <template v-if="confirmingDeleteSession === s.id">
@@ -824,23 +860,34 @@ function boardCards(board: string): string[] {
                           </div>
                         </div>
 
-                        <!-- Play-by-play -->
-                        <div v-if="h.actions && h.actions.length > 0">
-                          <div class="text-xs text-gray-500 mb-1.5">Play-by-Play</div>
-                          <div class="bg-gray-900/60 rounded-lg p-3 max-h-64 overflow-y-auto space-y-0.5">
-                            <div
-                              v-for="(action, ai) in h.actions"
-                              :key="ai"
-                              class="text-xs font-mono"
-                              :class="[
-                                action.startsWith('---') ? 'text-yellow-500/70 font-semibold mt-2' : '',
-                                action.startsWith('  ') && !action.startsWith('---') ? 'text-blue-400/70 pl-2' : '',
-                                !action.startsWith('---') && !action.startsWith('  ') ? 'text-gray-300' : '',
-                                action.includes('← Hero') ? 'text-amber-400/90' : '',
-                              ]"
+                        <!-- Hand History (PokerStars format) -->
+                        <div v-if="h.players && h.players.length > 0">
+                          <div class="flex items-center justify-between mb-1.5">
+                            <div class="text-xs text-gray-500">Hand History</div>
+                            <UButton
+                              variant="ghost"
+                              color="neutral"
+                              size="2xs"
+                              icon="i-lucide-download"
+                              @click="exportSingleHandPokerStars(h)"
                             >
-                              {{ action }}
-                            </div>
+                              Export .txt
+                            </UButton>
+                          </div>
+                          <div class="bg-gray-900/60 rounded-lg p-3 max-h-80 overflow-y-auto">
+                            <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap"><template v-for="(line, li) in toPokerStarsFormat(h, getStakeFromLevel(h.stake_level)).split('\n')" :key="li"><span :class="[
+                              line.startsWith('***') ? 'text-yellow-500/80 font-semibold' : '',
+                              line.startsWith('Dealt to') ? 'text-amber-400' : '',
+                              line.includes('collected') ? 'text-green-400 font-semibold' : '',
+                              line.startsWith('Seat') && line.includes('won') ? 'text-green-400' : '',
+                              line.startsWith('Seat') && line.includes('lost') ? 'text-red-400/70' : '',
+                              line.startsWith('Seat') && line.includes('folded') ? 'text-gray-600' : '',
+                              line.startsWith('PokerStars') ? 'text-gray-500' : '',
+                              line.startsWith('Table') ? 'text-gray-500' : '',
+                              !line.startsWith('***') && !line.startsWith('Dealt') && !line.includes('collected') && !line.startsWith('Seat') && !line.startsWith('Poker') && !line.startsWith('Table') && !line.startsWith('Board') && !line.startsWith('Total') && line.trim() ? 'text-gray-300' : '',
+                              line.startsWith('Board') || line.startsWith('Total') ? 'text-gray-400' : '',
+                            ]">{{ line }}
+</span></template></pre>
                           </div>
                         </div>
                         <div v-else class="text-xs text-gray-600 italic">
