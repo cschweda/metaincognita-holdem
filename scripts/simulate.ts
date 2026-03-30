@@ -519,13 +519,7 @@ function getTableDynamics(playerId: number) {
 const progressInterval = Math.max(1, Math.floor(NUM_HANDS / 20)) // report ~20 times
 
 for (let h = 1; h <= NUM_HANDS; h++) {
-  const alive = players.filter(p => !p.eliminated)
-  if (alive.length < 2) {
-    console.log(`  [!] Only ${alive.length} player(s) remaining — stopping at hand ${h - 1}.`)
-    break
-  }
-
-  // Rebuy busted players to keep the game going — track injection
+  // Rebuy busted players FIRST — before alive check (fixes heads-up ending after 1 bust)
   for (const p of players) {
     if (p.eliminated) {
       p.eliminated = false
@@ -534,6 +528,12 @@ for (let h = 1; h <= NUM_HANDS; h++) {
       const bs = botStats.get(p.name)
       if (bs) bs.rebuys = (bs.rebuys || 0) + 1
     }
+  }
+
+  const alive = players.filter(p => !p.eliminated)
+  if (alive.length < 2) {
+    console.log(`  [!] Only ${alive.length} player(s) remaining — stopping at hand ${h - 1}.`)
+    break
   }
 
   const hand = simulateHand(players, dealerSeat, h)

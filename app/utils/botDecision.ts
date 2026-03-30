@@ -466,7 +466,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       handPct = idx / ALL_HANDS.length
       // Position shift: late position makes hands more playable
       const POS_SHIFT: Record<string, number> = {
-        'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.04,
+        'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.08, // D/SB = button in heads-up
         'CO': -0.05, 'SB': 0, 'BB': -0.03,
         'MP': 0, 'MP+1': 0, 'UTG': 0.03, 'UTG+1': 0.02,
       }
@@ -490,10 +490,14 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   }
 
   // Completing the SB or defending the BB — modern poker defends very wide
-  // BB gets a discount, so defend ~90% of VPIP range; SB ~80%
+  // Heads-up: defend extremely wide (only 1 opponent, great pot odds)
+  // BB gets a discount; SB completes wide
   if (toCall <= bb && raiseLevel <= 1) {
     const isBB = ctx.position === 'BB'
-    const defenseRange = isBB ? Math.min(effectiveVpip * 1.25, 0.70) : effectiveVpip
+    const isHeadsUp = ctx.numActivePlayers <= 2
+    const defenseRange = isHeadsUp
+      ? Math.min(effectiveVpip * 2.5, 0.85) // heads-up: defend ~85% of hands
+      : isBB ? Math.min(effectiveVpip * 1.25, 0.70) : effectiveVpip
     if (handPct < defenseRange) {
       if (handPct < effectivePfr) {
         const raiseSize = Math.round(currentBet * (2.5 + profile.aggression * 0.5))
@@ -515,9 +519,13 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15)
     // Flat call range — modern poker defends wide vs single raises
     // In position: defend ~85% of VPIP range; out of position: ~75%
-    const ipPositions = ['BTN', 'D', 'D/BTN', 'CO']
+    // Heads-up: defend much wider (only 1 opponent)
+    const ipPositions = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO']
     const inPosition = ipPositions.includes(ctx.position ?? '')
-    const flatCallFreq = effectiveVpip * (inPosition ? 0.85 : 0.75)
+    const isHeadsUp = ctx.numActivePlayers <= 2
+    const flatCallFreq = isHeadsUp
+      ? Math.min(effectiveVpip * 2.0, 0.75) // heads-up: call very wide
+      : effectiveVpip * (inPosition ? 0.85 : 0.75)
 
     // Fix 1: Position-based 3-bet sizing — IP 3.0x, OOP 3.5x (matches real poker sizing)
     const threeBetMult = inPosition ? 3.0 : 3.5
