@@ -67,7 +67,10 @@ export function useSessionStats() {
     if (saved) {
       try {
         session.value = JSON.parse(saved)
-      } catch {}
+      } catch (e) {
+        console.warn('Failed to parse session data from localStorage — starting fresh:', e instanceof Error ? e.message : e)
+        localStorage.removeItem(STORAGE_KEY)
+      }
     }
 
     // Set up Supabase anonymous session
@@ -113,9 +116,13 @@ export function useSessionStats() {
     window.addEventListener('beforeunload', beforeUnloadHandler)
   })
 
-  // Auto-save to localStorage on changes
+  // Auto-save to localStorage on changes (debounced to avoid serializing on every mutation)
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
   watch(session, (val) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
+    }, 1000)
   }, { deep: true })
 
   function createSession(): SessionData {
@@ -235,8 +242,8 @@ export function useSessionStats() {
         total_profit: session.value.totalProfit,
         ended_at: new Date().toISOString(),
       })
-    } catch (e) {
-      // Silently fail
+    } catch (e: unknown) {
+      console.warn('Failed to save session to Supabase:', e instanceof Error ? e.message : e)
     }
   }
 
@@ -252,13 +259,21 @@ export function useSessionStats() {
     return JSON.stringify(session.value, null, 2)
   }
 
+  function csvEscape(val: unknown): string {
+    const s = String(val ?? '')
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`
+    }
+    return s
+  }
+
   function exportCSV(): string {
     const headers = ['Hand #', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size']
     const rows = session.value.hands.map(h => [
       h.handNumber,
-      h.holeCards,
-      h.board,
-      h.position,
+      csvEscape(h.holeCards),
+      csvEscape(h.board),
+      csvEscape(h.position),
       h.result,
       h.profit,
       h.potSize,

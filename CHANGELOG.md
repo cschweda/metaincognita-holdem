@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-29
+
+### Fixed (Poker Rules — Engine Audit)
+Eight fixes to bring the poker engine from C+ to B+/A- poker accuracy.
+
+- **Min-raise enforcement** — Engine now tracks `lastRaiseIncrement` and enforces legal minimum raises. Previously, the min-raise was always `currentBet + BB` which is wrong after 3-bets and beyond. Now correctly calculates: if someone opens to $6 (BB $2), min 3-bet is $10 (increment $4), not $8. Bot raises below minimum are clamped up; short all-ins are allowed.
+- **Half-raise rule** — An incomplete all-in (less than a full raise) no longer reopens action for players who already acted. Standard tournament/cash game rule that was missing entirely. Example: blinds $1/$2, BTN raises to $6, BB goes all-in for $8 (less than min-raise of $10) — BTN does NOT get to re-raise.
+- **Hand strength bucket overlap** — Bottom pair (strength 0.30) was being classified as a "draw" instead of a "weak made hand" because the draw bucket (0.20–0.35) overlapped with made-hand values. Now uses explicit `detectDraws()` to identify drawing hands independently from made-hand classification. A flush draw is a draw; bottom pair with no draw is a weak made hand.
+- **Preflop equity formula** — Replaced crude linear formula (`30 + chen*5 - opponents*4`) with lookup table calibrated against pokerstove/equilab. Old: AA 6-way = 74%. New: AA 6-way = 49% (correct). Old: 99 6-way = 46%. New: 99 6-way = 22% (correct). Uses interpolation between heads-up, 3-way, and 6-way reference points.
+- **Monte Carlo iterations doubled** — Equity estimation increased from 500 to 1,000 iterations for higher accuracy. Reduces variance in equity-dependent decisions (pot odds, MDF calculations).
+- **SPR auto-commit** — Bots with SPR < 2 facing a bet now auto-shove with strong hands (top pair+). At this stack depth, pot-committing is standard but was previously going through full decision logic, occasionally checking or making small raises.
+- **`lastRaiseIncrement` tracking** — New ref in `useGameState`, updated on every raise, reset on street change. Powers both min-raise enforcement and half-raise rule. Exposed to UI for correct BetControls slider minimum.
+- **Min-raise computed fix** — `minRaise` computed property now uses `currentBet + lastRaiseIncrement` instead of `currentBet + BB`. BetControls slider and exact-amount input reflect correct legal minimum.
+
+### Fixed (Code Quality — Critical Issues)
+- **Silent error swallowing** — `useSessionStats.ts` and `useStatsData.ts` had empty `catch {}` blocks that silently discarded JSON parse errors and Supabase save failures. Corrupted localStorage would lose an entire session with zero feedback. Now logs warnings and resets to fresh state.
+- **Untracked setTimeout cleanup** — `useGameEngine.ts` had 10+ `setTimeout` calls with no cleanup on unmount. Navigating away mid-hand would trigger ghost state mutations. All timeouts now tracked via `scheduleTimeout()` helper with `cleanup()` exposed to index.vue.
+- **Deep watch performance** — `useSessionStats.ts` serialized the entire session to localStorage on every mutation (deep watch). Now debounced to 1 second, preventing jank at 100+ hands.
+- **`any` type leaks** — `useStatsData.ts` had `ref<any>`, `(h: any)`, `exportSingleHandPokerStars(h: any)`. Replaced with proper `SessionData`, `HandRecord`, and `HandRow` types with imports from `useSessionStats`.
+- **`catch (e: any)`** — `useSupabase.ts` used `any` in catch block. Changed to `unknown` with proper narrowing (`e instanceof Error`).
+- **CSV export escaping** — CSV exports in `useSessionStats.ts` and `useStatsData.ts` didn't escape fields containing commas, quotes, or newlines. Added `csvEscape()` utility function to both.
+
 ## [0.15.3] - 2026-03-29
 
 ### Refactored (Code Quality — B+ → A-)

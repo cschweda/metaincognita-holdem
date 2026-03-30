@@ -6,6 +6,7 @@
 import { useSupabase, ensureAnonSession, getCurrentUser } from './useSupabase'
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
 import { downloadFile } from '~/utils/downloadFile'
+import type { SessionData, HandRecord } from './useSessionStats'
 
 export interface SessionRow {
   id: string; started_at: string; ended_at: string | null
@@ -29,7 +30,7 @@ export function useStatsData() {
   const hands = ref<HandRow[]>([])
   const userId = ref<string | null>(null)
   const isGitHubAuth = ref(false)
-  const localSession = ref<any>(null)
+  const localSession = ref<SessionData | null>(null)
   const selectedSession = ref<SessionRow | null>(null)
   const positionFilter = ref<string | null>(null)
 
@@ -53,7 +54,10 @@ export function useStatsData() {
     try {
       const saved = localStorage.getItem('holdem-session-stats')
       if (saved) localSession.value = JSON.parse(saved)
-    } catch {}
+    } catch (e) {
+      console.warn('Failed to parse session stats from localStorage:', e instanceof Error ? e.message : e)
+      localStorage.removeItem('holdem-session-stats')
+    }
 
     const sb = useSupabase()
     if (!sb) { loading.value = false; return }
@@ -68,7 +72,7 @@ export function useStatsData() {
       await loadData(sb)
     } else {
       if (localSession.value?.hands) {
-        hands.value = localSession.value.hands.map((h: any, i: number) => ({
+        hands.value = localSession.value.hands.map((h: HandRecord, i: number) => ({
           id: `local-${i}`, session_id: localSession.value.id,
           hand_number: h.handNumber, hole_cards: h.holeCards, board: h.board,
           result: h.result, profit: h.profit, position: h.position,
@@ -210,13 +214,20 @@ export function useStatsData() {
 
   // ─── Export Functions ──────────────────────────────────
 
+  function csvEscape(val: unknown): string {
+    const s = String(val ?? '')
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`
+    }
+    return s
+  }
 
   function exportLifetimeJSON() {
     downloadFile(JSON.stringify({ exportedAt: new Date().toISOString(), lifetime: lifetimeStats.value, winRate: winRate.value, sessionSummary: sessionSummary.value, positionStats: positionStats.value, sessions: sessions.value, hands: hands.value }, null, 2), `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.json`, 'application/json')
   }
   function exportLifetimeCSV() {
     const headers = ['Hand #', 'Session', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size', 'Stake', 'Players', 'Played At']
-    const rows = hands.value.map(h => [h.hand_number, h.session_id.slice(0, 8), h.hole_cards, h.board || '', h.position, h.result, h.profit, h.pot_size, h.stake_level, h.player_count, h.played_at].join(','))
+    const rows = hands.value.map(h => [h.hand_number, h.session_id.slice(0, 8), csvEscape(h.hole_cards), csvEscape(h.board || ''), csvEscape(h.position), h.result, h.profit, h.pot_size, h.stake_level, h.player_count, h.played_at].join(','))
     downloadFile([headers.join(','), ...rows].join('\n'), `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv')
   }
   function exportLifetimePokerStars() {
@@ -230,14 +241,14 @@ export function useStatsData() {
   function exportSessionCSV(s: SessionRow) {
     const sHands = hands.value.filter(h => h.session_id === s.id)
     const headers = ['Hand #', 'Hole Cards', 'Board', 'Position', 'Result', 'Profit', 'Pot Size', 'Played At']
-    const rows = sHands.map(h => [h.hand_number, h.hole_cards, h.board || '', h.position, h.result, h.profit, h.pot_size, h.played_at].join(','))
+    const rows = sHands.map(h => [h.hand_number, csvEscape(h.hole_cards), csvEscape(h.board || ''), csvEscape(h.position), h.result, h.profit, h.pot_size, h.played_at].join(','))
     downloadFile([headers.join(','), ...rows].join('\n'), `holdem-session-${s.id.slice(0, 8)}.csv`, 'text/csv')
   }
   function exportSessionPokerStars(s: SessionRow) {
     const sHands = hands.value.filter(h => h.session_id === s.id)
     downloadFile(exportHandsAsPokerStars(sHands, getStakeFromLevel(s.stake_level)), `holdem-session-${s.id.slice(0, 8)}.txt`, 'text/plain')
   }
-  function exportSingleHandPokerStars(h: any) {
+  function exportSingleHandPokerStars(h: HandRow) {
     downloadFile(toPokerStarsFormat(h, getStakeFromLevel(h.stake_level)), `holdem-hand-${h.hand_number}.txt`, 'text/plain')
   }
 

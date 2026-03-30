@@ -31,6 +31,22 @@ export function useGameEngine(options: GameEngineOptions) {
   const botDelay = options.botDelay ?? { min: 800, max: 2000, heroFoldedMin: 150, heroFoldedMax: 350 }
   const paused = ref(false)
 
+  // Timeout tracking for cleanup on unmount
+  const pendingTimeouts: ReturnType<typeof setTimeout>[] = []
+  function scheduleTimeout(fn: () => void, ms: number) {
+    const id = setTimeout(() => {
+      const idx = pendingTimeouts.indexOf(id)
+      if (idx >= 0) pendingTimeouts.splice(idx, 1)
+      fn()
+    }, ms)
+    pendingTimeouts.push(id)
+    return id
+  }
+  function cleanup() {
+    for (const id of pendingTimeouts) clearTimeout(id)
+    pendingTimeouts.length = 0
+  }
+
   // Track preflop raise level for escalation
   let preflopRaiseLevel = 0
 
@@ -107,16 +123,24 @@ export function useGameEngine(options: GameEngineOptions) {
     }
 
     gs.currentBet.value = bb.value
+    gs.lastRaiseIncrement.value = bb.value // initial raise increment = BB
     preflopRaiseLevel = 0 // no raises yet — blinds don't count
     preflopRaiserId = -1
     preflopCallerCount = 0
     playerStreetActions.clear()
 
     const preflopStart = (bbSeat + 1) % gs.playerStates.value.length
-    setTimeout(() => runBettingRound(preflopStart), 600)
+    scheduleTimeout(() => runBettingRound(preflopStart), 600)
   }
 
-  function applyAction(p: PlayerState, action: { type: string; amount?: number }) {
+  /**
+   * Apply a player action and return whether it reopens betting (full raise).
+   * Enforces minimum raise rules: incomplete all-ins are allowed but don't
+   * reopen action for players who already acted at the current bet level.
+   */
+  function applyAction(p: PlayerState, action: { type: string; amount?: number }): boolean {
+    let isFullRaise = false
+
     if (action.type === 'fold') {
       p.folded = true
       p.lastAction = 'fold'
@@ -137,13 +161,32 @@ export function useGameEngine(options: GameEngineOptions) {
       p.currentBetAmount = callAmt
       gs.handActionLog.value.push(`${p.name} calls $${callAmt}`)
     } else if (action.type === 'raise') {
-      const raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
+      const prevBet = gs.currentBet.value
+      const minRaiseAmt = prevBet === 0
+        ? bb.value
+        : prevBet + Math.max(gs.lastRaiseIncrement.value, bb.value)
+
+      let raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
+      const isAllIn = raiseTotal >= p.chips + p.betThisRound
+
+      // Enforce minimum raise — unless it's an all-in for less
+      if (!isAllIn && raiseTotal < minRaiseAmt) {
+        raiseTotal = Math.min(minRaiseAmt, p.chips + p.betThisRound)
+      }
+
+      // Half-raise rule: an incomplete raise (all-in below min) doesn't reopen action
+      isFullRaise = raiseTotal >= minRaiseAmt
+
       const toAdd = raiseTotal - p.betThisRound
       p.chips -= toAdd
       p.betThisRound = raiseTotal
       p.totalInvested += toAdd
       gs.pot.value += toAdd
       gs.currentBet.value = raiseTotal
+
+      // Update last raise increment for next min-raise calculation
+      gs.lastRaiseIncrement.value = Math.max(raiseTotal - prevBet, bb.value)
+
       if (p.id === 0) gs.heroTotalWagered.value += toAdd
       p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
       p.currentBetAmount = raiseTotal
@@ -178,6 +221,8 @@ export function useGameEngine(options: GameEngineOptions) {
       if (action.type === 'raise') recentTableBets++
       if (action.type === 'check') recentTableChecks++
     }
+
+    return isFullRaise
   }
 
   async function runBettingRound(startSeat: number, resume: boolean = false) {
@@ -188,7 +233,7 @@ export function useGameEngine(options: GameEngineOptions) {
       gs.activeSeat.value = -1
       gs.waitingForHero.value = false
       const delay = gs.playerStates.value[0]?.folded ? 200 : 800
-      setTimeout(() => advanceStreet(), delay)
+      scheduleTimeout(() => advanceStreet(), delay)
       return
     }
 
@@ -252,11 +297,12 @@ export function useGameEngine(options: GameEngineOptions) {
         } : undefined,
         tableDynamics: getTableDynamics(p.id),
       })
-      applyAction(p, action)
+      const reopensAction = applyAction(p, action)
 
       gs.needsToAct.value.delete(p.id)
 
-      if (action.type === 'raise') {
+      // Only reopen action for full raises (half-raise rule: short all-ins don't reopen)
+      if (action.type === 'raise' && reopensAction) {
         for (const ap of gs.activePlayers.value) {
           if (ap.id !== p.id && ap.chips > 0 && !ap.folded) {
             gs.needsToAct.value.add(ap.id)
@@ -276,12 +322,12 @@ export function useGameEngine(options: GameEngineOptions) {
 
     if (gs.activePlayers.value.length <= 1) {
       const delay = gs.playerStates.value[0]?.folded ? 300 : 1000
-      setTimeout(() => onEndHand(), delay)
+      scheduleTimeout(() => onEndHand(), delay)
       return
     }
 
     const delay = gs.playerStates.value[0]?.folded ? 200 : 800
-    setTimeout(() => advanceStreet(), delay)
+    scheduleTimeout(() => advanceStreet(), delay)
   }
 
   function advanceStreet() {
@@ -290,6 +336,7 @@ export function useGameEngine(options: GameEngineOptions) {
       if (!p.folded) p.lastAction = null
     }
     gs.currentBet.value = 0
+    gs.lastRaiseIncrement.value = bb.value // reset for new street
     preflopRaiseLevel = 0 // reset for postflop
 
     switch (gs.street.value) {
@@ -322,7 +369,7 @@ export function useGameEngine(options: GameEngineOptions) {
     if (gs.activeNonAllIn.value.length <= 1) {
       // Auto-advance to next street (no betting possible)
       const delay = 800
-      setTimeout(() => advanceStreet(), delay)
+      scheduleTimeout(() => advanceStreet(), delay)
       return
     }
 
@@ -334,7 +381,7 @@ export function useGameEngine(options: GameEngineOptions) {
       startSeat = (startSeat + 1) % count
     }
     const delay = gs.playerStates.value[0]?.folded ? 150 : 600
-    setTimeout(() => runBettingRound(startSeat), delay)
+    scheduleTimeout(() => runBettingRound(startSeat), delay)
   }
 
   // ─── Hero Actions ──────────────────────────────────────────────
@@ -370,11 +417,14 @@ export function useGameEngine(options: GameEngineOptions) {
     onHeroActivity?.()
     if (!gs.hero.value) return
     const cappedAmount = Math.min(amount, gs.hero.value.chips + gs.hero.value.betThisRound)
-    applyAction(gs.hero.value, { type: 'raise', amount: cappedAmount })
+    const reopensAction = applyAction(gs.hero.value, { type: 'raise', amount: cappedAmount })
     gs.needsToAct.value.delete(gs.hero.value.id)
-    for (const ap of gs.activePlayers.value) {
-      if (ap.id !== gs.hero.value.id && ap.chips > 0 && !ap.folded) {
-        gs.needsToAct.value.add(ap.id)
+    // Only reopen action for full raises (half-raise rule)
+    if (reopensAction) {
+      for (const ap of gs.activePlayers.value) {
+        if (ap.id !== gs.hero.value.id && ap.chips > 0 && !ap.folded) {
+          gs.needsToAct.value.add(ap.id)
+        }
       }
     }
     gs.waitingForHero.value = false
@@ -384,18 +434,18 @@ export function useGameEngine(options: GameEngineOptions) {
   function resumeBettingAfterHero() {
     if (gs.activePlayers.value.length <= 1) {
       const delay = gs.playerStates.value[0]?.folded ? 300 : 1000
-      setTimeout(() => onEndHand(), delay)
+      scheduleTimeout(() => onEndHand(), delay)
       return
     }
 
     if (gs.needsToAct.value.size === 0) {
       const delay = gs.playerStates.value[0]?.folded ? 200 : 800
-      setTimeout(() => advanceStreet(), delay)
+      scheduleTimeout(() => advanceStreet(), delay)
       return
     }
 
     const nextSeat = (0 + 1) % gs.playerStates.value.length
-    setTimeout(() => runBettingRound(nextSeat, true), 400)
+    scheduleTimeout(() => runBettingRound(nextSeat, true), 400)
   }
 
   function recordHandWinner(winnerId: number) {
@@ -415,6 +465,7 @@ export function useGameEngine(options: GameEngineOptions) {
     handleRaise,
     resumeBettingAfterHero,
     recordHandWinner,
+    cleanup,
     paused,
   }
 }

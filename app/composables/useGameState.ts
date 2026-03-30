@@ -40,6 +40,7 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
   const handWinnerName = ref('')
   const handWinnerId = ref(-1)
   const needsToAct = ref<Set<number>>(new Set())
+  const lastRaiseIncrement = ref(0) // tracks the last raise size for min-raise enforcement
 
   // Bot thinking insight — shown in the UI during the thinking delay
   const botThinkingInsight = ref<{
@@ -72,7 +73,7 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
 
   const minRaise = computed(() => {
     if (currentBet.value === 0) return bb.value
-    return currentBet.value + bb.value
+    return currentBet.value + Math.max(lastRaiseIncrement.value, bb.value)
   })
 
   const maxRaise = computed(() => hero.value?.chips || 0)
@@ -95,13 +96,14 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
     handWinnerId.value = -1
     handWinnerName.value = ''
     streetAtEnd.value = 'preflop'
+    lastRaiseIncrement.value = bb.value
   }
 
   return {
     playerStates, dealerSeat, street, dealt, activeSeat,
     pot, currentBet, waitingForHero, allCommunity, animating,
     handActionLog, streetAtEnd, heroWonHand, heroWinAmount,
-    heroTotalWagered, handWinnerName, handWinnerId, needsToAct,
+    heroTotalWagered, handWinnerName, handWinnerId, needsToAct, lastRaiseIncrement,
     botThinkingInsight,
     hero, heroHoleCards, visibleCommunity, toCall, minRaise, maxRaise,
     heroTurn, heroBusted, activePlayers, activeNonAllIn,

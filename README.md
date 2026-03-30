@@ -9,14 +9,14 @@
 | ![TV Broadcast Mode](app/public/screenshot03.jpg) | ![Bot Analysis Report](app/public/screenshot04.jpg) |
 | *TV Broadcast: Mon & Chorman call the action, all cards face-up* | *Bot Analysis: 3,000-hand simulation with observed vs target stats* |
 
-A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits with 21 realism fixes. River polarization, MDF defense, pre-computed ranges, hero bet-sizing exploitation.
+A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits with 21 realism fixes plus a full rules/engine audit with 8 additional fixes. Min-raise enforcement, half-raise rule, river polarization, MDF defense, pre-computed ranges, hero bet-sizing exploitation.
 
-### Bot AI (16 realism fixes from professional audit)
+### Bot AI (21 realism fixes + 8 engine/rules fixes)
 - **Card-aware decisions** -- bots evaluate actual hole cards and board texture, not random probabilities
 - **Chen+ scoring** -- position- and style-adjusted hand strength (classic Chen also shown for reference)
 - **Board texture analysis** -- dry/wet, ace-high, paired, monotone — affects c-bet rates, barrel frequency, bluff sizing
 - **Kicker-aware hand strength** -- top pair ace kicker plays aggressively (0.48); top pair deuce kicker plays cautiously (0.38)
-- **SPR awareness** -- shallow stacks commit faster, deep stacks play positionally
+- **SPR awareness** -- shallow stacks commit faster (auto-shove at SPR < 2 with strong hands), deep stacks play positionally
 - **Check-raises** -- bots trap with strong hands and raise when bet into, frequency varies by board texture
 - **Position-aware 3-betting** -- 3.5x OOP, 3.0x IP, with aggression scaling
 - **Street-aware barreling** -- turn card analysis (high cards = barrel, flush-completing = slow down), river scare card awareness
@@ -29,13 +29,16 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Pre-computed opening ranges** -- uses the ranked 169-hand EV list with position shifts, not just Chen+ approximation
 - **Minimum Defense Frequency (MDF)** -- bots defend enough of their range to prevent exploitable over-folding to large bets
 - **Hero bet-sizing exploitation** -- bots detect if you bet big with value and small with bluffs (or vice versa), then adjust
+- **Min-raise enforcement** -- engine enforces legal minimum raise amounts (last raise increment, not just BB). Short all-ins below min-raise are allowed but clamped correctly.
+- **Half-raise rule** -- an incomplete all-in (less than a full raise) does not reopen action for players who already acted. Standard tournament/cash game rule.
+- **Explicit draw detection** -- hand classification uses actual flush/straight draw detection, not strength-range overlap. Bottom pair is correctly identified as a made hand, not a draw.
 - **Per-persona tilt** -- Phellmuth tilts after 1 loss; Pvey needs 10+ consecutive losses
 - **Consistency system** -- bots occasionally misplay (1-12% depending on persona)
 - **25 bot personas** (7 fictional + 18 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles
 
 ### Real-Time Analysis
 - **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
-- **Monte Carlo equity engine** -- 500-800 adaptive iterations against opponent ranges
+- **Monte Carlo equity engine** -- 1,000 iterations against opponent ranges (doubled from 500 for higher accuracy)
 - **Pot odds** -- side-by-side percentage comparison (Your Equity vs Need), with pass/fail verdict
 - **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability
 - **Authentic 6-max ranges** -- 169 hands ranked by EV, position-aware from UTG (15%) to BTN (42%)
@@ -72,7 +75,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 800 tests across 18 files
+- [Test Suites](#test-suites) -- 810 tests across 19 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- audit results, defense-in-depth, CSP headers, credential validation
 - [Roadmap](#roadmap)
@@ -92,7 +95,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 
 ### Real-Time Hand Analysis
 - **Hand strength**: Chen score + Chen+ (position/style-adjusted), preflop tier (Premium/Strong/Playable/Marginal/Trash), contextual hand descriptions ("Top Pair, Ace-kicker", "Nut Flush Draw")
-- **Equity**: Monte Carlo simulation (300 iterations, adaptive to 500 in close spots) against random opponent ranges
+- **Equity**: Monte Carlo simulation (1,000 iterations) against random opponent ranges. Preflop equity uses lookup table calibrated against pokerstove/equilab (AA 6-way: 49%, not the old linear 74%)
 - **Hand improvement probabilities**: Per-rank % chance of making each hand by the river (e.g., "Flush: 19.2%", "Two Pair: 32.4%")
 - **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river
 - **Pot odds**: Side-by-side percentage comparison (Your Equity vs Need), with ratio shown as secondary reference, pass/fail verdict
@@ -670,7 +673,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | Supabase (GitHub OAuth, email/password, RLS) + localStorage fallback |
 | Package Manager | Yarn |
 | Deployment | Netlify (static) |
-| Testing | Vitest (800 tests across 18 files) |
+| Testing | Vitest (810 tests across 19 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script

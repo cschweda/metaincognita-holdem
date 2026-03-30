@@ -13,7 +13,7 @@
  * of hands, not a random 30%.
  */
 import type { Card } from './cards'
-import { chenScore, chenPlusScore, bestHand, detectDraws } from './handAnalysis'
+import { chenScore, chenPlusScore, bestHand, detectDraws, type DrawInfo } from './handAnalysis'
 import { handRankIndex, ALL_HANDS } from './ranges'
 
 export interface BotProfile {
@@ -721,12 +721,20 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const isShallowSPR = spr < 4   // committed — play straightforward, bet/fold
   const isDeepSPR = spr > 12     // deep — be cautious committing, more positional play
 
-  // Fix 6b: Lower strong-hand threshold to 0.35 so all top pairs are "strong"
-  const hasStrongHand = strength >= 0.35
+  // Explicit draw detection (not inferred from strength ranges — fixes bucket overlap)
+  const draws: DrawInfo[] = cardAware ? detectDraws(ctx.holeCards!, ctx.community!) : []
+  const hasFlushOrStraightDraw = draws.some(d =>
+    d.type.includes('Flush') || d.type.includes('straight'))
+
+  // Made hand classification — draws and made hands are independent axes
   const hasMonster = strength >= 0.55
-  const hasDraw = strength >= 0.20 && strength < 0.35
-  const hasWeakMade = strength >= 0.10 && strength < 0.20
-  const hasNothing = strength < 0.10
+  const hasStrongHand = strength >= 0.35
+  // A draw is a DRAWING hand (flush/straight draw) that isn't already strong
+  const hasDraw = hasFlushOrStraightDraw && !hasStrongHand
+  // Weak made hands: bottom pair, weak kicker, etc. — NOT draws
+  const hasWeakMade = !hasFlushOrStraightDraw && strength >= 0.10 && strength < 0.35
+  // Nothing: no made hand AND no draw
+  const hasNothing = strength < 0.10 && !hasFlushOrStraightDraw
 
   // Street awareness context
   const isPreflopRaiser = ctx.wasPreflopRaiser ?? false
@@ -954,6 +962,12 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   }
 
   const streetFactor = baseStreetFactor * passiveBoost * sizingExploit
+
+  // SPR auto-commit: very shallow SPR (< 2) = shove with strong+ hands
+  // At this stack depth, pot-committing with top pair or better is standard
+  if (isShallowSPR && spr < 2 && hasStrongHand) {
+    return { type: 'raise', amount: chips + playerBet }
+  }
 
   // Check-raise: board-texture aware — dry boards = check-raise more, wet = less
   // Monsters on dry boards should almost always check-raise for value

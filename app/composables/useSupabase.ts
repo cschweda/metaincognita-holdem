@@ -75,9 +75,10 @@ export async function ensureSession(): Promise<string | null> {
     }
 
     return data.user?.id || null
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Network error, invalid credentials, wrong project URL, etc.
-    console.warn('Supabase connection failed — falling back to localStorage:', e?.message || e)
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn('Supabase connection failed — falling back to localStorage:', msg)
     connectionFailed = true
     client = null
     return null

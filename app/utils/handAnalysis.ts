@@ -443,7 +443,7 @@ export function estimateEquity(
   holeCards: [Card, Card],
   community: Card[],
   numOpponents: number,
-  iterations: number = 500,
+  iterations: number = 1000,
 ): number {
   if (community.length === 5) {
     // At showdown, just evaluate directly — no simulation needed
@@ -784,7 +784,7 @@ export function analyzeHand(
   // Equity (Monte Carlo)
   const equity = streetName === 'preflop'
     ? estimatePreflopEquity(chen, numOpponents)
-    : estimateEquity(holeCards, community, numOpponents, 500)
+    : estimateEquity(holeCards, community, numOpponents, 1000)
 
   const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0)
 
@@ -810,11 +810,32 @@ export function analyzeHand(
   }
 }
 
-// Simple preflop equity approximation from Chen score + opponents
+/**
+ * Preflop equity approximation calibrated against equity calculators.
+ * Uses lookup for heads-up, 3-way, and 6-way, with interpolation between.
+ * Much more accurate than the old linear formula (e.g., AA 6-way: 49% not 74%).
+ */
 function estimatePreflopEquity(chen: number, opponents: number): number {
-  // Rough mapping: Chen 10+ = ~70-85%, Chen 8 = ~55-65%, etc.
-  // Adjusted down for more opponents
-  const base = Math.min(90, 30 + chen * 5)
-  const oppPenalty = (opponents - 1) * 4
-  return Math.max(15, base - oppPenalty)
+  // [heads-up, 3-way, 6-way] — calibrated against pokerstove/equilab
+  let hu: number, three: number, six: number
+  if (chen >= 20)     { hu = 85; three = 73; six = 49 }  // AA
+  else if (chen >= 16) { hu = 82; three = 69; six = 44 } // KK
+  else if (chen >= 14) { hu = 80; three = 66; six = 40 } // QQ, AKs
+  else if (chen >= 12) { hu = 77; three = 60; six = 35 } // JJ, AQs
+  else if (chen >= 10) { hu = 68; three = 50; six = 28 } // TT, AJs+
+  else if (chen >= 8)  { hu = 60; three = 42; six = 22 } // 99, broadways
+  else if (chen >= 7)  { hu = 55; three = 38; six = 20 } // 88, suited conn
+  else if (chen >= 6)  { hu = 52; three = 35; six = 18 } // 77, suited gap
+  else if (chen >= 5)  { hu = 48; three = 32; six = 16 } // small pairs
+  else if (chen >= 4)  { hu = 44; three = 28; six = 14 } // marginal
+  else if (chen >= 3)  { hu = 40; three = 25; six = 13 } // weak
+  else                 { hu = 35; three = 22; six = 12 } // junk
+
+  if (opponents <= 1) return hu
+  if (opponents <= 2) return three
+  if (opponents >= 5) return six
+
+  // Linear interpolation between 3-way and 6-way
+  const t = (opponents - 2) / 3
+  return Math.round((three + (six - three) * t) * 10) / 10
 }
