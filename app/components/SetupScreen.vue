@@ -62,8 +62,7 @@ function getInitialCommentaryChoice(): CommentaryChoice {
   if (typeof localStorage === 'undefined') return 'hero'
   const enabled = localStorage.getItem('holdem-commentary-enabled')
   if (enabled === 'false') return 'off'
-  const mode = localStorage.getItem('holdem-commentary-mode')
-  if (mode === 'tv') return 'tv'
+  // Always default to Hero POV — TV mode must be explicitly chosen each session
   return 'hero'
 }
 const commentaryChoice = ref<CommentaryChoice>(getInitialCommentaryChoice())
