@@ -237,6 +237,14 @@ Run all tests: `yarn test`
 - Card count: 2xN hole + 3 burns + 5 community = correct total
 - **Bust-out**: 0 chips = eliminated, positive chips = still active
 
+### Phase 3 -- Street Betting Flow (`phase3-street-betting.test.ts`)
+- **needsToAct state machine**: All active players in set at street start; folded, eliminated, and all-in excluded; player removed after acting; raise re-adds all others; round ends only when set is empty
+- **Re-raise flow**: Second raise requires full additional pass before street advances
+- **Street progression**: Correct community card count per street (0/3/4/5/5); streets advance in order; street does NOT advance while needsToAct has players
+- **Full hand simulation**: 4 complete betting rounds before showdown; early hand end when all but one fold; state resets (betThisRound, currentBet, lastAction) verified between streets
+- **Action order**: Preflop starts left of BB (UTG); postflop starts left of dealer; postflop skips folded players; action wraps around table correctly
+- **Edge cases**: Heads-up completes after both act; 3-bet pot with folds and calls resolves correctly; everyone checks completes round; single active player ends hand immediately
+
 ### Phase 4 -- Bot AI (`phase4-bot-ai.test.ts`)
 - All persona stats within valid ranges (VPIP 10-50%, PFR <= VPIP, etc.)
 - Enough personas for maximum opponents (7)
@@ -261,8 +269,8 @@ Run all tests: `yarn test`
 | Phase | Status | Focus |
 |-------|--------|-------|
 | **1** | Done | Visual foundation -- table, cards, chips, setup, stats panel, bet controls |
-| **2** | Planned | Core engine -- deck module, hand evaluator, showdown resolver |
-| **3** | Planned | Game loop -- full betting mechanics, side pots, blind rotation |
+| **2** | Partial | Core engine -- deck + shuffle done, hand evaluator done, showdown resolver planned |
+| **3** | Partial | Game loop -- betting round state machine done, side pots + blind rotation planned |
 | **4** | Planned | Bot AI -- persona-driven decisions, tilt, session memory, hero adaptation |
 | **5** | Planned | Stats tracking -- real VPIP/PFR/AF, localStorage persistence, hand log |
 | **6** | Planned | Polish -- dealing animations, chip movement, bot thinking delays, celebrations |

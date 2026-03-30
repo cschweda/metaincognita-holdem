@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-29
+
+Betting flow overhaul, visual improvements, and expanded test coverage.
+
+### Added
+
+#### Visible Betting Rounds
+- Bots act in sequence with 0.8-2s thinking delays, visible around the table
+- Active player seat pulses with green ring and scale-up animation
+- Colored action badges per player: FOLD (red), CHECK (gray), CALL (blue), RAISE (green), ALL-IN (amber with pulse), SB/BB (muted)
+- "X is thinking..." indicator with bouncing dot animation in a dark pill container
+- Folded players: hole cards disappear, seat dims to 30% with grayscale, "Folded" label shown
+- Eliminated players (0 chips) removed from table entirely between hands
+
+#### Betting State Machine
+- `needsToAct` set tracks which players must still act each street
+- A raise re-adds all other active players to the set (reopens action)
+- Street advances only when every active player has acted (set is empty)
+- Prevents premature card reveals -- flop/turn/river only dealt after betting completes
+- Proper flow: preflop betting -> flop -> flop betting -> turn -> turn betting -> river -> river betting -> showdown
+
+#### Hand Ranges (Stats Panel -- Ranges Tab)
+- Authentic 6-max cash game opening ranges by position (UTG 15% through BTN 42%)
+- All 169 starting hands ranked by expected value
+- Expandable lists categorized by pairs, suited, offsuit
+- Hero hand in-range indicator
+- Facing-aggression ranges: 3-bet (8%), call-vs-3-bet (12%), 4-bet (3.5%), 5-bet (1.5%)
+
+#### Opponent Stats (Stats Panel -- Opponents Tab)
+- Per-player HUD: VPIP, PFR, Aggression Factor, Went-to-Showdown %
+- Player type and aggression labels with strategic reads
+
+#### Pot Odds & SPR
+- Pot odds: ratio, percentage, required equity, pass/fail verdict against live equity
+- SPR (Stack-to-Pot Ratio) with low/medium/high strategic guidance
+
+#### Clickable Recommendations
+- FOLD, CHECK, CALL badges in stats panel are clickable buttons when it's hero's turn
+- "click to fold/check/call" hint text shown
+- RAISE remains display-only (amount is always custom via slider)
+
+#### Street Betting Tests (31 new tests)
+- `needsToAct` state machine: add/remove players, raise reopens, folded/all-in excluded
+- Street progression: correct card counts, no advancement until betting completes
+- Action order: preflop at UTG, postflop left of dealer, skips folded
+- Edge cases: heads-up, 3-bet pots, everyone checks, single player remaining
+- Full hand simulation: 4 betting rounds before showdown, early end on folds
+
+### Changed
+
+#### Cards
+- Simplified design: rank in corners + large centered suit symbol (no pip grids)
+- Red for hearts/diamonds, black for clubs/spades
+- Increased sizes: small 64x88px, medium 80x112px, large 96x136px
+- More spacing between hole cards
+
+#### Table Layout
+- Seats now arranged clockwise (was counter-clockwise)
+- BTN -> SB -> BB flows left-to-right from hero's perspective, matching real poker
+- Randomized dealer position at game start (was always seat 0)
+- Postflop start seat finds first active player left of dealer (skips folded)
+
+#### Action Badges
+- Repositioned above cards (absolute, z-20) to prevent overlap with other elements
+- Removed chip stack visuals from seat area to reduce clutter
+
+### Fixed
+- Blank card faces in dark mode: clubs/spades no longer use `dark:text-gray-100` on white card background
+- Betting rounds completing prematurely: `allMatched` check at 0 >= 0 caused streets to advance before anyone acted
+- Config import path: `holdem.config.ts` moved to project root with `@config` alias
+
 ## [0.1.0] - 2026-03-29
 
 Initial release -- Phase 1 visual foundation with simulated betting, real-time hand analysis, and bot configurator.
@@ -121,4 +192,5 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.2.0]: https://github.com/cschweda/holdem-simulator/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cschweda/holdem-simulator/releases/tag/v0.1.0
