@@ -16,11 +16,12 @@ export const SUIT_SYMBOLS: Record<Suit, string> = {
   spades: '♠',
 }
 
+// Card faces are always white — suit colors must be dark regardless of color mode
 export const SUIT_COLORS: Record<Suit, string> = {
   hearts: 'text-red-600',
   diamonds: 'text-red-600',
-  clubs: 'text-gray-900 dark:text-gray-100',
-  spades: 'text-gray-900 dark:text-gray-100',
+  clubs: 'text-gray-900',
+  spades: 'text-gray-900',
 }
 
 export const RANK_DISPLAY: Record<number, string> = {
