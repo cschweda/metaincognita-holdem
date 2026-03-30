@@ -1,5 +1,5 @@
 /**
- * Hold'em Simulator — Single Source of Truth Configuration
+ * No Limit Hold'em Simulator — Single Source of Truth Configuration
  *
  * All tunable game parameters live here. Import this config
  * wherever values are needed rather than hardcoding numbers.

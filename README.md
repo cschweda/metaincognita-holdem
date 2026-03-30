@@ -1,6 +1,6 @@
-# Hold'em Simulator
+# No Limit Hold'em Simulator
 
-![Hold'em Simulator](app/public/og-image.png)
+![No Limit Hold'em Simulator](app/public/og-image.png)
 
 A browser-based No-Limit Texas Hold'em poker simulator with intelligent bot opponents, real-time hand analysis, and a comprehensive stats panel. Built for learning poker strategy through practice and observation.
 

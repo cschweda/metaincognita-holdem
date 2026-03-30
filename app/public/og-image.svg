@@ -112,8 +112,8 @@
   </g>
 
   <!-- Title -->
-  <text x="600" y="95" text-anchor="middle" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="58" font-weight="800" fill="#fafafa" letter-spacing="-1">
-    Hold'em Simulator
+  <text x="600" y="95" text-anchor="middle" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="48" font-weight="800" fill="#fafafa" letter-spacing="-1">
+    No Limit Hold'em Simulator
   </text>
 
   <!-- Accent line -->

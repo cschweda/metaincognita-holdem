@@ -251,7 +251,7 @@ function handleStart() {
     <div class="flex items-center justify-between">
       <div />
       <h1 class="text-3xl font-bold text-center text-white">
-        Hold'em Simulator
+        No Limit Hold'em Simulator
       </h1>
       <SupabaseStatus />
     </div>
