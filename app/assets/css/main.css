@@ -33,20 +33,27 @@
   --chip-orange: #ea580c;
 }
 
-/* Tooltip overrides — ensure visibility and wrapping */
+/* Tooltip overrides — solid dark background, readable text */
 [data-radix-popper-content-wrapper] {
   z-index: 9999 !important;
 }
 
-[role="tooltip"] {
+[role="tooltip"],
+[data-state="delayed-open"],
+[data-state="instant-open"] {
   max-width: 280px !important;
   white-space: normal !important;
   word-wrap: break-word !important;
+  background: #030712 !important;
   background-color: #030712 !important;
+  opacity: 1 !important;
   color: #e5e7eb !important;
   padding: 12px 16px !important;
   border-radius: 8px !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid #374151 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7) !important;
   font-size: 0.75rem !important;
   line-height: 1.6 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
