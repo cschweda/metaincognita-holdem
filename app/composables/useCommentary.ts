@@ -754,12 +754,11 @@ export function useCommentary(gs: GS) {
   // Which voice speaks next in TV mode (alternates)
   let nextVoice: 'lon' | 'norman' = 'lon'
 
+  // Always generate both streams regardless of enabled — so switching mid-hand shows full history
   function addHero(text: string, type: CommentaryLine['type'] = 'aside') {
-    if (!enabled.value) return
     heroLines.value = [...heroLines.value, { id: ++lineId, text, type }]
   }
   function addTV(text: string, type: CommentaryLine['type'] = 'aside', voice?: 'lon' | 'norman') {
-    if (!enabled.value) return
     const v = voice || nextVoice
     nextVoice = v === 'lon' ? 'norman' : 'lon'
     tvLines.value = [...tvLines.value, { id: ++lineId, text, type, voice: v }]
@@ -1306,13 +1305,13 @@ export function useCommentary(gs: GS) {
   watch(() => gs.handActionLog.value, (newLog) => {
     if (newLog === prevLogRef) return // same array, just mutated
     prevLogRef = newLog
-    if (!enabled.value || !gs.dealt.value) return
+    if (!gs.dealt.value) return
     clear()
     onDeal()
   })
 
   watch(() => gs.street.value, (s, old) => {
-    if (!enabled.value || s === old) return
+    if (s === old) return
     if (s === 'flop' || s === 'turn' || s === 'river') onStreet(s)
     if (s === 'showdown') nextTick(() => onShowdown())
   })
@@ -1320,13 +1319,13 @@ export function useCommentary(gs: GS) {
   let lastLogLen = 0
   watch(() => gs.handActionLog.value, () => { lastLogLen = 0 })
   watch(() => gs.handActionLog.value.length, (n) => {
-    if (!enabled.value || n <= lastLogLen) { lastLogLen = n; return }
+    if (n <= lastLogLen) { lastLogLen = n; return }
     gs.handActionLog.value.slice(lastLogLen).forEach(e => onAction(e))
     lastLogLen = n
   })
 
   watch(() => gs.heroTurn.value, (t) => {
-    if (!enabled.value || !t) return
+    if (!t) return
     if (gs.street.value === 'preflop' && gs.handActionLog.value.length < 3) return
     onHeroTurn()
   })
