@@ -305,7 +305,7 @@ function formatPot(n: number): string {
               <div
                 v-for="i in (5 - visibleCommunity.length)"
                 :key="'empty-' + i"
-                class="w-14 h-20 rounded-lg border border-dashed border-green-800/40"
+                class="w-16 h-[5.5rem] rounded-lg border border-dashed border-green-800/40"
               />
             </template>
 

@@ -24,9 +24,9 @@ const props = withDefaults(defineProps<{
 
 const sizeClasses = computed(() => {
   switch (props.size) {
-    case 'sm': return 'w-10 h-14 text-xs'
-    case 'lg': return 'w-20 h-28 text-lg'
-    default: return 'w-14 h-20 text-sm'
+    case 'sm': return 'w-13 h-[4.5rem] text-xs'
+    case 'lg': return 'w-24 h-[8.5rem] text-xl'
+    default: return 'w-16 h-[5.5rem] text-sm'
   }
 })
 

@@ -48,7 +48,7 @@ const formattedChips = computed(() => {
   >
     <!-- Hole cards -->
     <div
-      class="flex gap-0.5 -mb-1"
+      class="flex gap-1.5 -mb-1"
       :class="{ 'cursor-pointer': peekable && !isHero && holeCards }"
       @click="togglePeek"
     >
@@ -65,8 +65,8 @@ const formattedChips = computed(() => {
         />
       </template>
       <template v-else>
-        <div class="w-10 h-14 rounded-lg border border-dashed border-gray-600/30" />
-        <div class="w-10 h-14 rounded-lg border border-dashed border-gray-600/30" />
+        <div class="w-13 h-[4.5rem] rounded-lg border border-dashed border-gray-600/30" />
+        <div class="w-13 h-[4.5rem] rounded-lg border border-dashed border-gray-600/30" />
       </template>
     </div>
 
