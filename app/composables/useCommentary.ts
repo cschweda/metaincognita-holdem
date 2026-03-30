@@ -957,7 +957,19 @@ export function useCommentary(gs: GS) {
     } else if (h.folded) {
       addHero(pick([`${winner} takes it. We were already out.`, `Pot goes to ${winner}. Good thing we folded.`]), 'showdown')
       addTV(`${winner} takes the pot.`, 'showdown', 'lon')
-      addTV(normanFoldQuips.pick(), 'showdown', 'norman')
+      // Chorman comments on the winner, not on folding (hero already folded earlier)
+      const winnerQuip = normanPersonaQuip(winner)
+      if (winnerQuip) {
+        addTV(winnerQuip, 'showdown', 'norman')
+      } else if (normanFeelsLikeIt()) {
+        addTV(personalizeQuip(pick([
+          `Takes it down without a fight. Nice.`,
+          `Scoops the pot. Everyone else decided they had better things to do.`,
+          `Collects the chips. Easiest money at the table.`,
+          `Wins it. Sometimes you don't need a showdown.`,
+          `Takes it. The best hand is the one that doesn't get called.`,
+        ]), winner), 'showdown', 'norman')
+      }
     } else {
       addHero(pick([`${winner} takes it. We come up short.`, `Pot goes to ${winner}. That one hurts.`, `${winner} wins. Tough break.`]), 'showdown')
       addTV(`${winner} takes the pot from Hero.`, 'showdown', 'lon')
