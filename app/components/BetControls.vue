@@ -77,18 +77,22 @@ function applyCustom() {
   showCustom.value = false
 }
 
-// Fold confirmation: first click shows "Confirm?", second click folds
+// Fold confirmation: first click shows "Confirm?" with countdown, second click folds
 const foldConfirming = ref(false)
+const foldCountdown = ref(false) // triggers the CSS countdown animation
 let foldTimer: ReturnType<typeof setTimeout> | null = null
 
 function handleFold() {
   if (!foldConfirming.value) {
     foldConfirming.value = true
-    foldTimer = setTimeout(() => { foldConfirming.value = false }, 2000)
+    // Start countdown animation on next tick so the transition triggers
+    nextTick(() => { foldCountdown.value = true })
+    foldTimer = setTimeout(() => { foldConfirming.value = false; foldCountdown.value = false }, 2000)
     return
   }
   if (foldTimer) clearTimeout(foldTimer)
   foldConfirming.value = false
+  foldCountdown.value = false
   emit('fold')
 }
 
@@ -119,16 +123,22 @@ function formatAmount(n: number): string {
   >
     <!-- Row 1: Main action buttons -->
     <div class="flex gap-2">
-      <!-- Fold (double-click confirmation) -->
-      <UTooltip :text="foldConfirming ? 'Click again to confirm fold' : 'Surrender your hand and lose any chips already in the pot'" class="flex-1">
+      <!-- Fold (double-click confirmation with countdown) -->
+      <UTooltip :text="foldConfirming ? 'Click again to confirm — expires in 2s' : 'Surrender your hand and lose any chips already in the pot'" class="flex-1">
         <button
-          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all active:scale-[0.97]"
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all active:scale-[0.97] relative overflow-hidden"
           :class="foldConfirming
-            ? 'bg-red-700/80 text-white border-2 border-red-400 animate-pulse'
+            ? 'bg-red-700/80 text-white border-2 border-red-400'
             : 'bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40'"
           @click="handleFold"
         >
-          {{ foldConfirming ? 'Confirm Fold' : 'Fold' }}
+          <span class="relative z-10">{{ foldConfirming ? 'Confirm Fold' : 'Fold' }}</span>
+          <!-- Countdown bar: shrinks from full width to 0 over 2s -->
+          <div
+            v-if="foldConfirming"
+            class="absolute bottom-0 left-0 h-1 bg-red-400 transition-all ease-linear"
+            :style="{ width: foldCountdown ? '0%' : '100%', transitionDuration: '2s' }"
+          />
         </button>
       </UTooltip>
 
