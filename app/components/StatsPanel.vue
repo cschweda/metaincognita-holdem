@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * Real-time stats panel — hand analysis, draws, outs, equity,
- * ranges, pot odds, action recommendation, and opponent stats.
+ * Real-time stats panel — shows hand analysis (made hand, draws, outs, equity),
+ * preflop ranges, hand improvement probabilities, action recommendations,
+ * opponent tracked stats (VPIP/PFR/AF/WTSD), session summary, and
+ * provides export (JSON/CSV) and session-reset controls.
  */
 import type { Card } from '~/utils/cards'
 import { displayCard } from '~/utils/cards'

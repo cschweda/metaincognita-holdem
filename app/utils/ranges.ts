@@ -1,9 +1,12 @@
 /**
- * Authentic preflop hand ranges by position and action.
+ * Preflop hand ranges by position (RFI) and by action (3-bet, 4-bet, 5-bet).
  *
- * Ranges are ordered lists of starting hands (best → worst).
+ * Provides the ranked list of all 169 starting hands, position-based opening
+ * percentages, and escalation ranges. Used by StatsPanel to display relevant
+ * ranges for the hero's current position and street.
+ *
  * Format: "AKs" = Ace-King suited, "AKo" = offsuit, "AA" = pair.
- * Percentages approximate standard 6-max cash game ranges.
+ * Percentages approximate standard 6-max NL Hold'em cash game ranges.
  */
 
 // All 169 distinct starting hands, ranked roughly by expected value.
@@ -151,8 +154,7 @@ export function getRelevantRanges(position: string, street: string): RangeInfo[]
 }
 
 /**
- * Formats a hand range into a compact grid display string.
- * Groups hands by category for readability.
+ * Categorizes a hand list into pairs, suited, and offsuit groups.
  */
 export function categorizeHands(hands: string[]): { pairs: string[]; suited: string[]; offsuit: string[] } {
   return {

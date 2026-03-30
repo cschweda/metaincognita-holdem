@@ -93,11 +93,8 @@ export function decayTilt(state: TiltState): void {
 }
 
 /**
- * Returns a tilt-modified profile. The base profile is not mutated.
- */
-/**
- * Returns a tilt-modified profile. The base profile is not mutated.
- * tiltMultiplier scales how hard tilt hits this specific bot:
+ * Returns a tilt-modified copy of the base profile. The original is not mutated.
+ * tiltMultiplier scales how severely tilt affects this specific bot:
  *   - Hellmuth (2.5): massive tilt swings
  *   - Ivey (0.3): barely affected
  *   - Default (1.0): standard tilt

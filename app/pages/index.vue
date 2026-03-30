@@ -1,9 +1,10 @@
 <script setup lang="ts">
 defineOptions({ name: 'index' })
 /**
- * Main game page — poker table with simulated betting rounds.
- * Bots act visibly in sequence with action labels.
- * Folded players lose their cards. Active seat pulses.
+ * Main game page — orchestrates the full poker game loop: setup, dealing,
+ * sequential bot actions with visible action labels, hero betting controls,
+ * showdown, and hand recording. Manages player states, tilt tracking,
+ * hero timeout/busted phases, and session stats persistence.
  */
 import config from '@config'
 import { assignPositions } from '~/utils/seats'

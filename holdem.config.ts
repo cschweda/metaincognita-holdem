@@ -5,8 +5,8 @@
  * wherever values are needed rather than hardcoding numbers.
  *
  * Usage:
- *   import config from '~/holdem.config.js'
- *   const { stakes, bots, monte } = config
+ *   import config from '@config'
+ *   const { stakes, table, monte, personas } = config
  */
 
 export default {

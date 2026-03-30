@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Auth status pill — shows connection state (GitHub user, anonymous/local, or offline)
+ * with a dropdown for sign-in/sign-out actions and a link to the stats page.
+ */
 import {
   ensureSession,
   useSupabase,

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Full hero stats page — cross-session analytics from Supabase.
- * Shows lifetime stats, session history, hand history, and trends.
+ * Stats dashboard — loads cross-session data from Supabase (with localStorage fallback).
+ * Shows lifetime aggregates, session history table, per-hand history with expandable
+ * action logs, PokerStars-format export, and profit trends.
  */
 import { useSupabase, ensureAnonSession, getCurrentUser } from '~/composables/useSupabase'
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'

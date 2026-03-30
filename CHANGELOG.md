@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-03-29
+
+25 personas, 18 pro bots, PokerStars export, universal tests, all 517 tests passing.
+
+### Added
+
+#### 8 New Pro Bots (18 pro total, 25 overall)
+- **Chris Moneymaker** (VPIP 30%, tilt 1.1x) — Online grinder who changed poker. Solid fundamentals, occasional overplays.
+- **Chip Reese** (VPIP 24%, tilt 0.3x) — Legendary all-around player. Near-zero leaks. Ice cold under pressure.
+- **Stu Ungar** (VPIP 26%, tilt 1.0x) — Genius reads, fearless aggression, erratic brilliance impossible to predict.
+- **Vanessa Selbst** (VPIP 25%, tilt 0.8x) — Fearless aggressor. 3-bets relentlessly, rarely backs down.
+- **Erik Seidel** (VPIP 21%, tilt 0.3x) — Quiet assassin. Tight, patient, almost untiltable.
+- **Tom Dwan** (VPIP 31%, tilt 0.5x) — "durrrr" hyper-LAG. Massive bluffs, fearless, constant pressure.
+- **Patrik Antonius** (VPIP 24%, tilt 0.4x) — Finnish ice. Calm, precise, positionally disciplined.
+- **Scotty Nguyen** (VPIP 30%, tilt 1.2x) — Loose-aggressive with flair. Gambles, tilts on bad beats.
+- **Johnny Chan** (VPIP 22%, tilt 0.5x) — Old-school TAG. Traps, patient, consistent.
+- **Brynn Kenney** (VPIP 25%, tilt 0.6x) — Modern GTO high-roller. Creative lines, mixes frequencies.
+
+#### PokerStars Hand History Export
+- Full PokerStars-format `.txt` export compatible with PokerTracker, Hold'em Manager, Equilab
+- Per-hand, per-session, and lifetime export buttons
+- Hand detail in stats page now displays PokerStars format instead of raw action log
+- Color-coded: street headers yellow, hero deal amber, winner green, losers red, folders gray
+
+#### Universal Persona Tests (196 new tests)
+- Every persona (25 bots) tested for VPIP, PFR, fold rate, raise rate alignment with config
+- PFR never exceeds VPIP, no degenerate fold rates, valid actions only
+- Raise amounts never exceed stack across random scenarios
+- VPIP ordering, aggression ordering, and bluff ordering match config across all bots
+- Position awareness: all bots check sometimes unchallenged, fold sometimes to big bets
+
+#### Pro Count Selector
+- Quick-select: 0 / 1 / 2 / 3 / All pros per table (default 2)
+- Options adapt to player count
+
+#### Pre-Action Queuing
+- "Pre-fold" and "Pre-check/call" buttons while bots are acting
+- Queued action auto-executes when hero's turn arrives
+- Cancel button to change your mind before your turn
+
+#### Speed After Fold
+- Bot thinking: 150-350ms (was 800-2000ms) after hero folds
+- Street advancement, end hand, and postflop start all accelerated ~5x
+
+### Changed
+- Play-by-play now includes all player hole cards in a DEAL section at the top
+- Hand detail in stats uses PokerStars format with labeled streets and seat summaries
+- Tooltip styling: solid dark background (#030712), max-width 280px, word wrap, z-index 9999
+- Pro bot detection uses fictional-name exclusion (future-proof for adding more pros)
+- Tilt caps raised to VPIP 65%, aggression 3.0 for extreme tilt scenarios
+- Renamed to "No Limit Hold'em Simulator" everywhere
+- Bust screen delayed until after showdown results display
+- Winner info (name, cards, amount) shown for every outcome
+- "Buy More Chips" / "Cash Out" options when hero busts at showdown
+
+### Fixed
+- All 517 tests passing (was 23 stub failures from phase1-seats and phase2-evaluator)
+- Stub test files wired to real implementations
+- JSDoc comments updated across all files to match actual code
+
 ## [0.9.2] - 2026-03-29
 
 ### Changed
@@ -538,6 +598,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.10.0]: https://github.com/cschweda/holdem-simulator/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/cschweda/holdem-simulator/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/cschweda/holdem-simulator/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/cschweda/holdem-simulator/compare/v0.8.1...v0.9.0

@@ -402,8 +402,23 @@ Run all tests: `yarn test`
 - **Triggers**: Consecutive losses at configurable threshold, big pot loss, winning resets loss count but not active tilt
 - **Severity**: Mild (0.5) at 3 losses, full (1.0) at 5+ or big loss, continues escalating with more losses
 - **Decay**: Per-hand countdown, clears at 0, duration within configured range, no-op when not tilted
-- **Profile modification**: VPIP/PFR/aggression/bluff all increase proportional to severity, caps enforced (VPIP 60%, aggression 2.5)
+- **Profile modification**: VPIP/PFR/aggression/bluff all increase proportional to severity, caps enforced (VPIP 65%, aggression 3.0)
 - **Behavioral impact (100K hands)**: Tilted Tony has higher VPIP, bluffs more, raises more; mild < full tilt; even Solid Sam plays looser on tilt
+
+### Phase 4 -- Pro Bot Tests (`phase4-pro-bots.test.ts`)
+- All 18 pros exist with valid fields, PFR <= VPIP, tiltMultiplier defined
+- Per-pro behavioral verification: Hellmuth, Negreanu, Ivey, Brunson, Tilly, Matusow
+- Comparative: VPIP ordering, tilt multiplier ordering, creative frequency ranking, unique playstyles
+- Tilt multiplier mechanics: faster trigger at high mult, larger effect, default 1.0 unchanged
+- Table composition: max 2 pros verified over 100 random generations, no duplicates
+
+### Phase 4 -- Universal Persona Alignment (`phase4-all-personas.test.ts`)
+- **Every persona (25 bots × 50K hands)**: VPIP within ±12% of config, PFR within ±10%, PFR <= VPIP, no degenerate fold rates
+- **Raise rate vs aggression**: High aggression configs produce more raising
+- **Valid actions only**: 1000 random decisions per persona, all return fold/check/call/raise
+- **Stack limits**: Raises never exceed stack across 500 random scenarios per persona
+- **Ordering**: Tightest config → lowest VPIP, most aggressive → highest raise rate, highest bluff → highest bluff rate
+- **Position awareness**: All bots check sometimes unchallenged, all fold sometimes to big river bets
 
 ### Phase 5 -- Stats (`phase5-stats.test.ts`)
 - VPIP = voluntary hands / total hands; BB walks excluded
@@ -425,10 +440,10 @@ Run all tests: `yarn test`
 | Phase | Status | Focus |
 |-------|--------|-------|
 | **1** | Done | Visual foundation -- table, cards, chips, setup, stats panel, bet controls |
-| **2** | Partial | Core engine -- deck + shuffle done, hand evaluator done, showdown resolver planned |
+| **2** | Done | Core engine -- deck, shuffle, hand evaluator, all 9 ranks, edge cases, 517 tests passing |
 | **3** | Partial | Game loop -- betting round state machine done, side pots + blind rotation planned |
-| **4** | Done | Bot AI -- persona-driven decisions, tilt system, bluff awareness, 100K-hand behavioral tests |
-| **5** | Done | Stats -- Supabase persistence, session tracking, cross-session analytics, CSV/JSON export, timeout, bust-out/re-buy |
+| **4** | Done | Bot AI -- 25 personas (18 pro), per-persona tilt, 50K-hand behavioral alignment, 196 universal tests |
+| **5** | Done | Stats -- Supabase, session tracking, cross-session analytics, PokerStars/CSV/JSON export, replay, timeout, bust-out/re-buy |
 | **6** | Planned | Polish -- dealing animations, chip movement, bot thinking delays, celebrations |
 
 ## Future Enhancements
