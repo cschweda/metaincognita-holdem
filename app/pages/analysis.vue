@@ -11,6 +11,7 @@ useHead({ title: 'Bot Analysis Report' })
 
 const running = ref(false)
 const runPhase = ref('')
+const result2p = ref<SimResult | null>(null)
 const result6p = ref<SimResult | null>(null)
 const result8p = ref<SimResult | null>(null)
 const runTimestamp = ref<string | null>(null)
@@ -18,9 +19,13 @@ const runDuration = ref<number>(0)
 
 async function runAnalysis() {
   running.value = true
+  result2p.value = null
   result6p.value = null
   result8p.value = null
   const startTime = Date.now()
+
+  runPhase.value = 'Running heads-up (2-player) simulation...'
+  result2p.value = await runSimulation(1000, 2, () => {})
 
   runPhase.value = 'Running 6-player simulation...'
   result6p.value = await runSimulation(1000, 6, () => {})
@@ -36,9 +41,19 @@ async function runAnalysis() {
   running.value = false
 }
 
-function downloadHandHistory() {
-  if (!result6p.value && !result8p.value) return
+function downloadSim(sim: SimResult, label: string) {
+  const blob = new Blob([sim.allHandsPS], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `holdem-${label}-${new Date().toISOString().slice(0, 10)}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function downloadAllHandHistory() {
   const parts = []
+  if (result2p.value) parts.push(result2p.value.allHandsPS)
   if (result6p.value) parts.push(result6p.value.allHandsPS)
   if (result8p.value) parts.push(result8p.value.allHandsPS)
   const content = parts.join('\n\n')
@@ -59,6 +74,7 @@ const expandedHand = ref<number | null>(null)
 
 const allInteresting = computed(() => {
   const hands = [
+    ...(result2p.value?.interestingHands || []),
     ...(result6p.value?.interestingHands || []),
     ...(result8p.value?.interestingHands || []),
   ]
@@ -90,7 +106,7 @@ const allInteresting = computed(() => {
             : 'bg-green-600 hover:bg-green-500 text-white active:scale-[0.97]'"
           @click="runAnalysis"
         >
-          {{ running ? 'Running Simulation...' : result6p ? 'Run New Simulation' : 'Run 2,000-Hand Simulation' }}
+          {{ running ? 'Running Simulation...' : result6p ? 'Run New Simulation' : 'Run 3,000-Hand Simulation' }}
         </button>
 
         <!-- Spinner -->
@@ -111,23 +127,24 @@ const allInteresting = computed(() => {
           <span>&middot;</span>
           <span>{{ runDuration }}s runtime</span>
           <span>&middot;</span>
-          <span>2,000 total hands</span>
+          <span>3,000 total hands</span>
         </div>
         <button
           class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-          @click="downloadHandHistory"
+          @click="downloadAllHandHistory"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download PokerStars Hand History
+          Download All (3,000 hands)
         </button>
       </div>
 
-      <template v-if="result6p && result8p && !running">
+      <template v-if="result2p && result6p && result8p && !running">
         <!-- Results for each table size -->
         <section
           v-for="sim in [
-            { r: result6p, label: '6-Player Table' },
-            { r: result8p, label: '8-Player Table' },
+            { r: result2p, label: 'Heads-Up (2-Player)', dlLabel: '2p-headsup' },
+            { r: result6p, label: '6-Player Table', dlLabel: '6p' },
+            { r: result8p, label: '8-Player Table', dlLabel: '8p' },
           ]"
           :key="sim.label"
           class="mb-10"
@@ -246,6 +263,12 @@ const allInteresting = computed(() => {
             </div>
             <p class="text-xs text-gray-600 mt-2">Green = within 5% of config. Amber = &gt;5% deviation (tilt, table dynamics, variance).</p>
           </div>
+          <div class="mt-4">
+            <button class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(sim.r, sim.dlLabel)">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download {{ sim.label }} hand history (PokerStars format)
+            </button>
+          </div>
         </section>
 
         <!-- Interesting Hands -->
@@ -279,21 +302,35 @@ const allInteresting = computed(() => {
         <!-- PokerStars Format Info -->
         <section class="mb-10">
           <h2 class="text-xl font-bold text-white mb-4">PokerStars Hand History Format</h2>
-          <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm text-gray-300">
-            <p>All hands export in <strong class="text-white">PokerStars format</strong> &mdash; the industry standard, compatible with PokerTracker 4, Hold'em Manager 3, and Equilab.</p>
-            <p class="text-xs text-gray-500 mt-2">
-              A pre-generated sample is available at
-              <a href="/sample-hands.txt" class="text-blue-400 hover:text-blue-300 underline underline-offset-2" download>/sample-hands.txt</a>.
-            </p>
+          <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm text-gray-300 space-y-3">
+            <p>All hands export in <strong class="text-white">PokerStars format</strong> &mdash; the industry standard. Compatible with PokerTracker 4, Hold'em Manager 3, and Equilab.</p>
+            <div class="flex flex-wrap gap-3 mt-2">
+              <button v-if="result2p" class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(result2p, '2p-headsup')">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Heads-Up (1,000 hands)
+              </button>
+              <button v-if="result6p" class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(result6p, '6p')">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                6-Player (1,000 hands)
+              </button>
+              <button v-if="result8p" class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(result8p, '8p')">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                8-Player (1,000 hands)
+              </button>
+              <button class="text-xs text-green-400 hover:text-green-300 transition-colors flex items-center gap-1 font-semibold" @click="downloadAllHandHistory">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                All 3,000 hands
+              </button>
+            </div>
           </div>
         </section>
       </template>
 
       <!-- Empty state -->
       <div v-if="!result6p && !running" class="text-center py-20 text-gray-600">
-        <p class="text-lg mb-2">Click the button above to run a 2,000-hand simulation</p>
-        <p class="text-sm">1,000 hands at a 6-player table + 1,000 hands at an 8-player table.</p>
-        <p class="text-sm mt-1">Pro personas only. Results include observed vs configured stats and the most interesting hands.</p>
+        <p class="text-lg mb-2">Click the button above to run a 3,000-hand simulation</p>
+        <p class="text-sm">1,000 hands each at heads-up (2-player), 6-player, and 8-player tables.</p>
+        <p class="text-sm mt-1">Pro personas only. Results include observed vs configured stats, most interesting hands, and downloadable hand histories.</p>
       </div>
 
       <footer class="border-t border-gray-800 pt-6 mt-10 text-center text-xs text-gray-600">
