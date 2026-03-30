@@ -260,6 +260,10 @@ function formatProfit(n: number): string {
 }
 
 const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Big', 6: 'Nosebleed' }
+
+function boardCards(board: string): string[] {
+  return board.split(' ').filter(Boolean)
+}
 </script>
 
 <template>
@@ -664,31 +668,56 @@ const stakeNames: Record<number, string> = { 1: 'Micro', 2: 'Low', 3: 'Medium', 
                   <!-- Expanded hand detail -->
                   <tr v-if="expandedHand === h.id">
                     <td colspan="8" class="px-4 py-3 bg-gray-800/30">
-                      <div class="space-y-3">
-                        <!-- Hand summary -->
-                        <div class="flex items-center gap-4 text-sm">
-                          <div>
-                            <span class="text-gray-500 text-xs">Hole Cards</span>
-                            <div class="text-white font-mono text-lg">{{ h.hole_cards }}</div>
-                          </div>
-                          <div v-if="h.board">
-                            <span class="text-gray-500 text-xs">Board</span>
-                            <div class="text-gray-300 font-mono text-lg">{{ h.board }}</div>
-                          </div>
-                          <div>
-                            <span class="text-gray-500 text-xs">Position</span>
-                            <div class="text-gray-300">{{ h.position }}</div>
-                          </div>
-                          <div>
-                            <span class="text-gray-500 text-xs">Pot</span>
-                            <div class="text-yellow-400 font-mono">${{ h.pot_size }}</div>
-                          </div>
-                          <div>
-                            <span class="text-gray-500 text-xs">Result</span>
-                            <div :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold">
+                      <div class="space-y-4">
+                        <!-- Result banner -->
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center gap-3">
+                            <span
+                              class="px-3 py-1 rounded-lg text-sm font-bold"
+                              :class="{
+                                'bg-green-600/30 text-green-400': h.result === 'won',
+                                'bg-red-600/20 text-red-400': h.result === 'lost',
+                                'bg-gray-700/50 text-gray-400': h.result === 'folded',
+                              }"
+                            >
+                              {{ h.result === 'won' ? 'WON' : h.result === 'lost' ? 'LOST' : 'FOLDED' }}
+                            </span>
+                            <span :class="h.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-mono font-bold text-lg">
                               {{ formatProfit(h.profit) }}
+                            </span>
+                          </div>
+                          <div class="text-xs text-gray-500">
+                            Pot: <span class="text-yellow-400 font-mono">${{ h.pot_size }}</span>
+                            &middot; Position: <span class="text-gray-300">{{ h.position }}</span>
+                          </div>
+                        </div>
+
+                        <!-- Hero's hole cards -->
+                        <div class="bg-gray-900/60 rounded-lg p-3">
+                          <div class="text-xs text-gray-500 mb-1">Your Hand</div>
+                          <div class="text-xl font-mono font-bold text-white">{{ h.hole_cards }}</div>
+                        </div>
+
+                        <!-- Board with street labels -->
+                        <div v-if="h.board" class="bg-gray-900/60 rounded-lg p-3">
+                          <div class="text-xs text-gray-500 mb-2">Board</div>
+                          <div class="flex items-center gap-3">
+                            <div v-if="boardCards(h.board).length >= 3">
+                              <div class="text-[0.6rem] text-yellow-500/70 uppercase mb-0.5">Flop</div>
+                              <div class="text-lg font-mono text-white">{{ boardCards(h.board).slice(0, 3).join(' ') }}</div>
+                            </div>
+                            <div v-if="boardCards(h.board).length >= 4" class="border-l border-gray-700/50 pl-3">
+                              <div class="text-[0.6rem] text-yellow-500/70 uppercase mb-0.5">Turn</div>
+                              <div class="text-lg font-mono text-white">{{ boardCards(h.board)[3] }}</div>
+                            </div>
+                            <div v-if="boardCards(h.board).length >= 5" class="border-l border-gray-700/50 pl-3">
+                              <div class="text-[0.6rem] text-yellow-500/70 uppercase mb-0.5">River</div>
+                              <div class="text-lg font-mono text-white">{{ boardCards(h.board)[4] }}</div>
                             </div>
                           </div>
+                        </div>
+                        <div v-else class="bg-gray-900/60 rounded-lg p-3">
+                          <div class="text-xs text-gray-500">No community cards dealt — hand ended preflop</div>
                         </div>
 
                         <!-- All players' cards -->
