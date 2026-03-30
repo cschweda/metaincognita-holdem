@@ -1154,7 +1154,7 @@ export function useCommentary(gs: GS) {
       if (pl?.holeCards) {
         const community = gs.visibleCommunity.value
         if (community.length >= 3) {
-          const hands = activePl().filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
+          const hands = activePl().filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.score[0] - a.result!.score[0])
           if (hands.length > 0 && hands[0].player.name === name) {
             addTV(`${name} just calls with the best hand.`, 'action', 'lon')
             addTV(normanCallQuips.pick(), 'action', 'norman') // always comment on slow-plays
@@ -1499,7 +1499,7 @@ export function useCommentary(gs: GS) {
         else if (r < 0.7) addTV(pick(normanBoardQuips.riverBrick), 'street', 'norman')
         else addTV(normanRandomBanter.pick(), 'aside', 'norman')
       }
-      const hands = players.filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
+      const hands = players.filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.score[0] - a.result!.score[0])
       if (hands.length >= 2) {
         const best = hands[0]
         const second = hands[1]
@@ -1507,7 +1507,7 @@ export function useCommentary(gs: GS) {
           addTV(`${best.player.isHero ? 'Hero' : best.player.name} has ${HAND_RANK_NAMES[best.result!.rank]}.`, 'street', 'lon')
           addTV(normanStreetHitQuips.pick(), 'street', 'norman')
         }
-        if (best.result!.rank === second.result!.rank && best.result!.values[0] === second.result!.values[0]) {
+        if (best.result!.rank === second.result!.rank && best.result!.score[0] === second.result!.score[0]) {
           addTV(normanGenericQuips.pick(), 'street', 'norman')
         }
       }
@@ -1547,7 +1547,7 @@ export function useCommentary(gs: GS) {
     const ap = activePl()
     const community = gs.visibleCommunity.value
     if (community.length >= 5 && ap.length >= 2) {
-      const hands = ap.filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.values[0] - a.result!.values[0])
+      const hands = ap.filter(p => p.holeCards).map(p => ({ player: p, result: bestHand(Array.from(p.holeCards!), community) })).filter(h => h.result).sort((a, b) => b.result!.rank - a.result!.rank || b.result!.score[0] - a.result!.score[0])
       if (hands.length >= 2 && hands[0].result!.rank >= HAND_RANKS.FLUSH && hands[1].result!.rank >= HAND_RANKS.STRAIGHT) {
         addTV(`${HAND_RANK_NAMES[hands[0].result!.rank]} over ${HAND_RANK_NAMES[hands[1].result!.rank]}.`, 'showdown', 'lon')
         addTV(normanCoolerQuips.pick(), 'showdown', 'norman')
