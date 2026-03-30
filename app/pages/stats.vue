@@ -103,24 +103,46 @@ const confirmingDeleteSession = ref<string | null>(null)
 
 async function deleteAllData() {
   const sb = useSupabase()
-  if (!sb || !userId.value) return
 
-  await sb.from('hands').delete().eq('user_id', userId.value)
-  await sb.from('sessions').delete().eq('user_id', userId.value)
+  // Delete from Supabase
+  if (sb && userId.value) {
+    const { error: handsErr } = await sb.from('hands').delete().eq('user_id', userId.value)
+    if (handsErr) console.warn('Failed to delete hands:', handsErr.message)
+    const { error: sessErr } = await sb.from('sessions').delete().eq('user_id', userId.value)
+    if (sessErr) console.warn('Failed to delete sessions:', sessErr.message)
+  }
+
+  // Clear ALL localStorage poker data
   localStorage.removeItem('holdem-session-stats')
+
+  // Clear local state
   sessions.value = []
   hands.value = []
+  localSession.value = null
   confirmingDeleteAll.value = false
 }
 
 async function deleteSession(sessionId: string) {
   const sb = useSupabase()
-  if (!sb || !userId.value) return
 
-  await sb.from('hands').delete().eq('session_id', sessionId)
-  await sb.from('sessions').delete().eq('id', sessionId)
+  // Delete from Supabase
+  if (sb && userId.value) {
+    const { error: handsErr } = await sb.from('hands').delete().eq('session_id', sessionId)
+    if (handsErr) console.warn('Failed to delete session hands:', handsErr.message)
+    const { error: sessErr } = await sb.from('sessions').delete().eq('id', sessionId)
+    if (sessErr) console.warn('Failed to delete session:', sessErr.message)
+  }
+
+  // Update local state
   sessions.value = sessions.value.filter(s => s.id !== sessionId)
   hands.value = hands.value.filter(h => h.session_id !== sessionId)
+
+  // If this was the current localStorage session, clear it too
+  if (localSession.value?.id === sessionId) {
+    localStorage.removeItem('holdem-session-stats')
+    localSession.value = null
+  }
+
   confirmingDeleteSession.value = null
 }
 
