@@ -129,9 +129,9 @@ function formatAmount(n: number): string {
       <!-- Fold: instant action with 2s undo window -->
       <UTooltip :text="foldPending ? 'Click to cancel — folding in 2s' : 'Surrender your hand'" class="flex-1">
         <button
-          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all active:scale-[0.97] relative overflow-hidden"
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all duration-[2000ms] active:scale-[0.97] relative overflow-hidden"
           :class="foldPending
-            ? 'bg-amber-700/80 text-amber-100 border-2 border-amber-400'
+            ? (foldCountdown ? 'bg-amber-800/70 text-amber-200 border-2 border-amber-500/60' : 'bg-amber-700/80 text-amber-100 border-2 border-amber-400')
             : 'bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40'"
           @click="foldPending ? cancelFold() : handleFold()"
         >
