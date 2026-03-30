@@ -14,6 +14,99 @@ export interface BotProfile {
   creativeFreq: number // 0.01–0.15 — probability of unorthodox plays
 }
 
+// ─── Tilt System ───────────────────────────────────────────────
+
+export interface TiltState {
+  consecutiveLosses: number  // running count of losses in a row
+  tilted: boolean            // currently in tilt
+  severity: number           // 0 = none, 0.5 = mild, 1.0 = full
+  handsRemaining: number     // hands until tilt decays to 0
+}
+
+export function createTiltState(): TiltState {
+  return { consecutiveLosses: 0, tilted: false, severity: 0, handsRemaining: 0 }
+}
+
+/**
+ * Call after each hand with the result. Updates tilt state.
+ */
+export function updateTilt(
+  state: TiltState,
+  won: boolean,
+  lostBigPot: boolean,
+  config: {
+    consecutiveLosses: number
+    bigLossThreshold: number
+    mildTiltThreshold: number
+    fullTiltThreshold: number
+    decayHands: [number, number]
+  },
+): void {
+  if (won) {
+    // Winning resets consecutive loss count (but doesn't instantly cure tilt)
+    state.consecutiveLosses = 0
+    return
+  }
+
+  // Lost this hand
+  state.consecutiveLosses++
+
+  // Check triggers
+  const shouldTilt =
+    lostBigPot ||
+    state.consecutiveLosses >= config.consecutiveLosses
+
+  if (shouldTilt && !state.tilted) {
+    state.tilted = true
+    const [min, max] = config.decayHands
+    state.handsRemaining = min + Math.floor(Math.random() * (max - min + 1))
+  }
+
+  // Scale severity
+  if (state.tilted) {
+    if (lostBigPot || state.consecutiveLosses >= config.fullTiltThreshold) {
+      state.severity = 1.0
+    } else if (state.consecutiveLosses >= config.mildTiltThreshold) {
+      state.severity = 0.5
+    }
+    // Extend tilt if losses keep coming
+    if (state.consecutiveLosses > config.fullTiltThreshold) {
+      state.handsRemaining = Math.max(state.handsRemaining, 3)
+    }
+  }
+}
+
+/**
+ * Call at the start of each hand to decay tilt.
+ */
+export function decayTilt(state: TiltState): void {
+  if (!state.tilted) return
+  state.handsRemaining--
+  if (state.handsRemaining <= 0) {
+    state.tilted = false
+    state.severity = 0
+  }
+}
+
+/**
+ * Returns a tilt-modified profile. The base profile is not mutated.
+ */
+export function applyTilt(
+  base: BotProfile,
+  tilt: TiltState,
+  boosts: { aggressionBoost: number; vpipWiden: number; bluffBoost: number; pfrBoost: number },
+): BotProfile {
+  if (!tilt.tilted) return base
+  const s = tilt.severity
+  return {
+    vpip: Math.min(base.vpip + boosts.vpipWiden * s, 0.60),
+    pfr: Math.min(base.pfr + boosts.pfrBoost * s, 0.50),
+    aggression: Math.min(base.aggression + boosts.aggressionBoost * s, 2.5),
+    bluffFreq: Math.min(base.bluffFreq + boosts.bluffBoost * s, 0.40),
+    creativeFreq: Math.min(base.creativeFreq + 0.03 * s, 0.20),
+  }
+}
+
 export interface DecisionContext {
   street: 'preflop' | 'flop' | 'turn' | 'river'
   toCall: number       // amount needed to call (0 = no bet facing)

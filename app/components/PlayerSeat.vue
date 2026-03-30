@@ -19,6 +19,8 @@ const props = withDefaults(defineProps<{
   peekable?: boolean
   lastAction?: string | null
   currentBetAmount?: number
+  tilted?: boolean
+  tiltSeverity?: number
 }>(), {
   holeCards: null,
   showCards: false,
@@ -30,6 +32,8 @@ const props = withDefaults(defineProps<{
   peekable: false,
   lastAction: null,
   currentBetAmount: 0,
+  tilted: false,
+  tiltSeverity: 0,
 })
 
 const peeking = ref(false)
@@ -109,6 +113,15 @@ const actionBadge = computed(() => {
       <span class="text-xs text-red-400/60 uppercase tracking-wide font-semibold">Folded</span>
     </div>
 
+    <!-- Tilt indicator -->
+    <div
+      v-if="tilted && !folded"
+      class="text-[0.55rem] font-bold uppercase tracking-wider"
+      :class="tiltSeverity >= 0.8 ? 'text-red-400 animate-pulse' : 'text-orange-400'"
+    >
+      {{ tiltSeverity >= 0.8 ? 'FULL TILT' : 'TILTED' }}
+    </div>
+
     <!-- Nameplate -->
     <div
       class="rounded-lg px-3 py-1.5 text-center min-w-24 border shadow-lg transition-all duration-300"
@@ -120,6 +133,7 @@ const actionBadge = computed(() => {
           ? 'ring-2 ring-green-400/70 shadow-green-400/30 scale-105'
           : '',
         folded ? 'border-red-900/30' : '',
+        tilted && !folded ? 'border-red-500/40 shadow-red-500/10' : '',
       ]"
     >
       <div class="flex items-center justify-center gap-1.5">

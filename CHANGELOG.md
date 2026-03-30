@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-29
+
+Tilt system — bots go on tilt after consecutive losses or big pot losses.
+
+### Added
+
+#### Tilt System (`app/utils/botDecision.ts`)
+- **Consecutive loss trigger**: After N losses in a row (default 3, configurable), bot enters tilt
+- **Big pot loss trigger**: Losing >30% of stack in a single hand triggers immediate full tilt
+- **Severity scaling**: Mild tilt (3 losses, 50% boosts) and full tilt (5+ losses or big loss, 100% boosts)
+- **Tilt effects** (additive modifiers to base profile):
+  - VPIP widens by up to 8% (plays more junk hands, even from UTG)
+  - PFR increases by up to 4% (raises looser preflop)
+  - Aggression boost of 0.3 (bets and raises more postflop)
+  - Bluff frequency increases by 6% (more reckless bluffs)
+  - Creative frequency increases slightly (more unorthodox plays)
+- **Decay**: Tilt lasts 3-6 hands (configurable, random), then clears
+- **Win reset**: Winning resets consecutive loss count but doesn't instantly cure active tilt
+- **Safety caps**: VPIP capped at 60%, aggression at 2.5, bluffFreq at 40%
+- **Visual indicator**: "TILTED" (orange) or "FULL TILT" (red, pulsing) badge on player seat, red-tinted nameplate border
+
+#### Tilt Configuration (`holdem.config.ts`)
+- `tilt.consecutiveLosses`: Number of losses to trigger (default 3)
+- `tilt.bigLossThreshold`: Fraction of stack lost to trigger (default 0.30)
+- `tilt.mildTiltThreshold` / `tilt.fullTiltThreshold`: Severity breakpoints
+- `tilt.aggressionBoost`, `tilt.vpipWiden`, `tilt.bluffBoost`, `tilt.pfrBoost`: Effect magnitudes
+- `tilt.decayHands`: Duration range [min, max]
+
+#### Tilt Tests (26 new tests in `phase4-tilt.test.ts`)
+- Trigger conditions: consecutive losses, big pot loss, configurable threshold
+- Severity: mild vs full, escalation with continued losses
+- Decay: per-hand countdown, clears at 0, duration within configured range
+- Profile modification: VPIP/PFR/aggression/bluff all increase, caps enforced
+- Behavioral impact (100K-hand simulations): tilted Tony has higher VPIP, more bluffs, more raises than base; mild tilt < full tilt effect; even Solid Sam plays looser on full tilt
+
+### Changed
+- Tilt config expanded: added `consecutiveLosses`, `bluffBoost`, `pfrBoost`, `mildTiltThreshold`, `fullTiltThreshold` (was only `triggerThreshold` and `aggressionBoost`)
+- Bot decision engine now applies tilt modifiers before making decisions
+- `endHand()` tracks wins/losses and updates tilt state for all bots
+
 ## [0.3.1] - 2026-03-29
 
 ### Changed
@@ -231,6 +271,7 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[0.4.0]: https://github.com/cschweda/holdem-simulator/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/cschweda/holdem-simulator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cschweda/holdem-simulator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cschweda/holdem-simulator/compare/v0.1.0...v0.2.0

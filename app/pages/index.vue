@@ -8,7 +8,7 @@ import config from '@config'
 import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
-import { decideBotAction } from '~/utils/botDecision'
+import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState, type TiltState } from '~/utils/botDecision'
 
 const phase = ref<'setup' | 'table'>('setup')
 const settings = ref<GameSettings | null>(null)
@@ -25,6 +25,7 @@ interface PlayerState {
   lastAction: string | null
   currentBetAmount: number
   betThisRound: number
+  tilt: TiltState
 }
 
 const playerStates = ref<PlayerState[]>([])
@@ -122,6 +123,10 @@ function dealNewHand() {
     const isHero = i === 0
     const botConfig = !isHero ? settings.value!.botConfigs[i - 1] : null
     const prevState = playerStates.value[i]
+    // Carry over tilt state from previous hand, decay it
+    const prevTilt = prevState?.tilt || createTiltState()
+    decayTilt(prevTilt)
+
     states.push({
       id: i,
       name: isHero ? settings.value!.heroName : (botConfig?.name || `Bot ${i}`),
@@ -133,9 +138,9 @@ function dealNewHand() {
       lastAction: null,
       currentBetAmount: 0,
       betThisRound: 0,
+      tilt: prevTilt,
     })
   }
-  // Skip eliminated players' cards
   playerStates.value = states
 
   idx++ // burn
@@ -302,14 +307,20 @@ function makeBotDecision(p: PlayerState): { type: string; amount?: number } {
   const botConfig = settings.value?.botConfigs[p.id - 1]
   if (!botConfig) return { type: 'fold' }
 
+  // Base profile from config
+  const baseProfile = {
+    vpip: botConfig.vpip,
+    pfr: botConfig.pfr,
+    aggression: botConfig.aggression,
+    bluffFreq: botConfig.bluffFreq,
+    creativeFreq: botConfig.creativeFreq,
+  }
+
+  // Apply tilt modifiers (widens range, boosts aggression + bluffs)
+  const profile = applyTilt(baseProfile, p.tilt, config.tilt)
+
   return decideBotAction(
-    {
-      vpip: botConfig.vpip,
-      pfr: botConfig.pfr,
-      aggression: botConfig.aggression,
-      bluffFreq: botConfig.bluffFreq,
-      creativeFreq: botConfig.creativeFreq,
-    },
+    profile,
     {
       street: street.value as 'preflop' | 'flop' | 'turn' | 'river',
       toCall: currentBet.value - p.betThisRound,
@@ -414,13 +425,26 @@ function endHand() {
   waitingForHero.value = false
   street.value = 'showdown'
 
-  // Award pot to winner (simplified — last player standing or random at showdown)
+  // Determine winner
+  let winnerId = -1
   if (activePlayers.value.length === 1) {
+    winnerId = activePlayers.value[0].id
     activePlayers.value[0].chips += pot.value
   } else {
-    // Simplified: give pot to a random active player (real evaluator in Phase 2)
     const winner = activePlayers.value[Math.floor(Math.random() * activePlayers.value.length)]
+    winnerId = winner.id
     winner.chips += pot.value
+  }
+
+  // Update tilt state for all non-hero players
+  for (const p of playerStates.value) {
+    if (p.isHero || p.eliminated) continue
+
+    const won = p.id === winnerId
+    const chipsAtStart = startingStack.value // approximate
+    const lostBigPot = !won && !p.folded && pot.value > chipsAtStart * config.tilt.bigLossThreshold
+
+    updateTilt(p.tilt, won, lostBigPot, config.tilt)
   }
 
   // Eliminate busted players
@@ -542,6 +566,8 @@ function formatPot(n: number): string {
                 :peekable="!playerStates[seatIndex].isHero && !playerStates[seatIndex].folded"
                 :last-action="playerStates[seatIndex].lastAction"
                 :current-bet-amount="playerStates[seatIndex].currentBetAmount"
+                :tilted="playerStates[seatIndex].tilt.tilted"
+                :tilt-severity="playerStates[seatIndex].tilt.severity"
               />
             </template>
           </PokerTable>

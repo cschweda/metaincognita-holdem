@@ -147,10 +147,24 @@ export default {
 
   // ─── Tilt & Deviation ───────────────────────────────────────
   tilt: {
-    triggerThreshold: 0.30,              // loss > 30% of stack triggers tilt
-    aggressionBoost: 0.2,               // added to aggression during tilt
-    vpipWiden: 0.05,                     // VPIP widens by 5% during tilt
-    decayHands: [3, 5],                  // tilt lasts 3–5 hands (random)
+    // Trigger conditions (either can fire)
+    bigLossThreshold: 0.30,              // single loss > 30% of stack triggers tilt
+    consecutiveLosses: 3,                // N losses in a row triggers tilt (configurable)
+
+    // Tilt effects (additive modifiers to base profile)
+    aggressionBoost: 0.3,               // added to aggression while tilted
+    vpipWiden: 0.08,                     // VPIP widens by 8% while tilted
+    bluffBoost: 0.06,                    // bluffFreq increases by 6% while tilted
+    pfrBoost: 0.04,                      // PFR increases by 4% while tilted
+
+    // Tilt severity scales with trigger intensity
+    // 3 consecutive losses = mild tilt (50% of boosts)
+    // 5+ consecutive losses or big loss = full tilt (100% of boosts)
+    mildTiltThreshold: 3,                // consecutive losses for mild tilt
+    fullTiltThreshold: 5,                // consecutive losses for full tilt
+
+    // Duration
+    decayHands: [3, 6],                  // tilt lasts 3–6 hands, then decays
   },
 
   deviation: {
