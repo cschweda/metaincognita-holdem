@@ -5,6 +5,7 @@
  */
 import { useSupabase, ensureAnonSession, getCurrentUser } from './useSupabase'
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
+import { downloadFile } from '~/utils/downloadFile'
 
 export interface SessionRow {
   id: string; started_at: string; ended_at: string | null
@@ -204,12 +205,6 @@ export function useStatsData() {
 
   // ─── Export Functions ──────────────────────────────────
 
-  function downloadFile(content: string, filename: string, type: string) {
-    const blob = new Blob([content], { type })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
-    URL.revokeObjectURL(url)
-  }
 
   function exportLifetimeJSON() {
     downloadFile(JSON.stringify({ exportedAt: new Date().toISOString(), lifetime: lifetimeStats.value, winRate: winRate.value, sessionSummary: sessionSummary.value, positionStats: positionStats.value, sessions: sessions.value, hands: hands.value }, null, 2), `holdem-lifetime-${new Date().toISOString().slice(0, 10)}.json`, 'application/json')

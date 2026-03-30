@@ -242,12 +242,18 @@ const sessionMilestones = computed(() => {
 })
 
 // ─── Keyboard shortcuts ──────────────────────────────────────────
+const foldKeyConfirming = ref(false)
 function onGameKeydown(e: KeyboardEvent) {
   if (phase.value !== 'table') return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
   if (!gs.heroTurn.value) return
 
-  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); engine.handleFold() }
+  if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault()
+    // Require double-press F to fold (matches BetControls confirmation)
+    if (!foldKeyConfirming.value) { foldKeyConfirming.value = true; setTimeout(() => { foldKeyConfirming.value = false }, 2000); return }
+    foldKeyConfirming.value = false; engine.handleFold()
+  }
   else if (e.key === 'c' || e.key === 'C') {
     e.preventDefault()
     if (gs.toCall.value > 0) engine.handleCall(Math.min(gs.toCall.value, gs.maxRaise.value))
