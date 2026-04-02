@@ -77,26 +77,8 @@ function applyCustom() {
   showCustom.value = false
 }
 
-// Fold: executes immediately, brief undo window (2s) to cancel
-const foldPending = ref(false)
-const foldCountdown = ref(false)
-let foldTimer: ReturnType<typeof setTimeout> | null = null
-
 function handleFold() {
-  if (foldPending.value) return // already pending
-  foldPending.value = true
-  nextTick(() => { foldCountdown.value = true })
-  foldTimer = setTimeout(() => {
-    foldPending.value = false
-    foldCountdown.value = false
-    emit('fold')
-  }, 2000)
-}
-
-function cancelFold() {
-  if (foldTimer) clearTimeout(foldTimer)
-  foldPending.value = false
-  foldCountdown.value = false
+  emit('fold')
 }
 
 function handleCheckCall() {
@@ -126,28 +108,12 @@ function formatAmount(n: number): string {
   >
     <!-- Row 1: Main action buttons -->
     <div class="flex gap-2">
-      <!-- Fold: instant action with 2s undo window -->
-      <UTooltip :text="foldPending ? 'Click to cancel — folding in 2s' : 'Surrender your hand'" class="flex-1">
+      <UTooltip text="Surrender your hand" class="flex-1">
         <button
-          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all duration-[2000ms] active:scale-[0.97] relative overflow-hidden"
-          :class="foldPending
-            ? (foldCountdown ? 'bg-amber-800/70 text-amber-200 border-2 border-amber-500/60' : 'bg-amber-700/80 text-amber-100 border-2 border-amber-400')
-            : 'bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40'"
-          @click="foldPending ? cancelFold() : handleFold()"
+          class="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all active:scale-[0.97] bg-red-900/60 hover:bg-red-800/80 text-red-200 border border-red-700/40"
+          @click="handleFold"
         >
-          <span class="relative z-10 flex items-center justify-center gap-2">
-            <template v-if="foldPending">
-              <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.3" /><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" /></svg>
-              Cancel Fold
-            </template>
-            <template v-else>Fold</template>
-          </span>
-          <!-- Countdown bar: shrinks from full to 0 over 2s, then fold executes -->
-          <div
-            v-if="foldPending"
-            class="absolute bottom-0 left-0 h-1 bg-amber-400 transition-all ease-linear"
-            :style="{ width: foldCountdown ? '0%' : '100%', transitionDuration: '2s' }"
-          />
+          Fold
         </button>
       </UTooltip>
 
