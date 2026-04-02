@@ -169,9 +169,42 @@ export const lonShowdownAnalysis = new UniquePool([
   `A classic confrontation. Big hand versus big hand. Someone had to lose.`,
 ])
 
+export const lonBotPlayReads = new UniquePool([
+  // Surprising aggression
+  `That's an interesting line. Most players wouldn't have the nerve to fire a third barrel there — this one doesn't hesitate.`,
+  `A very creative raise. That's not a textbook play — that's pattern recognition and adjustment in real time.`,
+  `Notice that bet sizing. It's perfectly calibrated to price in the exact draws they want to keep in the hand.`,
+  `That's a polarized three-bet from a player who's been quiet all session. When they wake up, pay attention.`,
+  `Unexpected aggression on a board that doesn't favor the raiser's range. Either a sophisticated bluff or they found something.`,
+  // Board-aware observations
+  `This board is as wet as it gets — flush draws, straight draws, combo draws. And someone just bet small into it. That's a trap.`,
+  `Bone-dry board and they're still betting. On a texture this static, that usually means they've got it.`,
+  `Four to a flush on board now, and they lead out. Either they made it or they're representing it perfectly. Hard to tell.`,
+  `Two pair on a paired board. The bet sizing says "I want a call." That's value, not a bluff.`,
+  `The board just got dangerous and the betting slowed down. Smart. When the texture shifts, good players adjust.`,
+  // Mild surprises
+  `I didn't expect a check there. That board screams continuation bet — checking shows real discipline.`,
+  `A flat call with what's likely the best hand. That's deceptive. They're keeping the pot small to extract value on later streets.`,
+  `That min-raise accomplishes something subtle — it reopens the action without committing too many chips. Well played.`,
+  `They took the free card. On a draw-heavy board, that's either smart or scared. Given their history, I'll say smart.`,
+  `Smooth call in position with what has to be a strong hand. Classic slow play — and it's going to work.`,
+  // Big surprises
+  `That's a check-raise on the river. One of the most aggressive moves in poker, and the timing is perfect.`,
+  `Overbet shove on the river. That's maximum pressure — it's either the stone-cold nuts or pure air.`,
+  `A limp-reraise preflop. Old school. Dangerous. And in this spot, probably aces or kings.`,
+  `That's a donk bet into the preflop raiser. Unconventional, but on this board? It actually makes sense.`,
+  `Folding the second-best hand without seeing a showdown. That takes information and courage. Impressive read.`,
+  // Analytical
+  `The bet-to-pot ratio is exactly two-thirds. That's a mathematical bet — designed to give draws incorrect odds.`,
+  `Look at how the betting built over three streets. Small, medium, large. That's a textbook value line.`,
+  `They checked back the flop and fired the turn. The delayed c-bet is underrated — it disguises hand strength beautifully.`,
+  `That's a blocking bet on the river — small enough to prevent a bigger bet, large enough to look real. Clever.`,
+])
+
 export function resetLonPools() {
   lonBoardAnalysis.reset(); lonPlayerReads.reset(); lonPotAnalysis.reset()
   lonTiltReads.reset(); lonStreetTransition.reset(); lonShowdownAnalysis.reset()
+  lonBotPlayReads.reset()
 }
 
 // ─── Fold quips ──────────────────────────────────────────────────

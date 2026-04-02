@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-03-29
+
+### Fixed (simulation script)
+- **Bots could see future community cards in simulation** — `simulate.ts` passed all 5 community cards to bot decisions regardless of street. On the flop, bots could "see" the turn and river when evaluating hand strength and draws. Now correctly passes only visible cards per street (3 on flop, 4 on turn, 5 on river, none preflop). The live game was not affected — it deals cards incrementally. This fix significantly improves simulation accuracy: avg pots dropped ~40%, showdowns dropped ~20%, all-in hands dropped ~15%, all moving toward realistic NLH distributions.
+
+### Changed
+- **Raise-or-fold preflop opens** — Bots now open-raise with their full VPIP range. Limping eliminated, matching modern NLH strategy.
+- **Reduced cold-calling vs raises** — OOP cold-call range narrowed from 75% to 60% of VPIP; freed hands moved to 3-bets. Modern 3-bet-or-fold tendency.
+- **Increased 3-bet base frequency** — Calculation raised from `pfr × 0.35 × aggression` to `pfr × 0.45 × aggression`. Per-bot 3-bet% now 3-7%.
+- **SB 3-bet-or-fold strategy** — Small blind raises 70% of defense range (worst postflop position should rarely flat). BB raises 45% (pot-odds discount).
+- **Tilt VPIP cap** — Tilt can only widen VPIP by 50% of base (20% → max 30%). Prevents tilt-prone bots like Hill Phellmuth from becoming unrecognizable (was inflating from 20% to 30%+).
+- **Rhip Ceese aggression bump** — Config aggression increased from 1.10 to 1.25. Post-bump AF rose from 1.81 to 2.05 and he became the biggest winner across 5 simulation appearances (+$32K avg). A legendary player isn't just tight — they're selectively aggressive.
+- **Position-aware postflop aggression** — All postflop decisions now factor in whether the bot is in position (IP) or out of position (OOP):
+  - IP aggression boost (1.25x): c-bets, barrels, bluffs, and value raises all fire more often in position
+  - OOP caution factor (0.85x): betting rates reduced when out of position
+  - IP probe bets: when checked to in position, bots bet aggressively with full range (85% monsters → bluff-freq air)
+  - OOP donk bet reduction: pro bots lead into the raiser less often from OOP (leak correction)
+  - IP strong-hand raises doubled (22% × aggression, up from 12%) for value extraction
+  - IP semi-bluff raises boosted 75% (draw + fold equity combination)
+  - IP floating: call with nothing on the flop more often in position to steal later streets
+
+### Fixed
+- **Per-bot 3-bet% tracking** — `threeBetCount` was initialized but never incremented. Now detects 2nd+ preflop raise and attributes it to the correct player.
+- **Postflop AF formula** — Aggression Factor now counts bets in addition to raises/all-ins, matching the standard `(bets + raises) / calls` definition.
+
+### Added
+- **Mon bot play observations** — 24 new commentary quips where Mon comments on surprising bot plays, board-aware reads, and analytical observations during the hand.
+
 ## [0.16.1] - 2026-03-29
 
 ### Fixed

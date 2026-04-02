@@ -189,6 +189,67 @@ const potOddsVerdict = computed(() => {
   return { pass: false, text: 'Fold — odds don\'t justify' }
 })
 
+// ─── Implied Odds (estimate) ─────────────────────────────────
+// Estimates how much more you can expect to win on future streets if you hit your draw.
+// Based on: draw outs, streets remaining, opponent stack depth, and pot size.
+// This is inherently an estimate — real implied odds depend on opponent tendencies,
+// board runout, and whether opponents will pay off when you hit.
+const impliedOdds = computed(() => {
+  if (!analysis.value || !potOdds.value) return null
+  const pot = props.pot || 0
+  const toCall = props.toCall || 0
+  const stack = props.heroChips || 0
+  const street = props.street
+  if (toCall === 0 || street === 'river') return null // no implied odds on the river (no more cards)
+
+  const draws = analysis.value.draws
+  if (!draws || draws.length === 0) return null // no draws = no implied odds
+
+  const totalOuts = analysis.value.totalOuts
+  if (totalOuts === 0) return null
+
+  // Streets remaining after this one
+  const streetsLeft = street === 'preflop' ? 3 : street === 'flop' ? 2 : 1
+
+  // Probability of hitting by river (complement method)
+  const cardsUnseen = 52 - 2 - (props.community?.length || 0)
+  const missOne = (cardsUnseen - totalOuts) / cardsUnseen
+  const missAll = street === 'flop'
+    ? missOne * ((cardsUnseen - 1 - totalOuts) / (cardsUnseen - 1))
+    : missOne
+  const hitProb = 1 - missAll
+
+  // Estimate future value: how much opponents will put in on later streets
+  // Conservative: assume ~40-60% pot bet per remaining street, and opponent calls ~60% of the time
+  // This models a "typical" low-stakes scenario — pros would call less, fish would call more
+  const avgBetPerStreet = pot * 0.50
+  const callRate = 0.55
+  const futureValue = streetsLeft * avgBetPerStreet * callRate
+
+  // Cap at effective stack (can't win more than what's in play)
+  const effectiveFuture = Math.min(futureValue, stack * 0.4)
+
+  // Implied odds: (pot + future value) / call amount
+  const impliedRatio = (pot + effectiveFuture) / toCall
+  const impliedPct = (toCall / (pot + toCall + effectiveFuture)) * 100
+
+  // Does hitting the draw justify the call with implied odds?
+  const directEquity = analysis.value.equity
+  const impliedEquity = hitProb * 100
+  const directlyProfitable = directEquity >= parseFloat(potOdds.value.percentage)
+  const impliedProfitable = !directlyProfitable && impliedEquity >= impliedPct
+
+  return {
+    futureValue: Math.round(effectiveFuture),
+    impliedRatio: impliedRatio.toFixed(1),
+    impliedPct: impliedPct.toFixed(1),
+    hitProb: (hitProb * 100).toFixed(1),
+    impliedProfitable,
+    directlyProfitable,
+    streetsLeft,
+  }
+})
+
 // ─── Expected Value (EV) ──────────────────────────────────────
 const expectedValue = computed<number | null>(() => {
   if (!analysis.value) return null
@@ -477,10 +538,36 @@ function afLabel(af: number): string {
             </div>
           </div>
 
+          <!-- Implied Odds (estimate) -->
+          <div v-if="impliedOdds && !impliedOdds.directlyProfitable" class="border-t border-gray-700/50 pt-3">
+            <UTooltip text="Implied odds estimate how much more you can win on future streets if you hit your draw. This accounts for expected future bets opponents will call. Implied odds can make a -EV call profitable when you have a strong draw. This is an estimate — actual results depend on opponent tendencies and board runout.">
+              <div class="text-xs text-gray-400 mb-2 border-b border-dotted border-gray-600 cursor-help inline-block">Implied Odds <span class="text-gray-600">(est.)</span></div>
+            </UTooltip>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-gray-800/50 rounded px-2 py-1.5">
+                <div class="text-gray-500 mb-0.5">Hit by River</div>
+                <div class="font-mono tabular-nums text-base font-bold text-white">{{ impliedOdds.hitProb }}%</div>
+              </div>
+              <div class="bg-gray-800/50 rounded px-2 py-1.5">
+                <div class="text-gray-500 mb-0.5">Need (implied)</div>
+                <div class="font-mono tabular-nums text-base font-bold text-white">{{ impliedOdds.impliedPct }}%</div>
+              </div>
+            </div>
+            <div class="mt-1.5 flex items-center justify-between">
+              <span class="text-xs font-semibold"
+                :class="impliedOdds.impliedProfitable ? 'text-yellow-400' : 'text-red-400'">
+                {{ impliedOdds.impliedProfitable ? '~ Draw justifies call (implied)' : '✗ Draw doesn\'t justify even with implied' }}
+              </span>
+            </div>
+            <div class="text-[0.55rem] text-gray-600 mt-1">
+              Est. future value: ~${{ impliedOdds.futureValue }} over {{ impliedOdds.streetsLeft }} street{{ impliedOdds.streetsLeft > 1 ? 's' : '' }} · {{ impliedOdds.impliedRatio }}:1
+            </div>
+          </div>
+
           <!-- Expected Value (EV) -->
           <div v-if="expectedValue !== null" class="border-t border-gray-700/50 pt-3">
             <div class="flex items-center justify-between">
-              <UTooltip text="Expected Value — the average profit or loss of calling this bet over many hands. Positive EV (+EV) means the call is profitable long-term. Calculated as: (equity × pot) - ((1 - equity) × call amount). Fold EV is always $0.">
+              <UTooltip text="Expected Value — the average profit or loss of calling this bet over many hands. Positive EV (+EV) means the call is profitable long-term. Calculated as: (equity × (pot + call)) - call. When you win, you win the full pot including your call. Fold EV is always $0.">
                 <span class="text-xs text-gray-400 border-b border-dotted border-gray-600 cursor-help">Expected Value</span>
               </UTooltip>
               <span class="text-lg font-bold font-mono tabular-nums min-w-[4rem] text-right" :class="expectedValue >= 0 ? 'text-green-400' : 'text-red-400'">

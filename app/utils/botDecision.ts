@@ -135,9 +135,13 @@ export function applyTilt(
 ): BotProfile {
   if (!tilt.tilted) return base
   const s = tilt.severity * tiltMultiplier
+  // Cap tilt VPIP widening at +50% of base (a 20% player goes to 30% max, not 65%)
+  // This prevents tilt-prone players like Phellmuth from becoming unrecognizable
+  const maxVpip = Math.min(base.vpip * 1.5, 0.50)
+  const maxPfr = Math.min(base.pfr * 1.5, 0.40)
   return {
-    vpip: Math.min(base.vpip + boosts.vpipWiden * s, 0.65),
-    pfr: Math.min(base.pfr + boosts.pfrBoost * s, 0.55),
+    vpip: Math.min(base.vpip + boosts.vpipWiden * s, maxVpip),
+    pfr: Math.min(base.pfr + boosts.pfrBoost * s, maxPfr),
     aggression: Math.min(base.aggression + boosts.aggressionBoost * s, 3.0),
     bluffFreq: Math.min(base.bluffFreq + boosts.bluffBoost * s, 0.50),
     creativeFreq: Math.min(base.creativeFreq + 0.03 * s, 0.25),
@@ -482,24 +486,37 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   }
 
   if (toCall === 0) {
-    if (handPct < effectivePfr) {
+    // Modern poker: open-raise or fold. Limping is almost never correct.
+    // Use VPIP as the opening range (not just PFR) — if you're playing the hand, raise it.
+    // PFR/VPIP ratio should be ~0.80+ for TAGs, ~0.65+ for loose players.
+    if (handPct < effectiveVpip) {
       const raiseSize = Math.round(bb * (2.2 + profile.aggression * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize + playerBet, chips + playerBet) }
     }
     return { type: 'check' }
   }
 
-  // Completing the SB or defending the BB — modern poker defends very wide
-  // Heads-up: defend extremely wide (only 1 opponent, great pot odds)
-  // BB gets a discount; SB completes wide
+  // Completing the SB or defending the BB — modern poker: raise-heavy defense
+  // BB gets a discount so defends wider, but still 3-bets aggressively
+  // SB should mostly 3-bet or fold (worst postflop position)
   if (toCall <= bb && raiseLevel <= 1) {
     const isBB = ctx.position === 'BB'
+    const isSB = ctx.position === 'SB' || ctx.position === 'D/SB'
     const isHeadsUp = ctx.numActivePlayers <= 2
     const defenseRange = isHeadsUp
       ? Math.min(effectiveVpip * 2.5, 0.85) // heads-up: defend ~85% of hands
       : isBB ? Math.min(effectiveVpip * 1.25, 0.70) : effectiveVpip
+
+    // SB: 3-bet or fold strategy (very little flatting from worst position)
+    // BB: 3-bet strong range, flat with discount hands
+    const raiseThreshold = isSB
+      ? defenseRange * 0.70   // SB raises 70% of defense range
+      : isBB
+        ? defenseRange * 0.45 // BB raises 45% of defense range (has positional discount)
+        : effectivePfr
+
     if (handPct < defenseRange) {
-      if (handPct < effectivePfr) {
+      if (handPct < raiseThreshold) {
         const raiseSize = Math.round(currentBet * (2.5 + profile.aggression * 0.5))
         return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
       }
@@ -513,21 +530,27 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   // Bluff 3-bets: persona randomness driven (Math.random < threshold)
 
   if (raiseLevel <= 1) {
-    const reraiseFreq = profile.threeBetFreq ?? (profile.pfr * 0.35 * profile.aggression)
+    // Modern preflop defense: 3-bet or fold is dominant strategy, cold-calling is rare.
+    // 3-bet range = value (premiums) + bluffs (suited connectors, suited aces).
+    // Cold-call range is very narrow — only in position with hands too weak to 3-bet but too strong to fold.
+    const reraiseFreq = profile.threeBetFreq ?? (profile.pfr * 0.45 * profile.aggression)
     const valueFreq = reraiseFreq * 0.55   // top hands by card quality
-    // Bluff rate calibrated so total ≈ reraiseFreq: need bluffRate * callRange ≈ reraiseFreq * 0.45
     const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15)
-    // Flat call range — modern poker defends wide vs single raises
-    // In position: defend ~85% of VPIP range; out of position: ~75%
-    // Heads-up: defend much wider (only 1 opponent)
+
     const ipPositions = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO']
     const inPosition = ipPositions.includes(ctx.position ?? '')
     const isHeadsUp = ctx.numActivePlayers <= 2
-    const flatCallFreq = isHeadsUp
-      ? Math.min(effectiveVpip * 2.0, 0.75) // heads-up: call very wide
-      : effectiveVpip * (inPosition ? 0.85 : 0.75)
 
-    // Fix 1: Position-based 3-bet sizing — IP 3.0x, OOP 3.5x (matches real poker sizing)
+    // Total defense range (3-bet + cold-call) should approximate VPIP.
+    // The 3-bet range is already counted above. Cold-call fills the gap.
+    // IP defends wider than OOP. Heads-up defends widest.
+    const flatCallFreq = isHeadsUp
+      ? Math.min(effectiveVpip * 1.5, 0.65)     // heads-up: wide defense
+      : inPosition
+        ? effectiveVpip * 0.85                    // IP: defend ~85% of VPIP range
+        : effectiveVpip * 0.60                    // OOP: defend ~60% of VPIP range
+
+    // Position-based 3-bet sizing — IP 3.0x, OOP 3.5x (matches real poker sizing)
     const threeBetMult = inPosition ? 3.0 : 3.5
 
     // Value 3-bet with premium hands
@@ -715,6 +738,12 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   // ─── Card-aware postflop logic with street awareness ──
 
+  // Position awareness — acting last is the biggest postflop advantage
+  const ipPositionsPost = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO']
+  const isInPosition = ipPositionsPost.includes(ctx.position ?? '')
+  // IP multiplier: bet/raise more in position, check/call more OOP
+  const ipAggBoost = isInPosition ? 1.25 : 0.85
+
   // SPR (stack-to-pot ratio) — affects commitment decisions
   const effectiveStack = chips + playerBet
   const spr = pot > 0 ? effectiveStack / pot : 10
@@ -782,7 +811,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const cbetRate = (hasStrongHand ? (board?.isDry ? 0.85 : board?.isWet ? 0.55 : 0.65)
         : hasDraw ? 0.50 + profile.aggression * 0.10
         : hasWeakMade ? (board?.isDry ? 0.40 : 0.25)
-        : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod
+        : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod * ipAggBoost
       if (Math.random() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
@@ -821,7 +850,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : hasStrongHand ? 0.70
         : hasDraw ? 0.45 + profile.aggression * 0.10
         : hasNothing ? profile.bluffFreq * 0.5 * profile.aggression
-        : 0.25) * turnTexture * turnMulti
+        : 0.25) * turnTexture * turnMulti * ipAggBoost
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.50 + profile.aggression * 0.15 + Math.random() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
@@ -851,8 +880,9 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : 1.0
       // River polarization: only bet monsters (value) and air (bluffs).
       // Medium-strength hands check to avoid value-owning themselves.
+      // IP bluffs more on the river (last to act = maximum fold equity information)
       const barrelRate = hasMonster ? 0.85
-        : hasNothing ? profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost
+        : hasNothing ? profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost * ipAggBoost
         : 0  // strong hands and weak made hands CHECK the river (polarization)
       if (Math.random() < barrelRate) {
         const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
@@ -874,48 +904,67 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' } // medium hands check the river
     }
 
-    // Not the preflop raiser — lead (donk bet) on boards where we have range advantage
+    // Not the preflop raiser — position determines whether to lead (OOP donk) or probe (IP)
     const callerRangeAdv = board ? rangeAdvantage(board, false) : 1.0
     const donkFreq = profile.donkBetFreq ?? 0
 
+    // IP probe bet: when checked to us in position, bet aggressively
+    // This is one of the most profitable spots in poker — information + fold equity
+    if (isInPosition) {
+      const probeBase = hasMonster ? 0.85
+        : hasStrongHand ? 0.55 + profile.aggression * 0.15
+        : hasDraw ? 0.40 + profile.aggression * 0.15
+        : hasWeakMade ? 0.25 + profile.aggression * 0.10
+        : profile.bluffFreq * profile.aggression * 0.40
+      const probeTexture = callerRangeAdv
+        * (board?.isDry ? 1.20 : 1.0)     // dry boards = more fold equity
+        * (board?.isAceHigh ? 1.15 : 1.0) // represent the ace
+        * (board?.isWet ? 0.85 : 1.0)     // wet = opponent has more draws
+        * (oppPassive ? 1.25 : 1.0)       // passive opponents fold more
+      if (Math.random() < probeBase * probeTexture) {
+        const sizeMult = board?.isWet ? 0.55 : board?.isDry ? 0.35 : 0.45
+        const betSize = Math.round(pot * (sizeMult + profile.aggression * 0.12 + Math.random() * 0.12))
+        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+      }
+      return { type: 'check' }
+    }
+
+    // OOP lead (donk bet) — should be rare for pros, more frequent for fictional bots
     // Donk bet with strong hands — non-pro players lead into the raiser frequently
     if (hasStrongHand) {
       const leadRate = donkFreq > 0
         ? donkFreq + profile.aggression * 0.15 // fictional: use their donk freq
-        : (0.25 + profile.aggression * 0.25) * callerRangeAdv // pro: texture-based
+        : (0.15 + profile.aggression * 0.15) * callerRangeAdv // pro: rare, texture-based
       if (Math.random() < leadRate) {
         const betSize = Math.round(pot * (0.45 + profile.aggression * 0.15 + Math.random() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
       }
     }
 
-    // Donk bet with draws (semi-bluff lead)
+    // Donk bet with draws (semi-bluff lead) — OOP only
     if (hasDraw) {
       const drawLeadRate = donkFreq > 0
-        ? donkFreq * 0.7 // fictional: lead with draws at ~70% of their donk rate
-        : (profile.bluffFreq + profile.aggression * 0.10) * callerRangeAdv // pro: texture-based
+        ? donkFreq * 0.7
+        : (profile.bluffFreq + profile.aggression * 0.08) * callerRangeAdv
       if (Math.random() < drawLeadRate) {
         const betSize = Math.round(pot * (0.40 + Math.random() * 0.20))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
       }
     }
 
-    // Probe bet / donk bet with air — board-texture-aware
-    // Fictional bots donk with air at their donkBetFreq; pros use texture reads.
+    // OOP probe/donk with air — reduced vs IP version
     {
       const probeRate = donkFreq > 0
-        ? donkFreq * 0.4 // fictional: donk bluff at ~40% of their donk rate
-        : profile.bluffFreq * profile.aggression * 0.25
-          * (board?.isAceHigh ? 1.5 : 1.0)   // represent the ace
-          * (board?.isDry ? 1.4 : 1.0)        // dry = more fold equity
-          * (board?.isLow ? 1.2 : 1.0)        // low boards with overcards = represent overpair
-          // Passive table: more fold equity on flop/turn, but DON'T bluff river
+        ? donkFreq * 0.4
+        : profile.bluffFreq * profile.aggression * 0.18
+          * (board?.isAceHigh ? 1.5 : 1.0)
+          * (board?.isDry ? 1.4 : 1.0)
+          * (board?.isLow ? 1.2 : 1.0)
           * (oppPassive ? (ctx.street === 'river' ? 0.5 : 1.3) : 1.0)
       if (hasNothing && Math.random() < probeRate) {
         const bluffSize = Math.round(pot * (0.33 + Math.random() * 0.22))
         return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
       }
-      // Also probe with weak made hands on scary boards (represent strength)
       if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && Math.random() < probeRate * 0.8) {
         const betSize = Math.round(pot * (0.30 + Math.random() * 0.20))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
@@ -978,7 +1027,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   // Monster hands — raise for value (very likely if check-raising on dry board)
   if (hasMonster) {
-    const monsterRaiseRate = 0.15 + profile.aggression * 0.25 + checkRaiseBoost
+    const monsterRaiseRate = (0.20 + profile.aggression * 0.30 + checkRaiseBoost) * ipAggBoost
     // Shallow SPR: just shove with monsters
     if (isShallowSPR && chips <= pot * 1.5) {
       return { type: 'raise', amount: chips + playerBet }
@@ -989,14 +1038,16 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     }
   }
 
-  // Strong hands — check-raise for balance, or call/raise normally
+  // Strong hands — raise more often (especially IP), check-raise OOP for balance
   if (hasStrongHand) {
-    // Check-raise with strong hands — texture-aware frequency
+    // Check-raise with strong hands OOP — texture-aware frequency
     if (ctx.checkedThisStreet && Math.random() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * (2.5 + Math.random() * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    if (Math.random() < profile.aggression * 0.12 && chips > currentBet * 2.5) {
+    // IP raises strong hands more — extract value with position advantage
+    const strongRaiseRate = profile.aggression * (isInPosition ? 0.22 : 0.12)
+    if (Math.random() < strongRaiseRate && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * (2.0 + profile.aggression * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
@@ -1007,9 +1058,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     return { type: 'call' }
   }
 
-  // Draws — only on flop/turn (no draws on river), need pot odds
+  // Draws — semi-bluff raise more often in position (fold equity + draw equity)
   if (hasDraw && ctx.street !== 'river') {
-    if (Math.random() < profile.bluffFreq * profile.aggression * 0.5 && chips > currentBet * 2) {
+    // IP semi-bluff is one of the most profitable plays in poker
+    const semiBluffRate = profile.bluffFreq * profile.aggression * (isInPosition ? 0.75 : 0.40)
+    if (Math.random() < semiBluffRate && chips > currentBet * 2) {
       const raiseSize = Math.round(currentBet * (2.2 + Math.random() * 0.8))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
@@ -1029,16 +1082,22 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   }
 
   // Nothing — mostly fold. Rare bluff raise, very rare float.
+  // IP bluff-raises are more credible (acting last). OOP bluff-raises are rare.
   // River bluff fix: DON'T bluff into passive opponents on the river — their river bets are real
   const riverBluffPenalty = (ctx.street === 'river' && oppPassive) ? 0.3 : 1.0
-  if (Math.random() < profile.bluffFreq * 0.15 * profile.aggression * riverBluffPenalty && chips > currentBet * 2) {
+  if (Math.random() < profile.bluffFreq * (isInPosition ? 0.25 : 0.12) * profile.aggression * riverBluffPenalty && chips > currentBet * 2) {
     const raiseSize = Math.round(currentBet * (2.5 + Math.random()))
     return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
   }
 
-  // Float only tiny bets on the flop (not on river — river floats are -EV)
-  if (ctx.street === 'flop' && betToPotRatio < 0.3 && Math.random() < profile.vpip * 0.25) {
-    return { type: 'call' }
+  // Float: call with nothing to steal on later streets
+  // IP floats are much more profitable (can bet when checked to on turn/river)
+  // OOP floats are rare and only vs tiny bets
+  if (ctx.street === 'flop') {
+    const floatRate = isInPosition
+      ? betToPotRatio < 0.5 ? profile.vpip * 0.35 : profile.vpip * 0.15
+      : betToPotRatio < 0.3 ? profile.vpip * 0.15 : 0
+    if (Math.random() < floatRate) return { type: 'call' }
   }
 
   // MDF defense even with air — sometimes must defend to stay unexploitable

@@ -19,7 +19,7 @@ import {
   normanSelfAwareQuips, normanSliderUpQuips, normanSliderDownQuips,
   normanPersonaQuip, resetAllQuipPools,
   lonBoardAnalysis, lonPlayerReads, lonPotAnalysis, lonTiltReads,
-  lonStreetTransition, lonShowdownAnalysis, resetLonPools,
+  lonStreetTransition, lonShowdownAnalysis, lonBotPlayReads, resetLonPools,
   normanBanterAfterMon, lonReactsToNorman, normanBotAwarenessExtra,
   lonFoldAssessment, normanFoldReactionQuips,
   lonChipObservation, normanChipQuips,
@@ -541,8 +541,10 @@ export function useCommentary(gs: GS) {
         }
       } else {
         addTV(`${name} makes it $${amount}.`, 'action', 'lon')
-        // Mon occasionally adds a player read or pot analysis
-        if (lonWantsToAnalyze() && Math.random() < 0.3) addTV(lonPlayerReads.pick(), 'action', 'lon')
+        // Mon occasionally adds a player read, pot analysis, or bot play observation
+        if (lonWantsToAnalyze() && Math.random() < 0.3) {
+          addTV(Math.random() < 0.35 ? lonBotPlayReads.pick() : lonPlayerReads.pick(), 'action', 'lon')
+        }
         if (normanFeelsLikeIt()) {
           tryStrategicNorman(
             () => normanRaiseQuips.pick(), 'action',
@@ -681,6 +683,8 @@ export function useCommentary(gs: GS) {
       let monSpokeOnFlop = false
       if (lonWantsToAnalyze()) {
         addTV(lonBoardAnalysis.pick(), 'street', 'lon')
+        // ~20% chance Mon follows up with a bot play observation on interesting boards
+        if (Math.random() < 0.20) addTV(lonBotPlayReads.pick(), 'street', 'lon')
         monSpokeOnFlop = true
       }
 
@@ -828,7 +832,10 @@ export function useCommentary(gs: GS) {
 
       addTV(`Turn: ${turnCard}.`, 'street', 'lon')
       let monSpokeOnTurn = false
-      if (lonWantsToAnalyze() && Math.random() < 0.4) { addTV(lonStreetTransition.pick(), 'street', 'lon'); monSpokeOnTurn = true }
+      if (lonWantsToAnalyze() && Math.random() < 0.4) {
+        addTV(Math.random() < 0.25 ? lonBotPlayReads.pick() : lonStreetTransition.pick(), 'street', 'lon')
+        monSpokeOnTurn = true
+      }
       // Turn board texture quip
       {
         const turnC = community[3]

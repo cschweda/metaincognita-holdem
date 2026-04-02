@@ -251,7 +251,10 @@ function simulateHand(
           raiseLevel,
           position: positions[p.id] || '',
           holeCards: p.holeCards ?? undefined,
-          community: community,
+          community: street === 'preflop' ? []
+            : street === 'flop' ? community.slice(0, 3)
+            : street === 'turn' ? community.slice(0, 4)
+            : community,
           wasPreflopRaiser: p.id === preflopRaiserId,
           preflopCallers: preflopCallerCount,
           checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
@@ -558,11 +561,19 @@ for (let h = 1; h <= NUM_HANDS; h++) {
     if (raised || called) bs.vpipCount++
     if (raised) bs.pfrCount++
 
+    // 3-bet tracking: count if this player made the 2nd+ raise in preflop
+    if (raised) {
+      const allPreflopRaises = preflopActions.filter(a => (a.includes('raises to') || a.includes('ALL-IN')) && !a.startsWith('---'))
+      const playerFirstRaise = allPreflopRaises.findIndex(a => a.startsWith(namePrefix))
+      // If there was already a raise before this player's raise, it's a 3-bet+
+      if (playerFirstRaise >= 1) bs.threeBetCount++
+    }
+
     if (!p.folded && flopIdx >= 0) bs.flopsSeen++
 
-    // Postflop actions
+    // Postflop actions — AF = (bets + raises) / calls
     const playerPostflop = postflopActions.filter(a => a.startsWith(namePrefix))
-    bs.postflopBets += playerPostflop.filter(a => a.includes('raises') || a.includes('ALL-IN')).length
+    bs.postflopBets += playerPostflop.filter(a => a.includes('raises') || a.includes('ALL-IN') || a.includes('bets')).length
     bs.postflopCalls += playerPostflop.filter(a => a.includes('calls')).length
     bs.postflopFolds += playerPostflop.filter(a => a.includes('folds')).length
   }
