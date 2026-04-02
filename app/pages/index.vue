@@ -242,8 +242,6 @@ const sessionMilestones = computed(() => {
 })
 
 // ─── Keyboard shortcuts ──────────────────────────────────────────
-let foldKeyTimer: ReturnType<typeof setTimeout> | null = null
-const foldKeyPending = ref(false)
 function onGameKeydown(e: KeyboardEvent) {
   if (phase.value !== 'table') return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -251,15 +249,7 @@ function onGameKeydown(e: KeyboardEvent) {
 
   if (e.key === 'f' || e.key === 'F') {
     e.preventDefault()
-    if (foldKeyPending.value) {
-      // Second F press = cancel the fold
-      if (foldKeyTimer) clearTimeout(foldKeyTimer)
-      foldKeyPending.value = false
-      return
-    }
-    // First F press = queue fold with 2s undo window
-    foldKeyPending.value = true
-    foldKeyTimer = setTimeout(() => { foldKeyPending.value = false; engine.handleFold() }, 2000)
+    engine.handleFold()
   }
   else if (e.key === 'c' || e.key === 'C') {
     e.preventDefault()
