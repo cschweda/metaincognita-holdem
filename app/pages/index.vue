@@ -94,6 +94,20 @@ const opponentStats = computed(() => {
   }))
 })
 
+// Showdown players — all non-folded players with cards and hand descriptions
+const showdownPlayers = computed(() => {
+  if (gs.street.value !== 'showdown') return []
+  return gs.playerStates.value
+    .filter(p => !p.folded && !p.eliminated && p.holeCards)
+    .map(p => ({
+      name: p.isHero ? 'Hero' : p.name,
+      cards: p.holeCards!.map(c => displayCard(c)).join(' '),
+      hand: gs.visibleCommunity.value.length >= 3 ? describeHand(p.holeCards!, gs.visibleCommunity.value) : '',
+      isHero: p.isHero,
+      isWinner: p.name === gs.handWinnerName.value || (p.isHero && gs.heroWonHand.value),
+    }))
+})
+
 const queuedAction = ref<string | null>(null)
 
 // ─── Bot Profile Modal ────────────────────────────────────────
@@ -876,6 +890,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           :winner-name="gs.handWinnerName.value"
           :winner-cards="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards ? gs.playerStates.value[gs.handWinnerId.value].holeCards!.map(c => displayCard(c)).join(' ') : ''"
           :winner-hand="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards && gs.visibleCommunity.value.length >= 3 ? describeHand(gs.playerStates.value[gs.handWinnerId.value].holeCards!, gs.visibleCommunity.value) : ''"
+          :showdown-players="showdownPlayers"
           :session-stats="session"
           :milestones="sessionMilestones"
           :supabase-connected="supabaseReady"

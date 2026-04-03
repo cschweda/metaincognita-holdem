@@ -38,6 +38,7 @@ const props = defineProps<{
   winnerName?: string
   winnerCards?: string
   winnerHand?: string
+  showdownPlayers?: { name: string; cards: string; hand: string; isHero: boolean; isWinner: boolean }[]
   sessionStats?: {
     handsPlayed: number
     handsWon: number
@@ -644,8 +645,29 @@ function afLabel(af: number): string {
               </div>
             </div>
 
-            <!-- Side-by-side hand comparison -->
-            <div v-if="winnerName && !heroWon && !heroFolded" class="grid grid-cols-2 gap-2">
+            <!-- All showdown hands -->
+            <div v-if="showdownPlayers && showdownPlayers.length > 0" class="flex flex-wrap gap-2">
+              <div
+                v-for="sp in showdownPlayers"
+                :key="sp.name"
+                class="flex-1 min-w-[120px] rounded-lg p-3"
+                :class="sp.isWinner
+                  ? 'bg-green-900/20 border border-green-700/30'
+                  : sp.isHero
+                    ? 'bg-red-900/15 border border-red-800/20'
+                    : 'bg-gray-800/40 border border-gray-700/20'"
+              >
+                <div class="text-[0.6rem] uppercase mb-1" :class="sp.isWinner ? 'text-green-400/70' : sp.isHero ? 'text-red-400/70' : 'text-gray-400/70'">
+                  {{ sp.name }}{{ sp.isWinner ? ' ✓' : '' }}
+                </div>
+                <div class="text-sm font-mono text-white">{{ sp.cards }}</div>
+                <div v-if="sp.hand" class="text-xs text-gray-300 mt-1">{{ sp.hand }}</div>
+                <div v-if="sp.isHero && !heroWon" class="text-red-400 font-mono font-bold text-sm mt-1">{{ (heroNetProfit || 0) >= 0 ? '+' : '' }}${{ heroNetProfit || 0 }}</div>
+                <div v-if="sp.isWinner" class="text-green-400 font-mono font-bold text-sm mt-1">+${{ winAmount || 0 }}</div>
+              </div>
+            </div>
+            <!-- Fallback: old 2-player comparison when showdownPlayers not provided -->
+            <div v-else-if="winnerName && !heroWon && !heroFolded" class="grid grid-cols-2 gap-2">
               <div class="bg-red-900/15 border border-red-800/20 rounded-lg p-3">
                 <div class="text-[0.6rem] text-red-400/70 uppercase mb-1">Your Hand</div>
                 <div v-if="holeCards" class="text-sm font-mono text-white">{{ formatHoleCards(holeCards) }}</div>
@@ -667,12 +689,12 @@ function afLabel(af: number): string {
               Same hand type — {{ winnerName }} wins on kicker.
             </div>
 
-            <!-- Winner info (hero won or folded) -->
-            <div v-if="winnerName && (heroWon || heroFolded)" class="bg-gray-800/40 rounded-lg p-3">
-              <div class="text-xs text-gray-400 mb-1">{{ heroWon ? 'You Win' : 'Winner' }}</div>
+            <!-- Winner info (hero folded) -->
+            <div v-if="winnerName && heroFolded" class="bg-gray-800/40 rounded-lg p-3">
+              <div class="text-xs text-gray-400 mb-1">Winner</div>
               <div class="flex items-center justify-between">
                 <div>
-                  <span class="text-base font-semibold" :class="heroWon ? 'text-green-400' : 'text-white'">{{ winnerName }}</span>
+                  <span class="text-base font-semibold text-white">{{ winnerName }}</span>
                   <span v-if="winnerCards" class="text-sm font-mono text-gray-300 ml-2">{{ winnerCards }}</span>
                 </div>
                 <span class="text-green-400 font-mono font-bold">+${{ winAmount || 0 }}</span>
