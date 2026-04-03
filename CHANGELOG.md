@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-03-29
+
+### Fixed
+- **Mon board analysis matches actual board texture** — Mon's flop commentary now checks the real board (paired, monotone, dry, wet, ace-high, connected, etc.) before speaking. Previously picked random quips from a single pool, causing mismatches like saying "the board just double-paired" on a monotone flop.
+
+### Added
+- **All showdown hands in stats panel** — When 3+ players reach showdown, all hands are shown in a flex layout (not just hero vs winner). Winner highlighted green, hero red, others gray.
+
 ## [0.17.1] - 2026-03-29
 
 ### Removed

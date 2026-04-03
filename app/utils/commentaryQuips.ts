@@ -26,36 +26,106 @@ export function pick<T>(arr: T[]): T {
 // Serious, game-aware phrases about board texture, player tendencies,
 // pot dynamics, and strategic situations. Used when lonWantsToAnalyze().
 
-export const lonBoardAnalysis = new UniquePool([
-  `Dry board here. This favors the preflop aggressor — fewer draws to worry about.`,
-  `Very wet texture. Flush draws and straight draws are everywhere on this board.`,
-  `The board has paired. That changes the math significantly — full house draws are now live.`,
-  `Ace-high board. The preflop raiser has a significant range advantage here.`,
-  `Low, connected board. This is where the caller's range connects — small pairs, suited connectors.`,
-  `Monotone flop. Anyone without a card of that suit is in trouble.`,
-  `Broadway-heavy board. Premium hands love this texture.`,
-  `Rainbow and disconnected. About as safe a board as you'll see in poker.`,
-  `Three to a straight on the board. Position is critical on boards like this.`,
-  `Two-tone flop. The turn card in that suit will change everything.`,
-  `High pair on the board. Anyone who hit trips is in a very strong position.`,
-  `The board has four to a flush now. If you don't have it, you have to wonder who does.`,
-  `Interesting texture — this board hits a lot of calling ranges but misses most raising ranges.`,
-  `Very coordinated board. There are so many possible hands here — sets, straights, two pairs, draws.`,
-  `This is a board where position matters enormously. Acting last is a huge advantage.`,
-  `Four to a straight on the board. Anyone with one card filling the gap has the nuts.`,
-  `The board just double-paired. Full houses and quads are now in play.`,
-  `This is one of those boards where the preflop caller actually has the advantage. Sets and two pairs live in their range.`,
-  `A very static board. What you have now is probably what you'll have at the river.`,
-  `Dynamic texture. Every turn and river card could dramatically shift who's ahead.`,
-  `Three broadways and a flush draw. Top pair might not be good enough here.`,
-  `Low, uncoordinated board. Overpairs are king here.`,
-  `The turn brought a card that helps nobody's range. A blank like this often triggers a continuation bet.`,
-  `Four cards to a flush on the board now. Anyone without the ace of that suit has to be nervous.`,
-  `Paired board with a flush draw. The texture just got very complex.`,
-  `No card above a nine. This strongly favors anyone who called preflop with small connectors or pocket pairs.`,
-  `This board hits both ranges fairly evenly. It's going to come down to who reads the other player better.`,
-  `Notice how the board developed — the early streets were safe, but it got dangerous in a hurry.`,
-])
+// Board-texture-aware Mon analysis — picked based on actual board properties
+export const lonBoardByTexture = {
+  dry: new UniquePool([
+    `Dry board here. This favors the preflop aggressor — fewer draws to worry about.`,
+    `Rainbow and disconnected. About as safe a board as you'll see in poker.`,
+    `A very static board. What you have now is probably what you'll have at the river.`,
+    `Low, uncoordinated board. Overpairs are king here.`,
+  ]),
+  wet: new UniquePool([
+    `Very wet texture. Flush draws and straight draws are everywhere on this board.`,
+    `Very coordinated board. There are so many possible hands here — sets, straights, two pairs, draws.`,
+    `Dynamic texture. Every turn and river card could dramatically shift who's ahead.`,
+  ]),
+  monotone: new UniquePool([
+    `Monotone flop. Anyone without a card of that suit is in trouble.`,
+    `Three of one suit on the board. If you don't have two of that suit, you're playing scared.`,
+  ]),
+  paired: new UniquePool([
+    `The board has paired. That changes the math significantly — full house draws are now live.`,
+    `High pair on the board. Anyone who hit trips is in a very strong position.`,
+    `Paired board with a flush draw. The texture just got very complex.`,
+  ]),
+  doublePaired: new UniquePool([
+    `The board just double-paired. Full houses and quads are now in play.`,
+  ]),
+  aceHigh: new UniquePool([
+    `Ace-high board. The preflop raiser has a significant range advantage here.`,
+    `Broadway-heavy board. Premium hands love this texture.`,
+  ]),
+  lowBoard: new UniquePool([
+    `Low, connected board. This is where the caller's range connects — small pairs, suited connectors.`,
+    `No card above a nine. This strongly favors anyone who called preflop with small connectors or pocket pairs.`,
+    `This is one of those boards where the preflop caller actually has the advantage. Sets and two pairs live in their range.`,
+  ]),
+  connected: new UniquePool([
+    `Three to a straight on the board. Position is critical on boards like this.`,
+    `Three broadways and a flush draw. Top pair might not be good enough here.`,
+  ]),
+  twoTone: new UniquePool([
+    `Two-tone flop. The turn card in that suit will change everything.`,
+  ]),
+  fourFlush: new UniquePool([
+    `The board has four to a flush now. If you don't have it, you have to wonder who does.`,
+    `Four cards to a flush on the board now. Anyone without the ace of that suit has to be nervous.`,
+  ]),
+  fourStraight: new UniquePool([
+    `Four to a straight on the board. Anyone with one card filling the gap has the nuts.`,
+  ]),
+  generic: new UniquePool([
+    `Interesting texture — this board hits a lot of calling ranges but misses most raising ranges.`,
+    `This is a board where position matters enormously. Acting last is a huge advantage.`,
+    `This board hits both ranges fairly evenly. It's going to come down to who reads the other player better.`,
+    `Notice how the board developed — the early streets were safe, but it got dangerous in a hurry.`,
+    `The turn brought a card that helps nobody's range. A blank like this often triggers a continuation bet.`,
+  ]),
+}
+
+// Legacy reference — picks from generic pool (used by resetLonPools)
+export const lonBoardAnalysis = lonBoardByTexture.generic
+
+import type { Card } from './cards'
+
+/**
+ * Pick a board analysis quip that matches the actual board texture.
+ */
+export function pickBoardAnalysis(community: Card[]): string {
+  const ranks = community.map(c => c.rank)
+  const suits = community.map(c => c.suit)
+  const isMonotone = community.length >= 3 && suits.slice(0, 3).every(s => s === suits[0])
+  const suitCounts = new Map<string, number>()
+  for (const s of suits) suitCounts.set(s, (suitCounts.get(s) ?? 0) + 1)
+  const maxSuitCount = Math.max(...suitCounts.values())
+  const isTwoTone = community.length >= 3 && maxSuitCount === 2 && !isMonotone
+  const isFourFlush = maxSuitCount >= 4
+  const uniqueRanks = [...new Set(ranks)]
+  const pairCount = ranks.length - uniqueRanks.length
+  const isPaired = pairCount >= 1
+  const isDoublePaired = pairCount >= 2
+  const allLow = ranks.every(r => r <= 9)
+  const hasAce = ranks.includes(14)
+  const sortedRanks = [...ranks].sort((a, b) => a - b)
+  const maxGap = sortedRanks.length >= 3 ? Math.max(sortedRanks[1] - sortedRanks[0], sortedRanks[2] - sortedRanks[1]) : 99
+  const isConnected = maxGap <= 2
+  const isRainbow = community.length >= 3 && new Set(suits.slice(0, 3)).size === 3
+  const isDry = isRainbow && !isConnected && !isPaired
+
+  // Pick from the most specific matching pool
+  if (isDoublePaired) return lonBoardByTexture.doublePaired.pick()
+  if (isFourFlush) return lonBoardByTexture.fourFlush.pick()
+  if (isMonotone) return lonBoardByTexture.monotone.pick()
+  if (isPaired) return lonBoardByTexture.paired.pick()
+  if (isDry && allLow) return lonBoardByTexture.lowBoard.pick()
+  if (isDry) return lonBoardByTexture.dry.pick()
+  if (hasAce && !isConnected) return lonBoardByTexture.aceHigh.pick()
+  if (isConnected && isTwoTone) return lonBoardByTexture.wet.pick()
+  if (isConnected) return lonBoardByTexture.connected.pick()
+  if (isTwoTone) return lonBoardByTexture.twoTone.pick()
+  if (allLow) return lonBoardByTexture.lowBoard.pick()
+  return lonBoardByTexture.generic.pick()
+}
 
 export const lonPlayerReads = new UniquePool([
   `This player has been very active this session. Wider range than usual.`,
@@ -202,7 +272,8 @@ export const lonBotPlayReads = new UniquePool([
 ])
 
 export function resetLonPools() {
-  lonBoardAnalysis.reset(); lonPlayerReads.reset(); lonPotAnalysis.reset()
+  for (const pool of Object.values(lonBoardByTexture)) pool.reset()
+  lonPlayerReads.reset(); lonPotAnalysis.reset()
   lonTiltReads.reset(); lonStreetTransition.reset(); lonShowdownAnalysis.reset()
   lonBotPlayReads.reset()
 }

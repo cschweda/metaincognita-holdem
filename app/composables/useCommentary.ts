@@ -18,7 +18,7 @@ import {
   normanDrawQuips, normanRiverQuips, normanPotSizeQuips, normanHeadsUpQuips,
   normanSelfAwareQuips, normanSliderUpQuips, normanSliderDownQuips,
   normanPersonaQuip, resetAllQuipPools,
-  lonBoardAnalysis, lonPlayerReads, lonPotAnalysis, lonTiltReads,
+  lonBoardAnalysis, pickBoardAnalysis, lonPlayerReads, lonPotAnalysis, lonTiltReads,
   lonStreetTransition, lonShowdownAnalysis, lonBotPlayReads, resetLonPools,
   normanBanterAfterMon, lonReactsToNorman, normanBotAwarenessExtra,
   lonFoldAssessment, normanFoldReactionQuips,
@@ -682,7 +682,7 @@ export function useCommentary(gs: GS) {
       // Mon's board analysis (alongside Chorman's board texture quip)
       let monSpokeOnFlop = false
       if (lonWantsToAnalyze()) {
-        addTV(lonBoardAnalysis.pick(), 'street', 'lon')
+        addTV(pickBoardAnalysis(community.slice(0, 3)), 'street', 'lon')
         // ~20% chance Mon follows up with a bot play observation on interesting boards
         if (Math.random() < 0.20) addTV(lonBotPlayReads.pick(), 'street', 'lon')
         monSpokeOnFlop = true
