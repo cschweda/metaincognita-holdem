@@ -38,57 +38,11 @@ describe('Persona configuration', () => {
   })
 })
 
-describe('Preflop range widths by position', () => {
-  it('UTG is tighter than BTN', () => {
-    expect(config.botRanges.UTG).toBeLessThan(config.botRanges.BTN)
-  })
-
-  it('BTN is the widest opening range', () => {
-    const positions = ['UTG', 'MP', 'CO', 'BTN'] as const
-    const widest = Math.max(...positions.map(p => config.botRanges[p]))
-    expect(config.botRanges.BTN).toBe(widest)
-  })
-
-  it('3-bet range is narrower than open range', () => {
-    expect(config.botEscalation.threeBetValue + config.botEscalation.threeBetBluff)
-      .toBeLessThan(config.botRanges.UTG)
-  })
-
-  it('escalation ranges narrow at each level', () => {
-    const threebet = config.botEscalation.threeBetValue + config.botEscalation.threeBetBluff
-    const fourbet = config.botEscalation.fourBetValue + config.botEscalation.fourBetBluff
-    const fivebet = config.botEscalation.fiveBetRange
-    expect(threebet).toBeGreaterThan(fourbet)
-    expect(fourbet).toBeGreaterThan(fivebet)
-  })
-})
-
-describe('Equity thresholds', () => {
-  it('value bet threshold > thin value > drawing > give up', () => {
-    const t = config.botEquityThresholds
-    expect(t.valuebet).toBeGreaterThan(t.thinValue)
-    expect(t.thinValue).toBeGreaterThan(t.drawing)
-    expect(t.drawing).toBeGreaterThanOrEqual(t.giveUp)
-  })
-})
-
-describe('Bet sizing', () => {
-  it('open raise EP is larger than late position', () => {
-    expect(config.botSizing.openRaiseEP).toBeGreaterThan(config.botSizing.openRaiseLate)
-  })
-
-  it('3-bet OOP is larger than IP (out of position pays more)', () => {
-    expect(config.botSizing.threeBetOOP).toBeGreaterThan(config.botSizing.threeBetIP)
-  })
-
-  it('bluff sizing is cheaper than value sizing', () => {
-    expect(config.botSizing.bluffBet[1]).toBeLessThanOrEqual(config.botSizing.valueBet[1])
-  })
-
-  it('overbet size exceeds pot', () => {
-    expect(config.botSizing.overbetSize[0]).toBeGreaterThan(1.0)
-  })
-})
+// NOTE: The former 'Preflop range widths / Equity thresholds / Bet sizing'
+// describes asserted invariants on documentation-only config blocks that no
+// code consumed (removed in the realism overhaul). Behavioral equivalents
+// live in tests/realism-fixes.test.ts (position-aware continue rates, sizing
+// personality) and tests/phase6-escalation.test.ts (escalation narrowing).
 
 describe('Tilt mechanics', () => {
   it('tilt trigger threshold is reasonable (20-50% of stack)', () => {

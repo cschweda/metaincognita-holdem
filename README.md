@@ -31,6 +31,8 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Table Flow** -- bots adjust when a player is dominating or running cold (20-hand rolling window)
 - **River polarization** -- bots only bet monsters (value) and air (bluffs) on the river. Medium hands check. Core GTO concept.
 - **Pre-computed opening ranges** -- uses the ranked 169-hand EV list with position shifts, not just Chen+ approximation
+- **Range-shape personalities** -- per-persona `styleBias` (Negreanu plays suited connectors wider, Hellmuth favors big cards), `limpFreq` (Hellmuth's limpy "white magic", loose-passive stations), `betSizeMult` (small-ball vs big-bet), and `overbetFreq` (Dwan's 1.2-1.5x pot river bombs)
+- **Board-relative hand strength** -- "two pair" using a board pair, board trips, and played-the-board rivers are scored as the marginal hands they are, not monsters
 - **Minimum Defense Frequency (MDF)** -- bots defend enough of their range to prevent exploitable over-folding to large bets
 - **Hero bet-sizing exploitation** -- bots detect if you bet big with value and small with bluffs (or vice versa), then adjust
 - **Min-raise enforcement** -- engine enforces legal minimum raise amounts (last raise increment, not just BB). Short all-ins below min-raise are allowed but clamped correctly.

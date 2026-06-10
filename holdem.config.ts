@@ -71,50 +71,6 @@ export default {
     defaultHeroName: 'Hero',
   },
 
-  // ─── Bot AI — Baseline Ranges (% of hands by position) ──────
-  botRanges: {
-    UTG:  0.15,
-    MP:   0.22,
-    CO:   0.30,
-    BTN:  0.42,
-    SB:   0.25,                          // complete/3-bet range
-    BB:   0.40,                          // defend range vs steal
-  },
-
-  // 3-bet / 4-bet / 5-bet frequencies
-  botEscalation: {
-    threeBetValue:  0.05,                // top 5% for value
-    threeBetBluff:  0.03,                // additional 3% bluffs
-    fourBetValue:   0.025,               // top 2.5%
-    fourBetBluff:   0.01,
-    fiveBetRange:   0.01,                // almost always AA/KK
-  },
-
-  // Postflop equity thresholds
-  botEquityThresholds: {
-    valuebet:       0.70,                // equity > 70% → bet/raise for value
-    thinValue:      0.50,                // 50–70% → bet IP, check/call OOP
-    drawing:        0.30,                // 30–50% → call if odds justify
-    giveUp:         0.30,                // < 30% → fold to bets
-    checkRaiseFreq: 0.15,               // 15% check-raise frequency for balance
-    semiBluffFreq:  0.20,               // 20% semi-bluff raise with nut draws
-    bluffFreq:      0.12,               // 12% bluff when checked to
-  },
-
-  // Bet sizing (× pot or × BB)
-  botSizing: {
-    openRaiseEP:     2.5,               // × BB from EP/MP
-    openRaiseLate:   2.2,               // × BB from CO/BTN
-    threeBetIP:      3.0,               // × the open raise (in position)
-    threeBetOOP:     3.5,               // × the open raise (out of position)
-    valueBet:        [0.55, 0.75],      // × pot range
-    bluffBet:        [0.33, 0.50],      // × pot range
-    protectionBet:   [0.75, 1.00],      // × pot range (wet boards)
-    overbetFreq:     0.05,              // 5% of monsters
-    overbetSize:     [1.2, 1.5],        // × pot range
-    shoveThreshold:  1.5,               // shove when stack < 1.5× pot
-  },
-
   // ─── Bot Personas ────────────────────────────────────────────
   // Stats target live-pro HUD realism: threeBetFreq/fourBetFreq are per-opportunity
   // (live pros ~4-9%, aggressive outliers ~10-12%). limpFreq = chance to open-limp
