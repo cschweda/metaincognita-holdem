@@ -115,3 +115,39 @@ describe('F2 — raise-size-aware defense', () => {
     expect(r12).toBeLessThan(r6)
   })
 })
+
+// ─── F3: Made hands respect bet size ───────────────────────────
+
+describe('F3 — made hands respect bet size postflop', () => {
+  // Top pair good kicker (KQ on K-7-2 rainbow), deep stacks so no SPR auto-commit
+  function strongFacingBet(betToPot: number, street: 'flop' | 'turn' = 'flop', trials = 3000): number {
+    const profile: BotProfile = { vpip: 0.25, pfr: 0.20, aggression: 1.1, bluffFreq: 0.12, creativeFreq: 0.05 }
+    let folds = 0
+    for (let i = 0; i < trials; i++) {
+      const pot = 20
+      const community = street === 'flop'
+        ? [c(13, 'clubs'), c(7, 'spades'), c(2, 'diamonds')]
+        : [c(13, 'clubs'), c(7, 'spades'), c(2, 'diamonds'), c(9, 'hearts')]
+      const ctx: DecisionContext = {
+        street, toCall: Math.round(pot * betToPot), pot, currentBet: Math.round(pot * betToPot),
+        playerBet: 0, chips: 2000, bb: 2, numActivePlayers: 2, position: 'BB',
+        holeCards: [c(13, 'hearts'), c(12, 'diamonds')],
+        community,
+      }
+      if (decideBotAction(profile, ctx).type === 'fold') folds++
+    }
+    return folds / trials
+  }
+
+  it('top pair folds >40% to a 3x-pot flop shove', () => {
+    expect(strongFacingBet(3)).toBeGreaterThan(0.40)
+  })
+
+  it('top pair rarely folds to a half-pot flop bet', () => {
+    expect(strongFacingBet(0.5)).toBeLessThan(0.10)
+  })
+
+  it('turn overbets get more folds than flop overbets', () => {
+    expect(strongFacingBet(1.5, 'turn')).toBeGreaterThan(strongFacingBet(1.5, 'flop'))
+  })
+})

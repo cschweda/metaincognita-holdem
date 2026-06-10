@@ -1068,6 +1068,16 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   // Strong hands — raise more often (especially IP), check-raise OOP for balance
   if (hasStrongHand) {
+    // Bet-size sensitivity: non-monster made hands fold to big bets at a rate
+    // rising with size and falling with strength. Top pair calls normal bets
+    // but folds to overbet shoves most of the time. Monsters and river handled elsewhere.
+    if (!hasMonster && (ctx.street === 'flop' || ctx.street === 'turn') && betToPotRatio > 0.7) {
+      const sizePressure = Math.min((betToPotRatio - 0.7) / 1.3, 1)        // 1.0 at 2x pot
+      const strengthShield = Math.max(0, Math.min((strength - 0.30) / 0.25, 1))
+      const streetWeight = ctx.street === 'turn' ? 1.0 : 0.8
+      const foldProb = Math.min(sizePressure * (1 - strengthShield * 0.65) * streetWeight, 0.92)
+      if (Math.random() < foldProb) return { type: 'fold' }
+    }
     // Check-raise with strong hands OOP — texture-aware frequency
     if (ctx.checkedThisStreet && Math.random() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * (2.5 + Math.random() * 0.5))
