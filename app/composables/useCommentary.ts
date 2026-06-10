@@ -205,6 +205,11 @@ export function useCommentary(gs: GS) {
 
   // ─── DEAL ───────────────────────────────────────────────
 
+  // ── Grounded table-flow state: real winners window + tilt episodes ──
+  const recentWinnerNames: string[] = []          // last 10 pot winners
+  let announcedHeaterFor: string | null = null    // one heater callout per streak
+  const announcedTilted = new Set<number>()       // one tilt callout per episode
+
   function onDeal() {
     const h = hero()
     if (!h.holeCards) return
@@ -236,6 +241,48 @@ export function useCommentary(gs: GS) {
       `Cards are in the air. Here we go.`,
       `Fresh hand dealt. The tension builds.`,
     ]), 'deal', 'lon')
+
+    // ── Grounded reads: announce REAL tilt episodes (actual TiltState, not a
+    // guess) and REAL heaters (actual winners window). The bots genuinely
+    // widen/steam when tilted and tighten up against a heater, so Mon's
+    // observations describe behavior that is actually happening.
+    for (const p of gs.playerStates.value) {
+      if (p.isHero || p.eliminated) continue
+      if (p.tilt?.tilted && !announcedTilted.has(p.id)) {
+        announcedTilted.add(p.id)
+        const sev = p.tilt.severity >= 1.0
+        addTV(sev
+          ? pick([
+              `${p.name} has lost real pots back to back — that's genuine tilt territory. Expect wider opens, bigger bluffs, thinner calls.`,
+              `${p.name} is steaming. The losses were real, and the next few hands will be played angry.`,
+            ])
+          : pick([
+              `${p.name} just dropped a couple of pots. A little frustration creeping in — watch for looser entries.`,
+              `Quiet tilt watch on ${p.name} after those losses. Nothing wild yet, but the range is widening.`,
+            ]), 'deal', 'lon')
+        if (normanFeelsLikeIt()) {
+          const tq = normanPersonaQuip(p.name)
+          if (tq) normanSays(tq, 'deal')
+        }
+        break // one tilt callout per deal
+      }
+      if (!p.tilt?.tilted) announcedTilted.delete(p.id)
+    }
+    if (recentWinnerNames.length >= 6) {
+      const winCounts = new Map<string, number>()
+      for (const n of recentWinnerNames) winCounts.set(n, (winCounts.get(n) ?? 0) + 1)
+      const [hotName, hotWins] = [...winCounts.entries()].sort((a, b) => b[1] - a[1])[0]!
+      if (hotWins >= 4 && hotName !== announcedHeaterFor) {
+        announcedHeaterFor = hotName
+        addTV(`${hotName} has won ${hotWins} of the last ${recentWinnerNames.length} pots. Tables tighten up against a heater — fewer bluffs at them, more trapping.`, 'deal', 'lon')
+        if (normanFeelsLikeIt()) normanSays(pick([
+          `${hotName} is running so hot I want to stand next to them at the buffet.`,
+          `Somebody check ${hotName}'s sleeves. That's four pots faster than my last marriage ended.`,
+        ]), 'deal')
+      } else if (hotWins < 4) {
+        announcedHeaterFor = null
+      }
+    }
 
     // Hero hand reaction — with pocket pair specifics
     if (isPair(h.holeCards) && h.holeCards[0].rank >= 11) {
@@ -439,11 +486,23 @@ export function useCommentary(gs: GS) {
           normanSays(personalizeQuip(normanAllinQuips.pick(), name), 'action')
         } else if (pl.holeCards && chenScore(pl.holeCards) <= 4 && gs.street.value === 'preflop') {
           addTV(`${name} goes all-in with ${cardStr(pl.holeCards)}.`, 'action', 'lon')
-          if (lonWantsToAnalyze()) addTV(lonTiltReads.pick(), 'action', 'lon')
+          // Tilt reads only when the player is ACTUALLY tilted (real TiltState) —
+          // otherwise it's just a loose shove, not a meltdown
+          if (lonWantsToAnalyze()) {
+            addTV(pl.tilt?.tilted ? lonTiltReads.pick() : pick([
+              `Nothing in the recent hands explains that — it's not tilt, it's just maximum pressure with minimum hand.`,
+              `That's not a frustrated shove, that's a calculated one. Pure fold-equity poker.`,
+            ]), 'action', 'lon')
+          }
           normanSays(personalizeQuip(normanAllinJunkQuips.pick(), name), 'action')
         } else {
           addTV(`ALL-IN from ${name}! $${amount}.`, 'action', 'lon')
-          if (lonWantsToAnalyze()) addTV(lonPotAnalysis.pick(), 'action', 'lon')
+          // Real call math instead of a canned pot-odds line
+          if (lonWantsToAnalyze()) {
+            const potNow = gs.pot.value
+            const needPct = Math.round((amount / Math.max(potNow + amount, 1)) * 100)
+            addTV(`The pot sits at $${potNow}. Calling costs $${amount} — that's about ${needPct}% equity needed to continue.`, 'action', 'lon')
+          }
           normanSays(personalizeQuip(normanAllinQuips.pick(), name), 'action')
         }
       } else {
@@ -959,6 +1018,12 @@ export function useCommentary(gs: GS) {
     const heroWon = gs.heroWonHand.value
     const h = hero()
     if (!winner) return
+
+    // Track real pot winners for grounded heater commentary (skip split pots)
+    if (!winner.startsWith('Split:')) {
+      recentWinnerNames.push(winner)
+      if (recentWinnerNames.length > 10) recentWinnerNames.shift()
+    }
 
     if (heroWon) {
       addHero(pick([`We take it down! $${amount} pot.`, `$${amount} coming our way. Nice hand.`, `We win $${amount}. Good result.`]), 'showdown')
