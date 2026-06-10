@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-06-10
+
+### Removed
+- **All Supabase integration** — local-only persistence (localStorage + JSON/CSV/PokerStars export). No accounts, no cloud, no serverless functions; static Netlify deploy with zero external connections (CSP narrowed to iconify). The auth UI, anonymous sessions, auto-sync, and sendBeacon paths are gone.
+- **Documentation-only bot config blocks** (`botRanges`, `botEscalation`, `botEquityThresholds`, `botSizing`) — nothing consumed them; the engine owns its tuned constants.
+
+### Fixed (bot realism overhaul — engine)
+- **Combo-weighted hand percentile** — `idx/169` treated all hand classes as equally likely (pairs are 6 combos, suited 4, offsuit 12), so every bot played 3-8pp tighter than configured. VPIP now lands within ~2pp of config. Also restored two missing hands (`94s`/`94o`) — the "169-hand list" had 167.
+- **Tilt only on played hands** — folding preflop no longer counts as a "loss". Phellmuth (threshold 1) was permanently tilted and played 24/17 maniac instead of his configured profile; tilt is now episodic, as intended.
+- **Board-relative hand strength** — "two pair" using a board pair, board trips, and played-the-board rivers were scored as monsters, producing constant raise wars between one-pair hands (20% of hands went all-in; average pot 190bb). Now scored as the marginal hands they are. All-ins: ~6%; average pot ~55-60bb.
+- **Raise-size-aware preflop defense** — calls scale with raise size; jam-like raises get premium-only continues (TT+/AQs+/AK) instead of 20%-of-hands calls.
+- **Bet-size sensitivity postflop** — top-pair-class hands fold to overbets at realistic rates and respect sustained turn/river pressure (passives call down more); multiway flop bets get more respect; MDF defense splits across multiway defenders instead of applying heads-up math.
+- **SPR auto-commit restricted to flop/turn** — no more one-pair river jams.
+- **Misplays softened** — the consistency "brain fart" now produces wrong folds/loose calls/mis-sized stabs, not random raise wars.
+
+### Changed (personas)
+- **Pro stats retuned to live full-ring realism** — 3-bet/4-bet frequencies now 2-9% per opportunity (verified per-opportunity in the sim); Phellmuth reshaped to his real identity (18/11, limpy "white magic", big-card bias, episodic mega-tilt); Ivey/Brunson aggression raised; Dwan 32/26 with 1.2x sizing and 18% river overbets; Negreanu small-ball sizing with suited-connector bias; Selbst suited-ace 3-bet bias; Tilly/Ungar tilt sensitivity up.
+- **New persona fields** — `limpFreq` (open-limp the PFR-VPIP gap), `styleBias` (per-category range shapes), `betSizeMult`, `overbetFreq`. Fictional teaching bots keep their deliberate leaks and now limp explicitly.
+
+### Added
+- **Hero adaptation fully wired** — fold-to-3-bet and fold-to-c-bet are now derived from the real action log (previously hardcoded false, so bots never exploited them), and the bet-sizing tell is live: bots classify your showdown sizings after 8+ revealed hands and adjust calls/folds to your pattern.
+- **Grounded commentary** — Mon's tilt reads fire only on real TiltState (with severity-aware phrasing), new-hand callouts announce genuine tilt episodes and heaters from the actual last-10-winners window, and all-in analysis computes real pot/call equity instead of canned lines.
+- **Sim instrumentation** — per-bot WTSD, W$SD, per-opportunity 3-bet%, fold-to-3-bet vs config; cash-game top-ups below 40bb; `--players=` flag pins an exact lineup for repeatable comparison runs; WTSD denominator fixed (previously only counted never-folded players).
+
+### Validation
+Three fixed-lineup 3,000-hand 8-max pro runs (same seats as the pre-fix baseline): avg pot $379→~$113, all-in hands 17.5%→~5.8%, 3-bet pots 36.9%→~21%, per-opportunity 3-bet within ~1pp of each persona's config, fold-to-3-bet 60-79%, W$SD 43-54%, run-to-run persona VPIP stable within ±1pp. 796 tests green.
+
 ## [0.17.2] - 2026-03-29
 
 ### Fixed
