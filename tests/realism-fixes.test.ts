@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { handPercentile } from '../app/utils/ranges'
-import { updateTilt, createTiltState } from '../app/utils/botDecision'
+import { updateTilt, createTiltState, decideBotAction, type DecisionContext, type BotProfile } from '../app/utils/botDecision'
 import config from '../holdem.config'
 import type { Card } from '../app/utils/cards'
 
@@ -80,5 +80,38 @@ describe('F1 — tilt requires participation', () => {
     updateTilt(state, false, false, config.tilt, 1.0, false) // folded preflop
     updateTilt(state, false, false, config.tilt, 1.0, true)  // played loss
     expect(state.consecutiveLosses).toBe(2)
+  })
+})
+
+// ─── F2: Raise-size-aware preflop defense ──────────────────────
+
+describe('F2 — raise-size-aware defense', () => {
+  function continueRate(currentBetBB: number, trials = 4000): number {
+    const profile: BotProfile = { vpip: 0.32, pfr: 0.22, aggression: 1.2, bluffFreq: 0.18, creativeFreq: 0.05, threeBetFreq: 0.10 }
+    let cont = 0
+    for (let i = 0; i < trials; i++) {
+      const ctx: DecisionContext = {
+        street: 'preflop', toCall: currentBetBB * 2, pot: currentBetBB * 2 + 3, currentBet: currentBetBB * 2,
+        playerBet: 0, chips: 200, bb: 2, numActivePlayers: 4, raiseLevel: 1, position: 'BTN',
+        holeCards: dealRandomHole(),
+      }
+      const a = decideBotAction(profile, ctx)
+      if (a.type === 'call' || a.type === 'raise') cont++
+    }
+    return cont / trials
+  }
+
+  it('loose bot continues vs a 2.5bb open at a healthy rate', () => {
+    expect(continueRate(2.5)).toBeGreaterThan(0.15)
+  })
+
+  it('vs a 25bb jam-like raise, continues under 8% (premium only)', () => {
+    expect(continueRate(25)).toBeLessThan(0.08)
+  })
+
+  it('continue rate declines monotonically with raise size', () => {
+    const r25 = continueRate(2.5), r6 = continueRate(6), r12 = continueRate(12)
+    expect(r6).toBeLessThan(r25)
+    expect(r12).toBeLessThan(r6)
   })
 })

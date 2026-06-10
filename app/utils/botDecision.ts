@@ -469,11 +469,13 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   // Pre-computed range lookup: convert hole cards to percentile via the ranked 169-hand list
   // Position adjustment shifts the percentile (late position = hands rank higher)
   let handPct = rand
+  let rawHandPct = rand // percentile without position shift/jitter — for equity-driven jam decisions
   if (ctx.holeCards) {
     const idx = handRankIndex(ctx.holeCards)
     if (idx >= 0) {
       // Combo-weighted percentile: "handPct < VPIP" plays VPIP% of dealt hands
       handPct = handPercentile(ctx.holeCards)
+      rawHandPct = handPct
       // Position shift: late position makes hands more playable
       const POS_SHIFT: Record<string, number> = {
         'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.08, // D/SB = button in heads-up
@@ -488,6 +490,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       // Fallback to Chen+ for any edge case
       const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression })
       handPct = chenToPercentile(chenMax)
+      rawHandPct = handPct
     }
   }
 
@@ -535,13 +538,31 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   // Value 3-bets: card quality driven (handPct < threshold)
   // Bluff 3-bets: persona randomness driven (Math.random < threshold)
 
+  // ─── Raise-size awareness (applies to all facing-raise levels) ──
+  // A 2.5bb open and a 25bb jam are different worlds: defense ranges shrink
+  // continuously with size, and jam-like raises get premium-only continues.
+  const openSizeBB = currentBet / bb
+  const sizePenalty = openSizeBB <= 3 ? 1.0 : Math.pow(3 / openSizeBB, 0.85)
+  const jamLike = toCall >= chips * 0.6 || (raiseLevel <= 1 && toCall >= bb * 15)
+
+  if (jamLike) {
+    // Vs a jam: ~top 1.7% reshoves (QQ+/AKs), ~top 4.5% calls (TT+/AQs+/AKo).
+    // Uses the raw percentile — calling a jam is equity-driven, not position-driven.
+    const continueRange = Math.max(profile.fourBetFreq ?? 0.025, 0.04)
+    if (rawHandPct < continueRange * 0.4 && chips > toCall) {
+      return { type: 'raise', amount: chips + playerBet }
+    }
+    if (rawHandPct < continueRange) return { type: 'call' }
+    return { type: 'fold' }
+  }
+
   if (raiseLevel <= 1) {
     // Modern preflop defense: 3-bet or fold is dominant strategy, cold-calling is rare.
     // 3-bet range = value (premiums) + bluffs (suited connectors, suited aces).
     // Cold-call range is very narrow — only in position with hands too weak to 3-bet but too strong to fold.
     const reraiseFreq = profile.threeBetFreq ?? (profile.pfr * 0.45 * profile.aggression)
-    const valueFreq = reraiseFreq * 0.55   // top hands by card quality
-    const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15)
+    const valueFreq = reraiseFreq * 0.55 * Math.sqrt(sizePenalty)   // top hands by card quality
+    const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15) * Math.pow(sizePenalty, 1.5)
 
     const ipPositions = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO']
     const inPosition = ipPositions.includes(ctx.position ?? '')
@@ -549,12 +570,13 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
 
     // Total defense range (3-bet + cold-call) should approximate VPIP.
     // The 3-bet range is already counted above. Cold-call fills the gap.
-    // IP defends wider than OOP. Heads-up defends widest.
-    const flatCallFreq = isHeadsUp
+    // IP defends wider than OOP. Heads-up defends widest. Big sizes shrink it all.
+    const flatCallFreq = (isHeadsUp
       ? Math.min(effectiveVpip * 1.5, 0.65)     // heads-up: wide defense
       : inPosition
         ? effectiveVpip * 0.85                    // IP: defend ~85% of VPIP range
         : effectiveVpip * 0.60                    // OOP: defend ~60% of VPIP range
+    ) * sizePenalty
 
     // Position-based 3-bet sizing — IP 3.0x, OOP 3.5x (matches real poker sizing)
     const threeBetMult = inPosition ? 3.0 : 3.5
