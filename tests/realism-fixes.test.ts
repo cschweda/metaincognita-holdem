@@ -241,6 +241,40 @@ describe('Board-relative strength — board pairs/trips are not monsters', () =>
   })
 })
 
+// ─── F8c: Hero bet-sizing tell ─────────────────────────────────
+
+describe('F8c — hero betSizingTell detection', () => {
+  it('detects big-with-value tell after 8 classified showdowns', async () => {
+    const { setActivePinia, createPinia } = await import('pinia')
+    const { useHeroProfileStore } = await import('../app/stores/heroProfile')
+    setActivePinia(createPinia())
+    const store = useHeroProfileStore()
+    for (let i = 0; i < 4; i++) {
+      store.recordHeroBetSizing(0.9)
+      store.finalizeHandSizing({ shown: true, strong: true })
+      store.recordHeroBetSizing(0.3)
+      store.finalizeHandSizing({ shown: true, strong: false })
+    }
+    expect(store.betSizingTell?.hasTell).toBe(true)
+    expect(store.betSizingTell?.bigWithValue).toBe(true)
+  })
+
+  it('no tell with too few showdowns or balanced sizing', async () => {
+    const { setActivePinia, createPinia } = await import('pinia')
+    const { useHeroProfileStore } = await import('../app/stores/heroProfile')
+    setActivePinia(createPinia())
+    const store = useHeroProfileStore()
+    store.recordHeroBetSizing(0.6)
+    store.finalizeHandSizing({ shown: true, strong: true })
+    expect(store.betSizingTell).toBeUndefined()
+    for (let i = 0; i < 4; i++) {
+      store.recordHeroBetSizing(0.6); store.finalizeHandSizing({ shown: true, strong: true })
+      store.recordHeroBetSizing(0.6); store.finalizeHandSizing({ shown: true, strong: false })
+    }
+    expect(store.betSizingTell?.hasTell).toBe(false)
+  })
+})
+
 // ─── F7: Sizing personality + overbets ─────────────────────────
 
 describe('F7 — sizing personality', () => {

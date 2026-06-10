@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '~': resolve(__dirname, '.'),
+      '@config': resolve(__dirname, 'holdem.config.ts'),
     },
   },
   test: {

@@ -191,6 +191,7 @@ const engine = useGameEngine({
           foldToCbet: heroProfileStore.heroFoldToCbet,
           aggression: heroProfileStore.heroAggression,
           handsTracked: heroProfileStore.handsTracked,
+          betSizingTell: heroProfileStore.betSizingTell,
         }
       : undefined
 
@@ -277,7 +278,7 @@ function onGameKeydown(e: KeyboardEvent) {
     if (gs.toCall.value > 0) engine.handleCall(Math.min(gs.toCall.value, gs.maxRaise.value))
     else engine.handleCheck()
   }
-  else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); engine.handleRaise(Math.round(gs.pot.value * 0.5)) }
+  else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); heroRaise(Math.round(gs.pot.value * 0.5)) }
 }
 onMounted(() => window.addEventListener('keydown', onGameKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onGameKeydown))
@@ -295,6 +296,14 @@ function handleStart(gameSettings: GameSettings) {
   engine.paused.value = false
   resetTimeout()
   setTimeout(dealNewHand, 300)
+}
+
+// Hero raise wrapper — records postflop bet sizing for the bots' tell detection
+function heroRaise(amount: number) {
+  if (gs.street.value !== 'preflop' && gs.pot.value > 0) {
+    heroProfileStore.recordHeroBetSizing(amount / gs.pot.value)
+  }
+  engine.handleRaise(amount)
 }
 
 function findPersonaTiltMultiplier(name?: string): number {
@@ -457,19 +466,55 @@ function endHand() {
     updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
   }
 
-  // Record hero actions for adaptation
+  // Record hero actions for adaptation — 3-bet/c-bet facing derived from the log
   const heroState = gs.playerStates.value[0]
   if (heroState) {
+    const log = gs.handActionLog.value
+    const heroName = heroState.name
+    const isRaiseLine = (a: string) => a.includes('raises') || a.includes('ALL-IN')
+    const flopMarkIdx = log.findIndex(a => a.startsWith('--- FLOP'))
+    const preflopLog = flopMarkIdx >= 0 ? log.slice(0, flopMarkIdx) : log
+    const turnMarkIdx = log.findIndex(a => a.startsWith('--- TURN'))
+    const flopLog = flopMarkIdx >= 0
+      ? log.slice(flopMarkIdx + 1, turnMarkIdx >= 0 ? turnMarkIdx : undefined)
+      : []
+
+    // Hero faced a 3-bet: hero raised preflop, then a non-hero re-raise followed
+    const heroOpenIdx = preflopLog.findIndex(a => a.includes(heroName) && isRaiseLine(a))
+    const reRaiseAfterIdx = heroOpenIdx >= 0
+      ? preflopLog.findIndex((a, i) => i > heroOpenIdx && !a.includes(heroName) && isRaiseLine(a))
+      : -1
+    const faced3Bet = reRaiseAfterIdx >= 0
+    const foldedTo3Bet = faced3Bet
+      && preflopLog.some((a, i) => i > reRaiseAfterIdx && a.includes(heroName) && a.includes('folds'))
+
+    // Hero faced a c-bet: a non-hero bet led the flop while hero hadn't folded preflop
+    const heroFoldedPreflop = preflopLog.some(a => a.includes(heroName) && a.includes('folds'))
+    const flopLeadIdx = flopLog.findIndex(isRaiseLine)
+    const facedCbet = !heroFoldedPreflop && flopLeadIdx >= 0 && !flopLog[flopLeadIdx]!.includes(heroName)
+    const foldedToCbet = facedCbet
+      && flopLog.some((a, i) => i > flopLeadIdx && a.includes(heroName) && a.includes('folds'))
+
     heroProfileStore.recordHeroAction({
       enteredPot: !heroState.folded || gs.heroTotalWagered.value > bb.value,
-      faced3Bet: false, // simplified — would need action tracking for full accuracy
-      foldedTo3Bet: false,
-      facedCbet: false,
-      foldedToCbet: false,
-      raiseCount: gs.handActionLog.value.filter(a => a.includes(heroState.name) && (a.includes('raises') || a.includes('ALL-IN'))).length,
-      callCount: gs.handActionLog.value.filter(a => a.includes(heroState.name) && a.includes('calls')).length,
-      checkCount: gs.handActionLog.value.filter(a => a.includes(heroState.name) && a.includes('checks')).length,
+      faced3Bet,
+      foldedTo3Bet,
+      facedCbet,
+      foldedToCbet,
+      raiseCount: log.filter(a => a.includes(heroName) && isRaiseLine(a)).length,
+      callCount: log.filter(a => a.includes(heroName) && a.includes('calls')).length,
+      checkCount: log.filter(a => a.includes(heroName) && a.includes('checks')).length,
     })
+
+    // Bet-sizing tell: classify hero's hand at multi-player showdowns
+    const othersAtShowdown = gs.playerStates.value.filter(p => !p.isHero && !p.folded && !p.eliminated).length
+    const heroAtShowdown = !heroState.folded && othersAtShowdown > 0 && gs.visibleCommunity.value.length === 5
+    let heroStrong = false
+    if (heroAtShowdown && heroState.holeCards) {
+      const heroResult = bestHand(heroState.holeCards, gs.visibleCommunity.value)
+      heroStrong = !!heroResult && heroResult.rank >= 2 // two pair or better
+    }
+    heroProfileStore.finalizeHandSizing(heroAtShowdown ? { shown: true, strong: heroStrong } : null)
   }
 
   // Record hand for session stats
@@ -843,7 +888,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             @fold="engine.handleFold"
             @check="engine.handleCheck"
             @call="engine.handleCall"
-            @raise="engine.handleRaise"
+            @raise="heroRaise"
           />
 
           <!-- Showdown actions -->
