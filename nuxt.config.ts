@@ -34,16 +34,9 @@ export default defineNuxtConfig({
     },
   },
 
-  runtimeConfig: {
-    public: {
-      supabaseUrl: process.env.SUPABASE_URL || '',
-      supabaseKey: process.env.SUPABASE_KEY || '',
-    },
-  },
-
   vite: {
     optimizeDeps: {
-      include: ['@supabase/supabase-js', '@vue/devtools-core', '@vue/devtools-kit'],
+      include: ['@vue/devtools-core', '@vue/devtools-kit'],
     },
   },
 

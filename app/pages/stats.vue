@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Stats dashboard — loads cross-session data from Supabase (with localStorage fallback).
+ * Stats dashboard — loads session data from localStorage.
  * Data loading, computed stats, and CRUD operations are in useStatsData composable.
  */
 import { useStatsData } from '~/composables/useStatsData'
@@ -8,7 +8,7 @@ import type { SessionRow, HandRow } from '~/composables/useStatsData'
 import { toPokerStarsFormat } from '~/utils/pokerStarsExport'
 
 const {
-  loading, error, sessions, hands, isGitHubAuth, selectedSession, positionFilter,
+  loading, error, sessions, hands, selectedSession, positionFilter,
   lifetimeStats, winRate, sessionSummary, positionStats, profitTimeline, displayedHands, recentHands,
   init, deleteAllData, deleteSession, deleteHand, drillIntoPosition,
   exportLifetimeJSON, exportLifetimeCSV, exportLifetimePokerStars,
@@ -92,14 +92,12 @@ const profitTrendClass = computed(() => {
                   {{ selectedSession.player_count }} players &middot;
                   {{ formatDate(selectedSession.started_at) }}
                 </template>
-                <template v-else-if="isGitHubAuth">Lifetime stats for your GitHub account</template>
-                <template v-else>Current session stats (sign in with GitHub for lifetime tracking)</template>
+                <template v-else>Current session stats (saved in this browser)</template>
               </p>
             </div>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <SupabaseStatus />
           <NuxtLink to="/">
             <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">
               Back to Table
@@ -128,9 +126,6 @@ const profitTrendClass = computed(() => {
       <!-- No data -->
       <div v-else-if="hands.length === 0" class="text-center py-20 space-y-4">
         <p class="text-gray-400">No hands recorded yet.</p>
-        <p v-if="!isGitHubAuth" class="text-xs text-gray-600">
-          Sign in with GitHub for persistent lifetime stats.
-        </p>
         <NuxtLink to="/">
           <UButton color="primary" class="mt-4">Play Your First Hand</UButton>
         </NuxtLink>

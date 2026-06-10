@@ -14,7 +14,6 @@ import { decideBotAction, createTiltState } from '~/utils/botDecision'
 import { bestHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
 import type { PlayerHand } from '~/composables/useSessionStats'
-import { useSupabase, ensureAnonSession } from '~/composables/useSupabase'
 import { useGameState } from '~/composables/useGameState'
 import { useGameEngine } from '~/composables/useGameEngine'
 import type { PlayerState } from '~/composables/useGameState'
@@ -53,8 +52,7 @@ onMounted(async () => {
     loading.value = false
     return
   }
-  let found = loadFromLocalStorage()
-  if (!found) found = await loadFromSupabase()
+  const found = loadFromLocalStorage()
   if (!found) errorMsg.value = 'Hand not found.'
   loading.value = false
 })
@@ -81,26 +79,6 @@ function loadFromLocalStorage(): boolean {
       position: hand.position, potSize: hand.potSize,
       actions: hand.actions || [], players: hand.players || [],
       stakeLevel: session.stakeLevel, playerCount: session.playerCount,
-    }
-    replayPhase.value = 'ready'
-    return true
-  } catch { return false }
-}
-
-async function loadFromSupabase(): Promise<boolean> {
-  const sb = useSupabase()
-  if (!sb) return false
-  const userId = await ensureAnonSession()
-  if (!userId) return false
-  try {
-    const { data, error } = await sb.from('hands').select('*').eq('id', handId.value).single()
-    if (error || !data) return false
-    originalHand.value = {
-      handNumber: data.hand_number, holeCards: data.hole_cards,
-      board: data.board || '', result: data.result, profit: data.profit,
-      position: data.position, potSize: data.pot_size,
-      actions: data.actions || [], players: data.players || [],
-      stakeLevel: data.stake_level, playerCount: data.player_count,
     }
     replayPhase.value = 'ready'
     return true

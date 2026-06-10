@@ -1,9 +1,8 @@
 /**
- * Stats data composable — loads sessions/hands from Supabase or localStorage,
+ * Stats data composable — loads sessions/hands from localStorage,
  * computes lifetime stats, position stats, profit timeline, and provides
  * CRUD operations (delete session/hand/all). Extracted from stats.vue.
  */
-import { useSupabase, ensureAnonSession, getCurrentUser } from './useSupabase'
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
 import { downloadFile } from '~/utils/downloadFile'
 import type { SessionData, HandRecord } from './useSessionStats'
@@ -28,27 +27,11 @@ export function useStatsData() {
   const error = ref<string | null>(null)
   const sessions = ref<SessionRow[]>([])
   const hands = ref<HandRow[]>([])
-  const userId = ref<string | null>(null)
-  const isGitHubAuth = ref(false)
   const localSession = ref<SessionData | null>(null)
   const selectedSession = ref<SessionRow | null>(null)
   const positionFilter = ref<string | null>(null)
 
   // ─── Data Loading ──────────────────────────────────────
-
-  async function loadData(sb: ReturnType<typeof useSupabase>) {
-    if (!sb) return
-    loading.value = true
-    const [sessResult, handsResult] = await Promise.all([
-      sb.from('sessions').select('*').eq('user_id', userId.value).order('started_at', { ascending: false }).limit(50),
-      sb.from('hands').select('*').eq('user_id', userId.value).order('played_at', { ascending: false }).limit(500),
-    ])
-    if (sessResult.error) error.value = `Sessions: ${sessResult.error.message}`
-    else sessions.value = sessResult.data || []
-    if (handsResult.error) error.value = `Hands: ${handsResult.error.message}`
-    else hands.value = handsResult.data || []
-    loading.value = false
-  }
 
   async function init() {
     try {
@@ -59,30 +42,8 @@ export function useStatsData() {
       localStorage.removeItem('holdem-session-stats')
     }
 
-    const sb = useSupabase()
-    if (!sb) {
-      // No Supabase — use localStorage data directly
-      mapLocalSessionToHands()
-      loading.value = false
-      return
-    }
-
-    userId.value = await ensureAnonSession()
-    if (!userId.value) {
-      mapLocalSessionToHands()
-      loading.value = false
-      return
-    }
-
-    const user = await getCurrentUser()
-    isGitHubAuth.value = !!user && !user.is_anonymous
-
-    if (isGitHubAuth.value) {
-      await loadData(sb)
-    } else {
-      mapLocalSessionToHands()
-      loading.value = false
-    }
+    mapLocalSessionToHands()
+    loading.value = false
   }
 
   function mapLocalSessionToHands() {
@@ -102,21 +63,11 @@ export function useStatsData() {
   // ─── Delete Operations ─────────────────────────────────
 
   async function deleteAllData() {
-    const sb = useSupabase()
-    if (sb && userId.value) {
-      await sb.from('hands').delete().eq('user_id', userId.value)
-      await sb.from('sessions').delete().eq('user_id', userId.value)
-    }
     localStorage.removeItem('holdem-session-stats')
     sessions.value = []; hands.value = []; localSession.value = null
   }
 
   async function deleteSession(sessionId: string) {
-    const sb = useSupabase()
-    if (sb && userId.value) {
-      await sb.from('hands').delete().eq('session_id', sessionId).eq('user_id', userId.value)
-      await sb.from('sessions').delete().eq('id', sessionId).eq('user_id', userId.value)
-    }
     sessions.value = sessions.value.filter(s => s.id !== sessionId)
     hands.value = hands.value.filter(h => h.session_id !== sessionId)
     if (localSession.value?.id === sessionId) { localStorage.removeItem('holdem-session-stats'); localSession.value = null }
@@ -124,10 +75,6 @@ export function useStatsData() {
   }
 
   async function deleteHand(handId: string) {
-    const sb = useSupabase()
-    if (sb && userId.value && !handId.startsWith('local-')) {
-      await sb.from('hands').delete().eq('id', handId).eq('user_id', userId.value)
-    }
     hands.value = hands.value.filter(h => h.id !== handId)
     if (handId.startsWith('local-') && localSession.value?.hands) {
       const idx = parseInt(handId.replace('local-', ''), 10)
@@ -267,13 +214,13 @@ export function useStatsData() {
 
   return {
     // State
-    loading, error, sessions, hands, userId, isGitHubAuth, localSession,
+    loading, error, sessions, hands, localSession,
     selectedSession, positionFilter,
     // Computed
     lifetimeStats, winRate, sessionSummary, positionStats, sessionHands,
     profitTimeline, displayedHands, recentHands,
     // Actions
-    init, loadData, deleteAllData, deleteSession, deleteHand,
+    init, deleteAllData, deleteSession, deleteHand,
     drillIntoPosition,
     // Export
     exportLifetimeJSON, exportLifetimeCSV, exportLifetimePokerStars,

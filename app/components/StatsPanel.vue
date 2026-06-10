@@ -51,7 +51,6 @@ const props = defineProps<{
     startedAt?: string
   } | null
   milestones?: { label: string; hand: number }[]
-  supabaseConnected?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -916,14 +915,6 @@ function afLabel(af: number): string {
             <div v-if="sessionStats.startedAt" class="flex justify-between text-xs text-gray-500 mt-1">
               <span>Session started</span>
               <span class="text-gray-400">{{ new Date(sessionStats.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
-            </div>
-          </div>
-
-          <!-- Supabase status -->
-          <div class="border-t border-gray-700/50 pt-3">
-            <div class="flex items-center gap-1.5 text-[0.6rem]">
-              <div class="w-1.5 h-1.5 rounded-full" :class="supabaseConnected ? 'bg-green-500' : 'bg-gray-600'" />
-              <span class="text-gray-500">{{ supabaseConnected ? 'Syncing to cloud' : 'Local only' }}</span>
             </div>
           </div>
 

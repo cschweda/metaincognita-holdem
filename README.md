@@ -71,7 +71,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Hand detail modal** -- click any hand for PokerStars history, copy to clipboard, replay, analyze
 - **Interactive bot analysis** (`/analysis`) -- run a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with metrics, bot stats, auto-selected interesting hands with insights (leaks, good plays, teaching moments), and downloadable PokerStars hand histories per table size
 - **Hand history replay viewer** (`/replay-hand`) -- paste any PokerStars hand history and watch it play out on the visual table. All cards face-up. Play/pause, speed control (0.5x-3x), step forward/back, keyboard shortcuts, action log. Click "Replay on Table" from analysis interesting hands.
-- **Supabase persistence** -- cross-session lifetime stats with GitHub or email auth (optional)
+- **Local persistence** -- session stats saved in your browser (localStorage); export hands as JSON/CSV/PokerStars anytime. No accounts, no cloud, no serverless.
 
 ## Table of Contents
 
@@ -230,7 +230,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - **5-minute hero timeout**: Inactivity auto-folds current hand, pauses game, saves session. Resume or end from pause screen.
 - **Bust-out**: Showdown results display first, then "Buy More Chips" (re-buy) or "Cash Out" options
 - **Re-buy**: Starts a new session at original starting stack. Tracked independently in lifetime stats.
-- **Auto-save**: Session saved to Supabase every 60 seconds and on tab close (via `sendBeacon`)
+- **Auto-save**: Session saved to localStorage on every hand and on tab close
 - **Speed after fold**: Bot actions run ~5x faster when hero has folded
 - **Stats navigation preserves game state**: Click Stats mid-hand, view analytics, come back to exact same game state
 
@@ -243,30 +243,14 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - Hover any dotted-underlined label for an explanation
 - Covers: Equity, Chen Score, Chen+, Position, Pot Odds, EV, SPR, Draws & Outs, Recommendation
 
-### Authentication & Persistence
+### Persistence
 
-The app has three persistence tiers depending on configuration:
+The app is fully local — no accounts, no cloud, no serverless functions:
 
-**Tier 1 — No Supabase (default for new clones):**
-- No `.env` file or empty `SUPABASE_URL`/`SUPABASE_KEY` values
-- Setup screen shows gray "Local Storage Only" indicator with message: "No database configured"
-- All login UI (GitHub, email/password) is hidden
-- Session stats saved to `localStorage` only — survives page refresh but not browser clear
-- No lifetime stats across sessions
-- The app is fully functional for playing poker — only cross-session analytics are unavailable
-
-**Tier 2 — Supabase configured, not signed in:**
-- `.env` has valid `SUPABASE_URL` and `SUPABASE_KEY`
-- Yellow "Local" indicator. GitHub OAuth and email/password login buttons shown.
-- Anonymous Supabase session created automatically
-- Session stats saved to localStorage AND Supabase (auto-sync every 60s + on tab close)
-- Stats page shows lifetime data across sessions
-
-**Tier 3 — Supabase configured, signed in (GitHub or email):**
-- Green indicator with username
-- Full cross-device sync. Stats follow your account.
-- All export, replay, and analytics features available
-- **Email/Password**: Create an account (8+ chars, uppercase, lowercase, number). Bcrypt hashed by Supabase.
+- Session stats are saved to `localStorage` — they survive page refresh but not a browser-data clear
+- Export everything anytime: JSON, CSV, or PokerStars hand history format
+- The stats page (`/stats`) reads the same localStorage data
+- Future idea: browser-side SQLite (e.g. sql.js/OPFS) for richer cross-session hand-history queries — still with zero server code
 
 ### Hand Replay (`/replay`)
 - Click **"Replay"** on any hand in the stats page to re-live it
@@ -770,7 +754,7 @@ Four levels of verification, each more realistic than the last:
 | UI | Nuxt UI v4 |
 | Styling | Tailwind CSS v4 |
 | State | Reactive refs (Vue 3 Composition API) |
-| Persistence | Supabase (GitHub OAuth, email/password, RLS) + localStorage fallback |
+| Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Deployment | Netlify (static) |
 | Testing | Vitest (810 tests across 19 files) |
@@ -916,14 +900,12 @@ holdem-simulator/
 │   │   ├── BotAvatar.vue           # Bot initials avatar with deterministic color
 │   │   ├── BotProfileModal.vue    # In-game bot stat adjustment modal
 │   │   ├── HandAnalysisModal.vue  # Street-by-street hand analysis with persona explanations
-│   │   ├── SetupScreen.vue        # Game config, bot roster, auth, pro count selector
-│   │   ├── StatsPanel.vue         # 4-tab panel: Live, Session, Ranges, Table
-│   │   └── SupabaseStatus.vue     # Auth status pill with sign-in/out dropdown
+│   │   ├── SetupScreen.vue        # Game config, bot roster, pro count selector
+│   │   └── StatsPanel.vue         # 4-tab panel: Live, Session, Ranges, Table
 │   ├── composables/
 │   │   ├── useGameEngine.ts       # Game loop, betting rounds, table flow dynamics
 │   │   ├── useGameState.ts        # Reactive game state (players, pot, street, community)
-│   │   ├── useSessionStats.ts     # Session tracking, export, auto-save, Supabase sync
-│   │   └── useSupabase.ts         # Supabase client, GitHub/email/anonymous auth
+│   │   └── useSessionStats.ts     # Session tracking, export, localStorage auto-save
 │   ├── pages/
 │   │   ├── bots.vue               # Bot gallery page with all 27 personas
 │   │   ├── index.vue              # Main game page (table, betting, bot loop, tilt, timeout)
@@ -946,9 +928,8 @@ holdem-simulator/
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
 ├── tests/                         # 17 Vitest test suites (753 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
-├── nuxt.config.ts                 # Nuxt 4 config with OG meta tags + Supabase runtime config
+├── nuxt.config.ts                 # Nuxt 4 config with OG meta tags
 ├── netlify.toml                   # Static deploy config with SPA redirect
-├── .env.example                   # Supabase credentials template
 └── vitest.config.ts
 ```
 
@@ -969,76 +950,9 @@ All game parameters are centralized in `holdem.config.ts` (project root):
 - **Session management**: Hero timeout (5 min), auto-save interval (60s), re-buy toggle
 - **Animation timing**: Deal stagger, bot thinking delay, showdown pause
 
-### Supabase Setup (Optional)
+### Persistence Model
 
-Supabase provides cloud persistence for cross-session lifetime stats. **It is entirely optional** — the app works fully without it (local storage only).
-
-**To enable:**
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Copy your project URL and anon/public key from Settings > API
-3. Create a `.env` file in the project root:
-
-```
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_KEY=your-anon-public-key
-```
-
-4. Run the following SQL in Supabase's SQL editor to create the required tables:
-
-```sql
--- Sessions table
-create table sessions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id),
-  started_at timestamptz not null default now(),
-  ended_at timestamptz,
-  stake_level int not null default 3,
-  player_count int not null default 6,
-  starting_stack numeric not null default 200,
-  hands_played int not null default 0,
-  hands_won int not null default 0,
-  hands_lost int not null default 0,
-  hands_folded int not null default 0,
-  final_stack numeric,
-  peak_stack numeric,
-  total_profit numeric not null default 0
-);
-
--- Hands table
-create table hands (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id),
-  session_id uuid references sessions(id) on delete cascade,
-  hand_number int not null,
-  hole_cards text not null,
-  board text,
-  result text not null,
-  profit numeric not null default 0,
-  position text not null,
-  pot_size numeric not null default 0,
-  stake_level int not null default 3,
-  player_count int not null default 6,
-  played_at timestamptz not null default now(),
-  actions jsonb,
-  players jsonb
-);
-
--- Row Level Security
-alter table sessions enable row level security;
-alter table hands enable row level security;
-
-create policy "Users can manage own sessions" on sessions
-  for all using (auth.uid() = user_id);
-
-create policy "Users can manage own hands" on hands
-  for all using (auth.uid() = user_id);
-```
-
-5. Enable anonymous sign-in in Supabase: Authentication > Providers > Anonymous > Enable
-6. (Optional) Enable GitHub OAuth: Authentication > Providers > GitHub > Add client ID/secret from a GitHub OAuth App
-
-**Detection:** The app checks `SUPABASE_URL` and `SUPABASE_KEY` at runtime via Nuxt's `runtimeConfig.public`. If either is empty or missing, `useSupabase()` returns `null` and the entire auth/persistence layer is bypassed. No errors are thrown — the setup screen shows "Local Storage Only" and all login UI is hidden.
+All data lives in the browser. There is no backend, no database, no serverless functions, and nothing to configure. Session stats persist in `localStorage`; the export buttons (JSON / CSV / PokerStars) are the durable backup path. If browser-side SQLite (sql.js / OPFS) lands later for hand-history queries, it will remain 100% client-side.
 
 ## Test Suites
 
@@ -1153,43 +1067,22 @@ The codebase has been through a red/blue team adversarial security audit. This s
 
 ### Architecture
 
-The app is a **static SPA** deployed to Netlify with an optional Supabase backend. There is no server-side code beyond Supabase's managed infrastructure. All game logic runs client-side. The security surface is:
+The app is a **static SPA** deployed to Netlify. There is no server-side code at all — no database, no serverless functions. All game logic runs client-side. The security surface is:
 
 - **Client-side code** — Vue/Nuxt SPA, no server rendering
-- **Supabase** (optional) — PostgreSQL with Row-Level Security (RLS) for data isolation
-- **localStorage** — fallback when Supabase is not configured
+- **localStorage** — the only persistence layer
 - **Netlify** — static hosting with security headers
 
 ### Audit Results
 
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
-| 1 | Critical | SELECT queries had no `user_id` filter — all users could see all data | **Fixed** — `.eq('user_id')` added to all queries (defense-in-depth alongside RLS) |
-| 2 | Critical | DELETE operations missing ownership check — any user could delete any session/hand | **Fixed** — `.eq('user_id')` added to all delete operations |
-| 3 | High | sendBeacon on tab close sent no auth — Supabase could reject writes | **Fixed** — apikey passed as query parameter |
-| 4 | High | No security headers on Netlify deployment | **Fixed** — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP |
-| 5 | Medium | localStorage stores hand history unencrypted | **Accepted** — Training tool with fake money. No real-world sensitive data. |
-| 6 | Low | Supabase anon key in public runtime config | **By design** — Supabase publishable keys are intended for client-side use. RLS enforces access control. |
-| 7 | Info | `.env` never committed to git | **Confirmed safe** — `.gitignore` excludes `.env` |
-| 8 | Info | No XSS vectors | **Confirmed safe** — No `v-html`, `innerHTML`, `eval`, or `document.write` anywhere |
-| 9 | Info | No SQL injection vectors | **Confirmed safe** — Supabase JS client uses parameterized queries throughout |
-| 10 | Info | Query params in replay.vue | **Confirmed safe** — String cast, array index bounds check, parameterized Supabase query |
+| 1 | High | No security headers on Netlify deployment | **Fixed** — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP |
+| 2 | Medium | localStorage stores hand history unencrypted | **Accepted** — Training tool with fake money. No real-world sensitive data. |
+| 3 | Info | No XSS vectors | **Confirmed safe** — No `v-html`, `innerHTML`, `eval`, or `document.write` anywhere |
+| 4 | Info | Query params in replay.vue | **Confirmed safe** — String cast, array index bounds check, localStorage lookup only |
 
-### Defense-in-Depth Strategy
-
-Data isolation uses **two layers** — both must fail for a breach:
-
-1. **Client-side filtering**: Every Supabase query includes `.eq('user_id', userId.value)` so the client never requests data it shouldn't see, even if RLS were misconfigured.
-
-2. **Server-side RLS**: Supabase Row-Level Security policies enforce `auth.uid() = user_id` on all operations. Even if the client code is tampered with (browser devtools, modified JS), the database rejects unauthorized access.
-
-```sql
--- Required RLS policies (see Supabase Setup section):
-create policy "Users can manage own sessions" on sessions
-  for all using (auth.uid() = user_id);
-create policy "Users can manage own hands" on hands
-  for all using (auth.uid() = user_id);
-```
+(Earlier audit rounds also covered the since-removed Supabase integration; those findings were fixed at the time and became moot when the app went local-only.)
 
 ### Security Headers
 
@@ -1206,18 +1099,8 @@ Deployed via `netlify.toml`:
 **CSP breakdown:**
 - `default-src 'self'` — only load resources from same origin
 - `script-src 'self' 'unsafe-inline' 'unsafe-eval'` — required by Nuxt/Vue runtime (nonce-based CSP would require SSR)
-- `connect-src 'self' https://*.supabase.co wss://*.supabase.co` — API calls limited to Supabase domains
+- `connect-src 'self' https://api.iconify.design` — no API calls except icon fetching
 - `frame-ancestors 'none'` — prevents embedding in any frame
-
-### Credential Validation
-
-`useSupabase()` validates credentials before creating a client:
-
-- Both `SUPABASE_URL` and `SUPABASE_KEY` must be present and non-whitespace
-- URL must match `https://*.supabase.co` format
-- Key must be 20+ characters (real Supabase keys are 30+)
-- If `ensureSession()` gets an auth error (bad key, wrong project), it sets `connectionFailed`, nulls the client, and the entire app falls back to localStorage
-- UI shows red "Connection Failed" indicator with diagnostic message
 
 ### Accepted Risks
 
@@ -1225,7 +1108,6 @@ Deployed via `netlify.toml`:
 |------|---------------|
 | localStorage unencrypted | Data is poker hands with fake money — no financial, personal, or health data. Encrypting adds complexity without meaningful security benefit. |
 | `unsafe-inline` / `unsafe-eval` in CSP | Required by Vue/Nuxt client-side rendering. Moving to nonce-based CSP would require SSR mode, which is a fundamental architecture change not warranted for this app. |
-| Supabase anon key client-visible | This is the intended Supabase architecture. The anon key grants only the permissions defined by RLS policies. It is functionally equivalent to a public API endpoint. |
 
 ## Roadmap
 
@@ -1235,7 +1117,7 @@ Deployed via `netlify.toml`:
 | **2** | Done | Core engine -- deck, shuffle, hand evaluator, all 9 ranks, edge cases |
 | **3** | Done | Game loop -- betting rounds, side pots, all-in auto-runout, blind rotation |
 | **4** | Done | Bot AI -- 25 personas (18 pro), per-persona tilt + consistency, 737 tests |
-| **5** | Done | Stats -- Supabase, session tracking, analytics, PokerStars/CSV/JSON export, replay |
+| **5** | Done | Stats -- session tracking, analytics, PokerStars/CSV/JSON export, replay |
 | **6** | Done | Advanced AI -- Chen+, board texture, table flow, donk bets, hand analysis modal |
 | **7** | Planned | Polish -- dealing animations, chip movement, celebrations |
 
@@ -1294,7 +1176,7 @@ Most poker trainers are either too simple (random bots, no personality) or too s
 - **Paste and replay** -- drop any PokerStars hand history into `/replay-hand` and watch it play out on the felt. Step through action by action. Pause and study.
 - **Run 3,000 hands in your browser** -- the `/analysis` page simulates heads-up, 6-max, and 8-max tables with pro bots, auto-selects the most interesting hands, and lets you download everything in PokerStars format.
 - **Learn from every hand** -- real-time equity, pot odds (percentage vs percentage for easy comparison), draws with outs, action recommendations pinned at the top of the stats panel. Board texture analysis in the Hero commentary.
-- **Zero install** -- runs in any modern browser. No download, no account required. Optional Supabase for cross-session stats.
+- **Zero install** -- runs in any modern browser. No download, no account, no backend. Your data stays in your browser.
 
 ## License
 

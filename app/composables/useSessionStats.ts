@@ -1,11 +1,8 @@
 /**
- * Session stats tracking — persists to localStorage with reactive watch,
- * and syncs to Supabase in background (auto-save every 60s + sendBeacon on tab close).
+ * Session stats tracking — persists to localStorage with reactive watch.
  * Tracks hands played, wins/losses/folds, bankroll, per-hand records, and
  * provides JSON/CSV export downloads.
  */
-import { useSupabase, ensureAnonSession } from './useSupabase'
-
 export interface PlayerHand {
   name: string
   position: string
@@ -49,19 +46,14 @@ const STORAGE_KEY = 'holdem-session-stats'
 
 export function useSessionStats() {
   const session = ref<SessionData>(createSession())
-  const userId = ref<string | null>(null)
-  const supabaseReady = ref(false)
 
-  // Initialize
-  let autoSaveInterval: ReturnType<typeof setInterval> | null = null
   let beforeUnloadHandler: (() => void) | null = null
 
   onBeforeUnmount(() => {
-    if (autoSaveInterval) clearInterval(autoSaveInterval)
     if (beforeUnloadHandler) window.removeEventListener('beforeunload', beforeUnloadHandler)
   })
 
-  onMounted(async () => {
+  onMounted(() => {
     // Load from localStorage
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -73,45 +65,9 @@ export function useSessionStats() {
       }
     }
 
-    // Set up Supabase anonymous session
-    userId.value = await ensureAnonSession()
-    supabaseReady.value = !!userId.value
-
-    // Auto-save session to Supabase every 60 seconds
-    autoSaveInterval = setInterval(() => {
-      if (session.value.handsPlayed > 0) saveSessionToSupabase()
-    }, 60000)
-
-    // Save on tab close (uses sendBeacon for reliability)
+    // Save on tab close
     beforeUnloadHandler = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
-      if (userId.value && session.value.handsPlayed > 0) {
-        const runtimeConfig = useRuntimeConfig()
-        const body = JSON.stringify({
-          id: session.value.id,
-          user_id: userId.value,
-          started_at: session.value.startedAt,
-          stake_level: session.value.stakeLevel,
-          player_count: session.value.playerCount,
-          starting_stack: session.value.startingStack,
-          hands_played: session.value.handsPlayed,
-          hands_won: session.value.handsWon,
-          hands_lost: session.value.handsLost,
-          hands_folded: session.value.handsFolded,
-          final_stack: session.value.currentStack,
-          peak_stack: session.value.peakStack,
-          total_profit: session.value.totalProfit,
-          ended_at: new Date().toISOString(),
-        })
-        // sendBeacon cannot include custom headers, so we use a Blob with
-        // the apikey in the URL as a query param (Supabase supports this).
-        // RLS policies on the sessions table ensure only the owning user can upsert.
-        const beaconUrl = `${runtimeConfig.public.supabaseUrl}/rest/v1/sessions?apikey=${encodeURIComponent(runtimeConfig.public.supabaseKey)}`
-        navigator.sendBeacon(
-          beaconUrl,
-          new Blob([body], { type: 'application/json' })
-        )
-      }
     }
     window.addEventListener('beforeunload', beforeUnloadHandler)
   })
@@ -150,7 +106,6 @@ export function useSessionStats() {
     session.value.startingStack = startingStack
     session.value.currentStack = startingStack
     session.value.peakStack = startingStack
-    sessionCreatedInSupabase.value = false
   }
 
   function recordHand(record: HandRecord, newStack: number) {
@@ -167,92 +122,9 @@ export function useSessionStats() {
 
     // Save to localStorage immediately (don't wait for debounced watch)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
-
-    // Save to Supabase in background
-    saveHandToSupabase(record)
-  }
-
-  const sessionCreatedInSupabase = ref(false)
-
-  async function ensureSessionExists() {
-    if (sessionCreatedInSupabase.value) return
-    const sb = useSupabase()
-    if (!sb || !userId.value) return
-
-    // Insert only — don't overwrite existing session data with zeros
-    const { error } = await sb.from('sessions').insert({
-      id: session.value.id,
-      user_id: userId.value,
-      started_at: session.value.startedAt,
-      stake_level: session.value.stakeLevel,
-      player_count: session.value.playerCount,
-      starting_stack: session.value.startingStack,
-      hands_played: session.value.handsPlayed,
-      hands_won: session.value.handsWon,
-      hands_lost: session.value.handsLost,
-      hands_folded: session.value.handsFolded,
-      total_profit: session.value.totalProfit,
-    }).select().maybeSingle()
-    // Ignore duplicate key errors (session already exists from prior save)
-    if (!error || error.code === '23505') sessionCreatedInSupabase.value = true
-    else console.warn('Failed to create session:', error.message)
-  }
-
-  async function saveHandToSupabase(record: HandRecord) {
-    const sb = useSupabase()
-    if (!sb || !userId.value) return
-
-    // Ensure session row exists before inserting hand (FK constraint)
-    await ensureSessionExists()
-
-    const { error } = await sb.from('hands').insert({
-      user_id: userId.value,
-      session_id: session.value.id,
-      hand_number: record.handNumber,
-      hole_cards: record.holeCards,
-      board: record.board,
-      result: record.result,
-      profit: record.profit,
-      position: record.position,
-      pot_size: record.potSize,
-      stake_level: session.value.stakeLevel,
-      player_count: session.value.playerCount,
-      played_at: new Date().toISOString(),
-      actions: record.actions || [],
-      players: record.players || [],
-    })
-    if (error) console.warn('Failed to save hand:', error.message)
-  }
-
-  async function saveSessionToSupabase() {
-    const sb = useSupabase()
-    if (!sb || !userId.value) return
-
-    try {
-      await sb.from('sessions').upsert({
-        id: session.value.id,
-        user_id: userId.value,
-        started_at: session.value.startedAt,
-        stake_level: session.value.stakeLevel,
-        player_count: session.value.playerCount,
-        starting_stack: session.value.startingStack,
-        hands_played: session.value.handsPlayed,
-        hands_won: session.value.handsWon,
-        hands_lost: session.value.handsLost,
-        hands_folded: session.value.handsFolded,
-        final_stack: session.value.currentStack,
-        peak_stack: session.value.peakStack,
-        total_profit: session.value.totalProfit,
-        ended_at: new Date().toISOString(),
-      })
-    } catch (e: unknown) {
-      console.warn('Failed to save session to Supabase:', e instanceof Error ? e.message : e)
-    }
   }
 
   function resetSession() {
-    // Save current session to Supabase before resetting
-    saveSessionToSupabase()
     const prev = session.value
     initSession(prev.stakeLevel, prev.playerCount, prev.startingStack)
   }
@@ -304,12 +176,9 @@ export function useSessionStats() {
 
   return {
     session: readonly(session),
-    userId: readonly(userId),
-    supabaseReady: readonly(supabaseReady),
     initSession,
     recordHand,
     resetSession,
-    saveSessionToSupabase,
     downloadJSON,
     downloadCSV,
   }

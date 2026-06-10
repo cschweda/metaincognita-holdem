@@ -24,7 +24,7 @@ import { useHeroProfileStore } from '~/stores/heroProfile'
 import { isPro as isProBot } from '~/utils/botDescriptions'
 
 const phase = ref<'setup' | 'table' | 'timeout' | 'busted'>('setup')
-const { session, initSession, recordHand, resetSession, saveSessionToSupabase, downloadJSON, downloadCSV, supabaseReady } = useSessionStats()
+const { session, initSession, recordHand, resetSession, downloadJSON, downloadCSV } = useSessionStats()
 const settings = ref<GameSettings | null>(null)
 const heroProfileStore = useHeroProfileStore()
 
@@ -55,7 +55,6 @@ function handleTimeout() {
     heroState.lastAction = 'fold'
     gs.waitingForHero.value = false
   }
-  saveSessionToSupabase()
   phase.value = 'timeout'
 }
 
@@ -500,7 +499,6 @@ function endHand() {
 }
 
 function handleRebuy() {
-  saveSessionToSupabase()
   initSession(settings.value!.stakeLevel, settings.value!.playerCount, startingStack.value)
   gs.playerStates.value = []
   phase.value = 'table'
@@ -510,7 +508,6 @@ function handleRebuy() {
 
 function backToSetup() {
   if (timeoutTimer) clearTimeout(timeoutTimer)
-  saveSessionToSupabase()
   phase.value = 'setup'
   settings.value = null
   gs.playerStates.value = []
@@ -662,7 +659,6 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <SupabaseStatus />
           <NuxtLink to="/stats">
             <UButton variant="ghost" color="neutral" size="sm" icon="i-lucide-bar-chart-2">
               Stats
@@ -853,7 +849,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
                 variant="outline"
                 color="neutral"
                 size="lg"
-                @click="() => { saveSessionToSupabase(); phase = 'busted' }"
+                @click="() => { phase = 'busted' }"
               >
                 Cash Out
               </UButton>
@@ -893,7 +889,6 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           :showdown-players="showdownPlayers"
           :session-stats="session"
           :milestones="sessionMilestones"
-          :supabase-connected="supabaseReady"
           @fold="engine.handleFold"
           @check="engine.handleCheck"
           @call="engine.handleCall"
