@@ -446,6 +446,21 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[]): numbe
   return strength
 }
 
+/** Pot-fraction bet size with persona sizing personality (betSizeMult) applied. */
+function sizedBet(pot: number, baseFrac: number, profile: BotProfile, bb: number): number {
+  return Math.max(Math.round(pot * baseFrac * (profile.betSizeMult ?? 1.0)), bb)
+}
+
+/**
+ * Roll for a river overbet (1.2-1.5x pot) — the polarized big-bet line.
+ * Overbettors (Dwan) use this for both value and bluffs. Returns size or null.
+ */
+function maybeOverbet(pot: number, profile: BotProfile, bb: number): number | null {
+  const freq = (profile.overbetFreq ?? 0.03) * (profile.aggression >= 1.3 ? 1.5 : 1.0)
+  if (Math.random() >= freq) return null
+  return Math.max(Math.round(pot * (1.2 + Math.random() * 0.3)), bb)
+}
+
 function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: number): BotAction {
   const { toCall, chips, bb, currentBet, playerBet } = ctx
   const raiseLevel = ctx.raiseLevel ?? 1
@@ -513,7 +528,9 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // Use VPIP as the opening range (not just PFR) — if you're playing the hand, raise it.
     // PFR/VPIP ratio should be ~0.80+ for TAGs, ~0.65+ for loose players.
     if (handPct < effectiveVpip) {
-      const raiseSize = Math.round(bb * (2.2 + profile.aggression * 0.5))
+      const latePosOpen = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO'].includes(ctx.position ?? '')
+      const openMult = (latePosOpen ? 2.2 : 2.5) + (profile.aggression - 1) * 0.4
+      const raiseSize = Math.round(bb * openMult * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize + playerBet, chips + playerBet) }
     }
     return { type: 'check' }
@@ -531,7 +548,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // everyone else folds those hands rather than limping them.
     if (!isBB && !isSB) {
       if (handPct < effectivePfr) {
-        const raiseSize = Math.round(currentBet * (2.5 + profile.aggression * 0.5))
+        const raiseSize = Math.round(currentBet * (2.5 + (profile.aggression - 1) * 0.5) * (profile.betSizeMult ?? 1.0))
         return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
       }
       if (handPct < effectiveVpip && Math.random() < (profile.limpFreq ?? 0)) {
@@ -553,7 +570,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
 
     if (handPct < defenseRange) {
       if (handPct < raiseThreshold) {
-        const raiseSize = Math.round(currentBet * (2.5 + profile.aggression * 0.5))
+        const raiseSize = Math.round(currentBet * (2.5 + (profile.aggression - 1) * 0.5) * (profile.betSizeMult ?? 1.0))
         return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
       }
       return { type: 'call' }
@@ -610,12 +627,12 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
 
     // Value 3-bet with premium hands
     if (handPct < valueFreq && chips > currentBet * 3) {
-      const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3))
+      const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // Bluff 3-bet — persona-driven random, needs a playable hand
     if (handPct < effectiveVpip && Math.random() < bluffRate && chips > currentBet * 3) {
-      const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3))
+      const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     if (handPct < flatCallFreq) {
@@ -768,8 +785,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   if (!cardAware) {
     if (toCall === 0) {
       if (Math.random() < profile.bluffFreq) {
-        const bluffSize = Math.round(pot * (0.33 + Math.random() * 0.22))
-        return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
+        const bluffSize = sizedBet(pot, 0.33 + Math.random() * 0.22, profile, bb)
+        return { type: 'raise', amount: bluffSize + playerBet }
       }
       if (Math.random() < 0.22 * profile.aggression) {
         const betSize = Math.round(pot * (0.45 + profile.aggression * 0.2 + Math.random() * 0.15))
@@ -870,8 +887,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       if (Math.random() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
-        const betSize = Math.round(pot * (sizeMult + profile.aggression * 0.12 + Math.random() * 0.12))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + Math.random() * 0.12, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
     }
@@ -907,8 +924,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : hasNothing ? profile.bluffFreq * 0.5 * profile.aggression
         : 0.25) * turnTexture * turnMulti * ipAggBoost
       if (Math.random() < barrelRate) {
-        const betSize = Math.round(pot * (0.50 + profile.aggression * 0.15 + Math.random() * 0.15))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = sizedBet(pot, 0.50 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
     }
@@ -940,8 +957,9 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : hasNothing ? profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost * ipAggBoost
         : 0  // strong hands and weak made hands CHECK the river (polarization)
       if (Math.random() < barrelRate) {
-        const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = maybeOverbet(pot, profile, bb)
+          ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
     }
@@ -949,12 +967,14 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     // River polarization for non-raiser: only bet monsters (value) or bluffs
     if (ctx.street === 'river') {
       if (hasMonster) {
-        const betSize = Math.round(pot * (0.55 + profile.aggression * 0.15 + Math.random() * 0.15))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = maybeOverbet(pot, profile, bb)
+          ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
       if (hasNothing && Math.random() < profile.bluffFreq * 0.35 * profile.aggression) {
-        const bluffSize = Math.round(pot * (0.55 + Math.random() * 0.20))
-        return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
+        const bluffSize = maybeOverbet(pot, profile, bb)
+          ?? sizedBet(pot, 0.55 + Math.random() * 0.20, profile, bb)
+        return { type: 'raise', amount: bluffSize + playerBet }
       }
       return { type: 'check' } // medium hands check the river
     }
@@ -978,8 +998,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         * (oppPassive ? 1.25 : 1.0)       // passive opponents fold more
       if (Math.random() < probeBase * probeTexture) {
         const sizeMult = board?.isWet ? 0.55 : board?.isDry ? 0.35 : 0.45
-        const betSize = Math.round(pot * (sizeMult + profile.aggression * 0.12 + Math.random() * 0.12))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + Math.random() * 0.12, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
     }
@@ -991,8 +1011,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         ? donkFreq + profile.aggression * 0.15 // fictional: use their donk freq
         : (0.15 + profile.aggression * 0.15) * callerRangeAdv // pro: rare, texture-based
       if (Math.random() < leadRate) {
-        const betSize = Math.round(pot * (0.45 + profile.aggression * 0.15 + Math.random() * 0.15))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = sizedBet(pot, 0.45 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
     }
 
@@ -1002,8 +1022,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         ? donkFreq * 0.7
         : (profile.bluffFreq + profile.aggression * 0.08) * callerRangeAdv
       if (Math.random() < drawLeadRate) {
-        const betSize = Math.round(pot * (0.40 + Math.random() * 0.20))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = sizedBet(pot, 0.40 + Math.random() * 0.20, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
     }
 
@@ -1017,12 +1037,12 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board?.isLow ? 1.2 : 1.0)
           * (oppPassive ? (ctx.street === 'river' ? 0.5 : 1.3) : 1.0)
       if (hasNothing && Math.random() < probeRate) {
-        const bluffSize = Math.round(pot * (0.33 + Math.random() * 0.22))
-        return { type: 'raise', amount: Math.max(bluffSize, bb) + playerBet }
+        const bluffSize = sizedBet(pot, 0.33 + Math.random() * 0.22, profile, bb)
+        return { type: 'raise', amount: bluffSize + playerBet }
       }
       if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && Math.random() < probeRate * 0.8) {
-        const betSize = Math.round(pot * (0.30 + Math.random() * 0.20))
-        return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
+        const betSize = sizedBet(pot, 0.30 + Math.random() * 0.20, profile, bb)
+        return { type: 'raise', amount: betSize + playerBet }
       }
     }
 

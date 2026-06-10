@@ -194,3 +194,53 @@ describe('F6 — hand categories, styleBias, limpFreq', () => {
     expect(passiveLimps).toBeGreaterThan(100)
   })
 })
+
+// ─── F7: Sizing personality + overbets ─────────────────────────
+
+describe('F7 — sizing personality', () => {
+  // Top set of aces, checked to us on the river, deep stacks
+  const monsterCtx = (): DecisionContext => ({
+    street: 'river', toCall: 0, pot: 100, currentBet: 0, playerBet: 0, chips: 1000, bb: 2,
+    numActivePlayers: 2, position: 'BTN',
+    holeCards: [c(14, 'hearts'), c(14, 'diamonds')],
+    community: [c(14, 'clubs'), c(7, 'spades'), c(2, 'diamonds'), c(9, 'hearts'), c(3, 'clubs')],
+  })
+
+  function riverValueSizes(profile: BotProfile, trials = 300): number[] {
+    const sizes: number[] = []
+    for (let i = 0; i < trials; i++) {
+      const a = decideBotAction(profile, monsterCtx())
+      if (a.type === 'raise') sizes.push(a.amount!)
+    }
+    return sizes
+  }
+
+  it('overbettor (overbetFreq 1.0) bets more than pot with a river monster', () => {
+    const p: BotProfile = { vpip: 0.30, pfr: 0.25, aggression: 1.4, bluffFreq: 0.2, creativeFreq: 0.05, overbetFreq: 1.0 }
+    const sizes = riverValueSizes(p)
+    expect(sizes.length).toBeGreaterThan(0)
+    expect(Math.max(...sizes)).toBeGreaterThan(100)
+  })
+
+  it('small-ball (betSizeMult 0.8) sizes smaller than big-bet (1.2) on average', () => {
+    const avg = (mult: number) => {
+      const p: BotProfile = { vpip: 0.30, pfr: 0.25, aggression: 1.0, bluffFreq: 0.15, creativeFreq: 0.05, betSizeMult: mult, overbetFreq: 0 }
+      const sizes = riverValueSizes(p, 400)
+      return sizes.reduce((s, x) => s + x, 0) / sizes.length
+    }
+    expect(avg(0.8)).toBeLessThan(avg(1.2))
+  })
+
+  it('open-raise size reflects betSizeMult', () => {
+    const open = (mult: number): number => {
+      const p: BotProfile = { vpip: 0.99, pfr: 0.99, aggression: 1.0, bluffFreq: 0.1, creativeFreq: 0.05, betSizeMult: mult }
+      const ctx: DecisionContext = {
+        street: 'preflop', toCall: 2, pot: 3, currentBet: 2, playerBet: 0, chips: 200, bb: 2,
+        numActivePlayers: 6, raiseLevel: 0, position: 'MP', holeCards: [c(14, 'hearts'), c(14, 'spades')],
+      }
+      const a = decideBotAction(p, ctx)
+      return a.type === 'raise' ? a.amount! : 0
+    }
+    expect(open(1.2)).toBeGreaterThan(open(0.85))
+  })
+})
