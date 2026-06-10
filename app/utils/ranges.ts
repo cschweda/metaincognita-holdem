@@ -33,7 +33,7 @@ const ALL_HANDS = [
   '87o', 'Q3s', '95s', '74s', 'K7o',
   'J8o', 'Q2s', 'T5s', '53s', 'J4s',
   '84s', '97o', 'K6o', '76o', 'J3s',
-  'T4s', '63s', 'T7o', '93s', 'J2s',
+  'T4s', '63s', 'T7o', '94s', '93s', 'J2s',
   '43s', 'K5o', '86o', 'T3s', '73s',
   '65o', 'Q8o', '96o', '52s', 'T2s',
   'K4o', '92s', '83s', 'Q7o', '42s',
@@ -42,7 +42,7 @@ const ALL_HANDS = [
   'K2o', 'T6o', 'Q5o', 'J6o', '64o',
   'Q4o', '95o', '53o', 'J5o', 'Q3o',
   '74o', 'T5o', 'J4o', 'Q2o', '84o',
-  '43o', 'J3o', 'T4o', '93o', '63o',
+  '43o', 'J3o', 'T4o', '94o', '93o', '63o',
   'J2o', 'T3o', '73o', '52o', 'T2o',
   '92o', '42o', '83o', '62o', '82o',
   '32o', '72o',
@@ -74,6 +74,30 @@ export function holeCardsToNotation(hole: [Card, Card]): string {
  */
 export function handRankIndex(hole: [Card, Card]): number {
   return ALL_HANDS.indexOf(holeCardsToNotation(hole))
+}
+
+// Combos per hand class: pair = 6, suited = 4, offsuit = 12 (1326 total).
+function combosFor(hand: string): number {
+  if (hand.length === 2) return 6
+  return hand.endsWith('s') ? 4 : 12
+}
+
+const TOTAL_COMBOS = 1326
+const HAND_PERCENTILE: number[] = (() => {
+  const out: number[] = []
+  let running = 0
+  for (const h of ALL_HANDS) { running += combosFor(h); out.push(running / TOTAL_COMBOS) }
+  return out
+})()
+
+/**
+ * Combo-weighted percentile: fraction of all dealt hands at or above this
+ * hand's rank (AA ≈ 0.0045, 72o = 1.0). Unlike idx/169, this accounts for
+ * each class's combo count, so "percentile < VPIP" plays VPIP% of dealt hands.
+ */
+export function handPercentile(hole: [Card, Card]): number {
+  const idx = handRankIndex(hole)
+  return idx < 0 ? 1 : HAND_PERCENTILE[idx]!
 }
 
 export interface RangeInfo {

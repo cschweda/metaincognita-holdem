@@ -14,7 +14,7 @@
  */
 import type { Card } from './cards'
 import { chenScore, chenPlusScore, bestHand, detectDraws, type DrawInfo } from './handAnalysis'
-import { handRankIndex, ALL_HANDS } from './ranges'
+import { handRankIndex, handPercentile } from './ranges'
 
 export interface BotProfile {
   vpip: number        // 0.10–0.50 — probability of voluntarily entering a pot
@@ -441,8 +441,9 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   // ─── Short-stack push/fold mode (<25BB) ────────────────
   // Fix 5: Position-aware push/fold — late position shoves wider
   if (stackBB < 25 && toCall > 0 && ctx.holeCards) {
-    const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression })
-    const handPct = chenToPercentile(chenMax)
+    const handPct = handRankIndex(ctx.holeCards) >= 0
+      ? handPercentile(ctx.holeCards)
+      : chenToPercentile(chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression }))
     const latePos = ['BTN', 'D', 'D/BTN', 'CO', 'D/SB'].includes(ctx.position ?? '')
     // Late position shoves wider; desperate stacks (<10BB) shove widest
     const shoveThreshold = stackBB < 10
@@ -467,7 +468,8 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   if (ctx.holeCards) {
     const idx = handRankIndex(ctx.holeCards)
     if (idx >= 0) {
-      handPct = idx / ALL_HANDS.length
+      // Combo-weighted percentile: "handPct < VPIP" plays VPIP% of dealt hands
+      handPct = handPercentile(ctx.holeCards)
       // Position shift: late position makes hands more playable
       const POS_SHIFT: Record<string, number> = {
         'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.08, // D/SB = button in heads-up
