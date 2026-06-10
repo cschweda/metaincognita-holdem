@@ -78,7 +78,7 @@ export async function runSimulation(
     folded: false, eliminated: false, betThisRound: 0, totalInvested: 0,
     lastAction: null, tilt: createTiltState(), tiltMultiplier: p.tiltMultiplier ?? 1.0,
     consistency: p.consistency ?? 0.95,
-    profile: { vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq, threeBetFreq: p.threeBetFreq, fourBetFreq: p.fourBetFreq, fiveBetFreq: p.fiveBetFreq, donkBetFreq: p.donkBetFreq },
+    profile: { vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq, threeBetFreq: p.threeBetFreq, fourBetFreq: p.fourBetFreq, fiveBetFreq: p.fiveBetFreq, donkBetFreq: p.donkBetFreq, limpFreq: (p as any).limpFreq, styleBias: (p as any).styleBias, betSizeMult: (p as any).betSizeMult, overbetFreq: (p as any).overbetFreq },
   }))
 
   const recentWinners: number[] = []

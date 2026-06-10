@@ -97,17 +97,29 @@ function findSeatByPosition(positions: string[], label: string): number {
 
 // ─── Setup Players ────────────────────────────────────────────
 
-// Pick players — filter by --pros flag if present
+// Pick players — filter by --pros flag if present.
+// --players="Name1,Name2,..." pins an exact lineup (repeatable comparison runs).
 const FICTIONAL = ['Tight Tony', 'Loose Lucy', 'Aggressive Alex', 'Calling Carl', 'Tricky Tina', 'Solid Sam', 'Wild Wendy']
 const prosOnly = process.argv.includes('--pros')
 const fictionalOnly = process.argv.includes('--fictional')
+const playersArg = process.argv.find(a => a.startsWith('--players='))
 const pool = prosOnly
   ? config.personas.filter(p => !FICTIONAL.includes(p.name))
   : fictionalOnly
     ? config.personas.filter(p => FICTIONAL.includes(p.name))
     : config.personas
-const shuffledPersonas = [...pool].sort(() => Math.random() - 0.5)
-const selectedPersonas = shuffledPersonas.slice(0, NUM_PLAYERS)
+let selectedPersonas: typeof config.personas
+if (playersArg) {
+  const names = playersArg.slice('--players='.length).split(',').map(s => s.trim())
+  selectedPersonas = names.map(n => {
+    const p = config.personas.find(per => per.name === n)
+    if (!p) { console.error(`Unknown persona: "${n}"`); process.exit(1) }
+    return p
+  })
+} else {
+  const shuffledPersonas = [...pool].sort(() => Math.random() - 0.5)
+  selectedPersonas = shuffledPersonas.slice(0, NUM_PLAYERS)
+}
 
 function createPlayers(): SimPlayer[] {
   return selectedPersonas.map((persona, i) => ({
@@ -133,6 +145,10 @@ function createPlayers(): SimPlayer[] {
       fourBetFreq: persona.fourBetFreq,
       fiveBetFreq: persona.fiveBetFreq,
       donkBetFreq: persona.donkBetFreq,
+      limpFreq: (persona as any).limpFreq,
+      styleBias: (persona as any).styleBias,
+      betSizeMult: (persona as any).betSizeMult,
+      overbetFreq: (persona as any).overbetFreq,
     },
   }))
 }
@@ -237,6 +253,11 @@ function simulateHand(
       const tiltedProfile = applyTilt(p.profile, p.tilt, config.tilt, p.tiltMultiplier)
       const raiseLevel = street === 'preflop' ? preflopRaiseLevel : 0
 
+      // Per-opportunity escalation tracking (HUD-style: opportunities, not hands)
+      const bsTrack = street === 'preflop' ? botStats.get(p.name) : undefined
+      if (bsTrack && raiseLevel === 1) bsTrack.threeBetOpps++
+      if (bsTrack && raiseLevel === 2) bsTrack.vs3BetOpps++
+
       const action = decideBotAction(
         tiltedProfile,
         {
@@ -263,6 +284,10 @@ function simulateHand(
         },
         p.consistency,
       )
+
+      // Per-opportunity escalation outcomes
+      if (bsTrack && raiseLevel === 1 && action.type === 'raise') bsTrack.threeBetsMade++
+      if (bsTrack && raiseLevel === 2 && action.type === 'fold') bsTrack.vs3BetFolds++
 
       // Apply action
       if (action.type === 'fold') {
@@ -400,6 +425,16 @@ function simulateHand(
     }
   }
 
+  // WTSD / W$SD tracking — multi-player showdowns only
+  if (remaining.length > 1) {
+    for (const p of remaining) {
+      const bs = botStats.get(p.name)
+      if (!bs) continue
+      bs.wtsdCount++
+      if (p.id === winnerId) bs.wonAtShowdown++
+    }
+  }
+
   // Update table flow window
   if (winnerId >= 0) {
     recentWinners.push(winnerId)
@@ -476,6 +511,14 @@ interface BotStats {
   postflopFolds: number
   wonCount: number
   rebuys: number
+  // Per-opportunity escalation + showdown tracking (HUD-style stats)
+  threeBetOpps: number   // times this bot faced exactly one raise preflop
+  threeBetsMade: number  // times it re-raised in that spot
+  vs3BetOpps: number     // times it faced a 3-bet
+  vs3BetFolds: number    // times it folded to the 3-bet
+  wtsdCount: number      // went to showdown (after seeing flop)
+  wonAtShowdown: number  // won at showdown
+  topups: number         // cash-game top-ups (refilled below 40bb without busting)
 }
 
 const botStats = new Map<string, BotStats>()
@@ -483,6 +526,7 @@ for (const p of selectedPersonas) {
   botStats.set(p.name, {
     handsDealt: 0, vpipCount: 0, pfrCount: 0, threeBetCount: 0,
     flopsSeen: 0, postflopBets: 0, postflopCalls: 0, postflopFolds: 0, wonCount: 0, rebuys: 0,
+    threeBetOpps: 0, threeBetsMade: 0, vs3BetOpps: 0, vs3BetFolds: 0, wtsdCount: 0, wonAtShowdown: 0, topups: 0,
   })
 }
 
@@ -526,6 +570,8 @@ const progressInterval = Math.max(1, Math.floor(NUM_HANDS / 20)) // report ~20 t
 
 for (let h = 1; h <= NUM_HANDS; h++) {
   // Rebuy busted players FIRST — before alive check (fixes heads-up ending after 1 bust)
+  // Cash-game behavior: pros also TOP UP short stacks (below 40bb) rather than
+  // grinding a sub-25bb stack in push/fold mode forever.
   for (const p of players) {
     if (p.eliminated) {
       p.eliminated = false
@@ -533,6 +579,10 @@ for (let h = 1; h <= NUM_HANDS; h++) {
       p.tilt = createTiltState()
       const bs = botStats.get(p.name)
       if (bs) bs.rebuys = (bs.rebuys || 0) + 1
+    } else if (p.chips < STARTING_STACK * 0.4) {
+      const bs = botStats.get(p.name)
+      if (bs) bs.topups = (bs.topups || 0) + 1
+      p.chips = STARTING_STACK
     }
   }
 
@@ -553,6 +603,7 @@ for (let h = 1; h <= NUM_HANDS; h++) {
   for (const p of hand.players) {
     const bs = botStats.get(p.name)
     if (!bs) continue
+    if (!p.holeCards) continue // eliminated this hand — wasn't dealt in
     bs.handsDealt++
     if (p.name === hand.winnerName) bs.wonCount++
 
@@ -572,7 +623,11 @@ for (let h = 1; h <= NUM_HANDS; h++) {
       if (playerFirstRaise >= 1) bs.threeBetCount++
     }
 
-    if (!p.folded && flopIdx >= 0) bs.flopsSeen++
+    // Saw the flop = flop happened and this player had not folded BEFORE it
+    // (p.folded is the end-of-hand flag — using it here would exclude players
+    // who folded on later streets and wreck the WTSD denominator)
+    const foldedPreflop = playerPreflopActions.some(a => a.includes('folds'))
+    if (flopIdx >= 0 && !foldedPreflop) bs.flopsSeen++
 
     // Postflop actions — AF = (bets + raises) / calls
     const playerPostflop = postflopActions.filter(a => a.startsWith(namePrefix))
@@ -600,7 +655,7 @@ for (let h = 1; h <= NUM_HANDS; h++) {
     process.stdout.write(`\r  [${pct}%] Hand ${h}/${NUM_HANDS} — avg pot $${avgPot}, ${stats.flopsSeen} flops, ${stats.threeBetp} 3-bet pots`)
   }
 
-  dealerSeat = (dealerSeat + 1) % NUM_PLAYERS
+  dealerSeat = (dealerSeat + 1) % players.length
 }
 console.log() // newline after progress
 
@@ -640,43 +695,52 @@ console.log()
 console.log(`--- Final Chip Counts ---`)
 for (const p of players) {
   const bs = botStats.get(p.name)!
-  const totalInvested = STARTING_STACK + (bs.rebuys * STARTING_STACK)
+  // Top-up cost ~= 0.75x starting stack each (refill from <40bb); approximate
+  const totalInvested = STARTING_STACK + (bs.rebuys * STARTING_STACK) + Math.round(bs.topups * STARTING_STACK * 0.75)
   const netProfit = p.chips - totalInvested
-  const rebuyStr = bs.rebuys > 0 ? ` [${bs.rebuys} rebuys]` : ''
+  const extras = [bs.rebuys > 0 ? `${bs.rebuys} rebuys` : '', bs.topups > 0 ? `${bs.topups} topups` : ''].filter(Boolean).join(', ')
+  const rebuyStr = extras ? ` [${extras}]` : ''
   console.log(`  ${p.name.padEnd(22)} $${p.chips.toString().padStart(6)}  (${netProfit >= 0 ? '+' : ''}$${netProfit})${rebuyStr}`)
 }
 
 // Per-bot behavioral stats vs config
+// 3Bet% is PER OPPORTUNITY (faced exactly one raise), matching HUD semantics
+// and the configured threeBetFreq. WTSD = showdowns / flops seen.
 console.log()
 console.log(`--- Per-Bot Stats (Observed vs Config) ---`)
-console.log(`${'Name'.padEnd(22)} ${'VPIP'.padStart(8)} ${'(cfg)'.padStart(6)} ${'PFR'.padStart(7)} ${'(cfg)'.padStart(6)} ${'AF'.padStart(6)} ${'(cfg)'.padStart(6)} ${'3Bet%'.padStart(7)} ${'Flop%'.padStart(7)} ${'Win%'.padStart(6)}`)
-console.log('-'.repeat(95))
+console.log(`${'Name'.padEnd(22)} ${'VPIP'.padStart(7)} ${'(cfg)'.padStart(6)} ${'PFR'.padStart(6)} ${'(cfg)'.padStart(6)} ${'AF'.padStart(5)} ${'Agg'.padStart(5)} ${'3Bet'.padStart(6)} ${'(cfg)'.padStart(6)} ${'v3B-F'.padStart(6)} ${'WTSD'.padStart(6)} ${'W$SD'.padStart(6)} ${'Win%'.padStart(5)}`)
+console.log('-'.repeat(112))
 for (const persona of selectedPersonas) {
   const bs = botStats.get(persona.name)!
   const obsVpip = bs.handsDealt > 0 ? bs.vpipCount / bs.handsDealt : 0
   const obsPfr = bs.handsDealt > 0 ? bs.pfrCount / bs.handsDealt : 0
-  const obsFlopRate = bs.handsDealt > 0 ? bs.flopsSeen / bs.handsDealt : 0
   const obsWinRate = bs.handsDealt > 0 ? bs.wonCount / bs.handsDealt : 0
   const obsAF = bs.postflopCalls > 0 ? bs.postflopBets / bs.postflopCalls : 0
-  const obs3bet = bs.handsDealt > 0 ? bs.threeBetCount / bs.handsDealt : 0
+  const obs3betOpp = bs.threeBetOpps > 0 ? bs.threeBetsMade / bs.threeBetOpps : 0
+  const obsVs3BetFold = bs.vs3BetOpps > 0 ? bs.vs3BetFolds / bs.vs3BetOpps : 0
+  const obsWtsd = bs.flopsSeen > 0 ? bs.wtsdCount / bs.flopsSeen : 0
+  const obsWsd = bs.wtsdCount > 0 ? bs.wonAtShowdown / bs.wtsdCount : 0
 
-  const vpipDiff = obsVpip - persona.vpip
-  const pfrDiff = obsPfr - persona.pfr
-  const vpipFlag = Math.abs(vpipDiff) > 0.15 ? ' !' : ''
-  const pfrFlag = Math.abs(pfrDiff) > 0.10 ? ' !' : ''
+  const vpipFlag = Math.abs(obsVpip - persona.vpip) > 0.05 ? '!' : ' '
+  const pfrFlag = Math.abs(obsPfr - persona.pfr) > 0.05 ? '!' : ' '
+  const threeBetFlag = persona.threeBetFreq !== undefined && Math.abs(obs3betOpp - persona.threeBetFreq) > 0.03 ? '!' : ' '
 
   console.log(
     `${persona.name.padEnd(22)}`
-    + ` ${(obsVpip * 100).toFixed(1).padStart(6)}%${vpipFlag}`
+    + ` ${(obsVpip * 100).toFixed(1).padStart(5)}%${vpipFlag}`
     + ` ${(persona.vpip * 100).toFixed(0).padStart(4)}%`
-    + ` ${(obsPfr * 100).toFixed(1).padStart(5)}%${pfrFlag}`
+    + ` ${(obsPfr * 100).toFixed(1).padStart(4)}%${pfrFlag}`
     + ` ${(persona.pfr * 100).toFixed(0).padStart(4)}%`
-    + ` ${obsAF.toFixed(2).padStart(6)}`
+    + ` ${obsAF.toFixed(2).padStart(5)}`
     + ` ${persona.aggression.toFixed(2).padStart(5)}`
-    + ` ${(obs3bet * 100).toFixed(1).padStart(5)}%`
-    + ` ${(obsFlopRate * 100).toFixed(1).padStart(5)}%`
+    + ` ${(obs3betOpp * 100).toFixed(1).padStart(4)}%${threeBetFlag}`
+    + ` ${((persona.threeBetFreq ?? 0) * 100).toFixed(0).padStart(4)}%`
+    + ` ${(obsVs3BetFold * 100).toFixed(0).padStart(4)}%`
+    + ` ${(obsWtsd * 100).toFixed(1).padStart(5)}%`
+    + ` ${(obsWsd * 100).toFixed(1).padStart(5)}%`
     + ` ${(obsWinRate * 100).toFixed(1).padStart(4)}%`
   )
 }
 console.log()
-console.log(`(!) = observed stat deviates >15% (VPIP) or >10% (PFR) from config`)
+console.log(`(!) = observed VPIP/PFR off by >5pp, or 3-bet/opp off by >3pp, from config`)
+console.log(`Reference bands (live full-ring): WTSD 22-32%, W$SD 45-55%, fold-to-3bet 55-75%`)

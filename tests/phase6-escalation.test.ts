@@ -211,10 +211,12 @@ describe('Escalation ordering — aggressive personas > passive', () => {
     expect(alexStats.threeBetRate).toBeGreaterThan(tonyStats.threeBetRate)
   })
 
-  it('All aggressive personas 3-bet at >12%', () => {
-    expect(dwanStats.threeBetRate).toBeGreaterThan(0.12)
-    expect(wendyStats.threeBetRate).toBeGreaterThan(0.12)
-    expect(alexStats.threeBetRate).toBeGreaterThan(0.12)
+  it('All aggressive personas 3-bet at >7%', () => {
+    // Pros retuned to realistic live frequencies (Dwan 12%); fictional
+    // teaching caricatures (Wendy 22%, Alex 16%) stay hot
+    expect(dwanStats.threeBetRate).toBeGreaterThan(0.07)
+    expect(wendyStats.threeBetRate).toBeGreaterThan(0.10)
+    expect(alexStats.threeBetRate).toBeGreaterThan(0.10)
   })
 
   it('All passive personas 3-bet at <10%', () => {
@@ -295,12 +297,13 @@ describe('Preflop scenarios — realistic action sequences', () => {
       else folds++
     }
 
-    // Twan should 3-bet ~12% of the time (retuned to realistic live-pro
+    // Twan should 3-bet ~8% of the time (retuned to realistic live full-ring
     // frequency, was 20%), not just call
-    expect(raises / n).toBeGreaterThan(0.08)
-    // Twan either 3-bets or folds — he's an aggressor, not a caller
-    // Any non-zero continue rate (raise + call) shows he's engaging
-    expect((raises + calls) / n).toBeGreaterThan(0.15)
+    expect(raises / n).toBeGreaterThan(0.05)
+    // Twan either 3-bets or folds — he's an aggressor, not a caller.
+    // No position in this ctx → treated as OOP, where even a LAG's continue
+    // range is ~12-15%. The point is non-trivial engagement, not a station.
+    expect((raises + calls) / n).toBeGreaterThan(0.10)
   })
 
   it('aggressive bot 4-bets facing a 3-bet (not fold)', () => {
@@ -319,9 +322,9 @@ describe('Preflop scenarios — realistic action sequences', () => {
       else if (action.type === 'fold') folds++
     }
 
-    // Twan should 4-bet ~9%
-    expect(raises / n).toBeGreaterThan(0.05)
-    // Should not fold more than 80%
+    // Twan should 4-bet ~4% (live full-ring realism; was ~9%)
+    expect(raises / n).toBeGreaterThan(0.025)
+    // Should not fold more than 85%
     expect(folds / n).toBeLessThan(0.85)
   })
 

@@ -69,7 +69,9 @@ describe('Hand distribution over random deals', () => {
     // Three of a kind: ~4.83%, Straight: ~4.62%, Flush: ~3.03%,
     // Full house: ~2.60%, Four of a kind: ~0.168%, Straight flush: ~0.031%
     const counts = new Array(9).fill(0)
-    const N = 10000
+    // 30k deals: the tightest comparison (full house ~2.60% vs flush ~3.03%)
+    // is only 0.43pp apart and flakes ~3% of runs at 10k samples
+    const N = 30000
 
     for (let i = 0; i < N; i++) {
       const { holeCards, community } = dealFullHand(2)

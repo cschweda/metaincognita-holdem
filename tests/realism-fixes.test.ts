@@ -182,7 +182,9 @@ describe('F6 — hand categories, styleBias, limpFreq', () => {
   })
 
   it('limpFreq=0 pro never open-limps; limpFreq=0.6 passive limps the gap band', () => {
-    const passive: BotProfile = { vpip: 0.30, pfr: 0.15, aggression: 0.8, bluffFreq: 0.08, creativeFreq: 0.04, limpFreq: 0.6 }
+    // Wide PFR-VPIP gap so the limp band stays meaningful after the 1.6x
+    // first-in open widening (open range = min(pfr*1.6, vpip))
+    const passive: BotProfile = { vpip: 0.30, pfr: 0.12, aggression: 0.8, bluffFreq: 0.08, creativeFreq: 0.04, limpFreq: 0.6 }
     const pro: BotProfile = { ...passive, limpFreq: 0 }
     let passiveLimps = 0, proLimps = 0
     for (let i = 0; i < 3000; i++) {
@@ -192,6 +194,50 @@ describe('F6 — hand categories, styleBias, limpFreq', () => {
     }
     expect(proLimps).toBe(0)
     expect(passiveLimps).toBeGreaterThan(100)
+  })
+})
+
+// ─── Board-relative hand strength ──────────────────────────────
+
+describe('Board-relative strength — board pairs/trips are not monsters', () => {
+  function riverRaiseRate(hole: [Card, Card], community: Card[], trials = 1500): number {
+    const profile: BotProfile = { vpip: 0.25, pfr: 0.20, aggression: 1.2, bluffFreq: 0.12, creativeFreq: 0.05 }
+    let raises = 0
+    for (let i = 0; i < trials; i++) {
+      const ctx: DecisionContext = {
+        street: 'river', toCall: 50, pot: 50, currentBet: 50, playerBet: 0, chips: 400, bb: 2,
+        numActivePlayers: 2, position: 'BB', holeCards: hole, community,
+      }
+      if (decideBotAction(profile, ctx).type === 'raise') raises++
+    }
+    return raises / trials
+  }
+
+  it('"two pair" where one pair is the board pair rarely raises a pot river bet', () => {
+    // T8 on 4-7-Q-Q-T: queens-and-tens, but the queens belong to everyone
+    const rate = riverRaiseRate(
+      [c(10, 'clubs'), c(8, 'diamonds')],
+      [c(4, 'diamonds'), c(7, 'diamonds'), c(12, 'diamonds'), c(12, 'spades'), c(10, 'spades')],
+    )
+    expect(rate).toBeLessThan(0.10)
+  })
+
+  it('board trips with a kicker rarely raises a pot river bet', () => {
+    // A2 on Q-Q-Q-7-3: everyone has trips
+    const rate = riverRaiseRate(
+      [c(14, 'clubs'), c(2, 'diamonds')],
+      [c(12, 'diamonds'), c(12, 'spades'), c(12, 'hearts'), c(7, 'clubs'), c(3, 'diamonds')],
+    )
+    expect(rate).toBeLessThan(0.10)
+  })
+
+  it('genuine two pair from both hole cards still plays strong', () => {
+    // QT on Q-T-4-7-2 rainbow: real top two
+    const rate = riverRaiseRate(
+      [c(12, 'clubs'), c(10, 'diamonds')],
+      [c(12, 'diamonds'), c(10, 'spades'), c(4, 'hearts'), c(7, 'clubs'), c(2, 'diamonds')],
+    )
+    expect(rate).toBeGreaterThan(0.20)
   })
 })
 

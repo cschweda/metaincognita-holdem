@@ -35,6 +35,10 @@ export interface BotConfig {
   fourBetFreq?: number
   fiveBetFreq?: number
   donkBetFreq?: number
+  limpFreq?: number
+  styleBias?: Partial<Record<'pair' | 'suitedAce' | 'suitedConnector' | 'bigCard' | 'other', number>>
+  betSizeMult?: number
+  overbetFreq?: number
   leak?: string
 }
 
@@ -74,6 +78,10 @@ function generateDefaultBots(count: number): BotConfig[] {
     fourBetFreq: persona.fourBetFreq,
     fiveBetFreq: persona.fiveBetFreq,
     donkBetFreq: persona.donkBetFreq,
+    limpFreq: (persona as any).limpFreq,
+    styleBias: (persona as any).styleBias,
+    betSizeMult: (persona as any).betSizeMult,
+    overbetFreq: (persona as any).overbetFreq,
     leak: persona.leak,
   }))
 }

@@ -143,6 +143,10 @@ function resetBotToDefault() {
   bot.fourBetFreq = original.fourBetFreq
   bot.fiveBetFreq = original.fiveBetFreq
   bot.donkBetFreq = original.donkBetFreq
+  bot.limpFreq = (original as any).limpFreq
+  bot.styleBias = (original as any).styleBias
+  bot.betSizeMult = (original as any).betSizeMult
+  bot.overbetFreq = (original as any).overbetFreq
   bot.tiltMultiplier = original.tiltMultiplier
   bot.name = original.name
 }
@@ -169,6 +173,10 @@ const engine = useGameEngine({
       fourBetFreq: botConfig.fourBetFreq,
       fiveBetFreq: botConfig.fiveBetFreq,
       donkBetFreq: botConfig.donkBetFreq,
+      limpFreq: botConfig.limpFreq,
+      styleBias: botConfig.styleBias,
+      betSizeMult: botConfig.betSizeMult,
+      overbetFreq: botConfig.overbetFreq,
     }
 
     const profile = applyTilt(baseProfile, p.tilt, config.tilt, p.tiltMultiplier)

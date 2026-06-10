@@ -166,21 +166,22 @@ export function applyTilt(
 
 /**
  * Generate a random off-strategy action — the "brain fart" play.
- * Weighted so it's not completely insane: folds and calls are more
- * common than random raises.
+ * Real pro mistakes are wrong folds, loose calls, and mis-sized stabs —
+ * not random escalation. Raises here are rare and small so a misplay
+ * doesn't cascade into a fake raise war.
  */
 function generateRandomAction(ctx: DecisionContext): BotAction {
   const r = Math.random()
   if (ctx.toCall === 0) {
-    // Not facing a bet: check (60%) or random bet (40%)
-    if (r < 0.60) return { type: 'check' }
-    const betSize = Math.round(ctx.pot * (0.3 + Math.random() * 0.5))
+    // Not facing a bet: check (80%) or a smallish stab (20%)
+    if (r < 0.80) return { type: 'check' }
+    const betSize = Math.round(ctx.pot * (0.3 + Math.random() * 0.2))
     return { type: 'raise', amount: Math.min(Math.max(betSize, ctx.bb), ctx.chips) }
   }
-  // Facing a bet: fold (40%), call (40%), raise (20%)
-  if (r < 0.40) return { type: 'fold' }
-  if (r < 0.80) return { type: 'call' }
-  const raiseSize = Math.round(ctx.currentBet * (1.5 + Math.random()))
+  // Facing a bet: fold (45%), call (50%), min-raise-ish (5%)
+  if (r < 0.45) return { type: 'fold' }
+  if (r < 0.95) return { type: 'call' }
+  const raiseSize = Math.round(ctx.currentBet * 1.5)
   return { type: 'raise', amount: Math.min(raiseSize, ctx.chips + ctx.playerBet) }
 }
 
@@ -432,6 +433,52 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[]): numbe
     }
   }
 
+  // ─── Board-relative discounts ─────────────────────────────
+  // A hand is only as good as its improvement OVER the board. "Two pair" where
+  // one pair sits on the board is really one pair; board trips are everyone's
+  // trips; on the river, playing the board exactly is near-worthless.
+  const boardCounts = new Map<number, number>()
+  for (const bc of community) boardCounts.set(bc.rank, (boardCounts.get(bc.rank) ?? 0) + 1)
+  const holeRankPair = holeCards.map(c => c.rank)
+  const boardMaxRank = Math.max(...community.map(c => c.rank))
+
+  if (result.rank === 2) { // two pair
+    const pairHigh = result.score[1]!
+    const pairLow = result.score[2]!
+    const boardHasHigh = (boardCounts.get(pairHigh) ?? 0) >= 2
+    const boardHasLow = (boardCounts.get(pairLow) ?? 0) >= 2
+    if (boardHasHigh && boardHasLow) {
+      strength = 0.15 // double-paired board — we play the board plus a kicker
+    } else if (boardHasHigh || boardHasLow) {
+      // One of "our" pairs is the board's: this is one pair on a paired board
+      const ourPair = boardHasHigh ? pairLow : pairHigh
+      if (holeRankPair[0] === holeRankPair[1] && holeRankPair[0]! > boardMaxRank) strength = 0.50 // overpair
+      else if (ourPair >= boardMaxRank) strength = 0.46  // top pair equivalent
+      else strength = 0.34                               // mid/bottom pair equivalent
+    }
+  }
+
+  if (result.rank === 3) { // trips
+    const tripRank = result.score[1]!
+    if ((boardCounts.get(tripRank) ?? 0) >= 3) {
+      // Board trips — our hand is a kicker, not a made monster
+      const kick = Math.max(...holeRankPair) as number
+      strength = 0.30 + (kick - 2) / 12 * 0.12
+    }
+  }
+
+  if (community.length === 5) {
+    // River: if our best five IS the board (no improvement), we have nothing
+    const boardOnly = bestHand([], community)
+    if (boardOnly && boardOnly.rank === result.rank) {
+      let sameScore = true
+      for (let i = 0; i < Math.min(result.score.length, boardOnly.score.length); i++) {
+        if (result.score[i] !== boardOnly.score[i]) { sameScore = false; break }
+      }
+      if (sameScore) strength = Math.min(strength, 0.12)
+    }
+  }
+
   // Add draw equity with draw-type-specific blocker discounts
   // Flush draws: 9 outs, ~5% blocked on average → 0.95 discount
   // OESD: 8 outs, ~10% blocked → 0.90 discount
@@ -546,8 +593,13 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // Non-blind first-in (or over limpers): modern raise-or-fold. The PFR–VPIP
     // gap only open-limps for personas with limpFreq (Hellmuth, loose-passives);
     // everyone else folds those hands rather than limping them.
+    // First-in opens use a widened threshold (×1.6, capped at VPIP): overall
+    // observed PFR averages first-in opens with the much rarer 3-bet spots,
+    // so the open range must run wider than the headline PFR to realize it.
+    // Narrow-gap TAGs cap at VPIP = pure raise-or-fold first-in.
     if (!isBB && !isSB) {
-      if (handPct < effectivePfr) {
+      const openRange = Math.min(effectivePfr * 1.6, effectiveVpip)
+      if (handPct < openRange) {
         const raiseSize = Math.round(currentBet * (2.5 + (profile.aggression - 1) * 0.5) * (profile.betSizeMult ?? 1.0))
         return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
       }
@@ -612,26 +664,40 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     const inPosition = ipPositions.includes(ctx.position ?? '')
     const isHeadsUp = ctx.numActivePlayers <= 2
 
-    // Total defense range (3-bet + cold-call) should approximate VPIP.
-    // The 3-bet range is already counted above. Cold-call fills the gap.
-    // IP defends wider than OOP. Heads-up defends widest. Big sizes shrink it all.
+    // Cold-call range vs a raise is much narrower than VPIP. The persona's
+    // VPIP-PFR gap IS its calling range: wide-gap players (stations, loose
+    // gamblers) flat far more of their range than narrow-gap raise-or-fold
+    // TAGs. IP defends wider than OOP. Heads-up defends widest.
+    const gapRatio = Math.max(0, (effectiveVpip - effectivePfr) / Math.max(effectiveVpip, 0.01))
+    // Very loose players (VPIP > 30%) call wider still — by definition
+    const looseBonus = Math.max(0, effectiveVpip - 0.30) * 1.5
+    const ipFlat = 0.40 + gapRatio * 0.55 + looseBonus
     const flatCallFreq = (isHeadsUp
       ? Math.min(effectiveVpip * 1.5, 0.65)     // heads-up: wide defense
       : inPosition
-        ? effectiveVpip * 0.85                    // IP: defend ~85% of VPIP range
-        : effectiveVpip * 0.60                    // OOP: defend ~60% of VPIP range
+        ? effectiveVpip * ipFlat                  // IP cold-call
+        : effectiveVpip * ipFlat * 0.65           // OOP cold-call
     ) * sizePenalty
+
+    // Multiway/squeeze discount: with callers already between the opener and us,
+    // value tightens and bluff 3-bets shrink fast (squeezes are rarer than 3-bets)
+    const playersIn = Math.max(ctx.preflopCallers ?? 0, 0)
+    let squeezeMod = playersIn >= 1 ? Math.pow(0.6, playersIn) : 1.0
+    // Full-ring discount: configured 3-bet freqs are 6-max numbers; with more
+    // players behind, real 3-bets shrink (more risk of running into a hand)
+    if (ctx.numActivePlayers > 5) squeezeMod *= Math.max(5 / ctx.numActivePlayers, 0.6)
 
     // Position-based 3-bet sizing — IP 3.0x, OOP 3.5x (matches real poker sizing)
     const threeBetMult = inPosition ? 3.0 : 3.5
 
-    // Value 3-bet with premium hands
-    if (handPct < valueFreq && chips > currentBet * 3) {
+    // Value 3-bet with premium hands — RAW percentile (hand quality is not
+    // position-shifted; the positional component lives in the bluff portion)
+    if (rawHandPct < valueFreq * Math.sqrt(squeezeMod) && chips > currentBet * 3) {
       const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // Bluff 3-bet — persona-driven random, needs a playable hand
-    if (handPct < effectiveVpip && Math.random() < bluffRate && chips > currentBet * 3) {
+    if (handPct < effectiveVpip && Math.random() < bluffRate * squeezeMod && chips > currentBet * 3) {
       const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
@@ -648,7 +714,8 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // Facing 3-bet: tighter defense but still wide by modern standards
     const flatCallFreq4 = effectiveVpip * 0.45
 
-    if (handPct < valueFreq && chips > currentBet * 2.5) {
+    // 4-bet value is raw hand quality, not position-shifted
+    if (rawHandPct < valueFreq && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * 2.5)
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
@@ -1054,8 +1121,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const betToPotRatio = toCall / Math.max(pot, 1)
 
   // Minimum Defense Frequency: prevents exploitable over-folding to big bets
-  // MDF = 1 - (bet / (pot + bet)) — the % of range we must defend
-  const mdf = 1 - potOdds
+  // MDF = 1 - (bet / (pot + bet)) — the % of range we must defend.
+  // MDF is a HEADS-UP concept: multiway, the defense duty splits across the
+  // remaining players, so each defends a much smaller share.
+  const mdfDefenders = Math.max(numActivePlayers - 1, 1)
+  const mdf = (1 - potOdds) / mdfDefenders
   // Estimate hand's position in range: strength 0.55+ = top ~20%, 0.35+ = top ~40%, etc.
   const handRangePos = 1 - Math.min(strength / 0.70, 1.0)
   const isWithinMDF = handRangePos <= mdf
@@ -1087,9 +1157,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   const streetFactor = baseStreetFactor * passiveBoost * sizingExploit
 
-  // SPR auto-commit: very shallow SPR (< 2) = shove with strong+ hands
-  // At this stack depth, pot-committing with top pair or better is standard
-  if (isShallowSPR && spr < 2 && hasStrongHand) {
+  // SPR auto-commit: very shallow SPR (< 2) = shove with strong+ hands.
+  // Flop/turn only — committing there denies equity; on the river there is
+  // nothing to protect against, so one-pair hands call or fold (polarization),
+  // they don't raise-jam.
+  if (isShallowSPR && spr < 2 && hasStrongHand && ctx.street !== 'river') {
     return { type: 'raise', amount: chips + playerBet }
   }
 
@@ -1124,6 +1196,26 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const streetWeight = ctx.street === 'turn' ? 1.0 : 0.8
       const foldProb = Math.min(sizePressure * (1 - strengthShield * 0.65) * streetWeight, 0.92)
       if (Math.random() < foldProb) return { type: 'fold' }
+    }
+
+    // Call-down discipline: marginal made hands (top pair, mid pair) continue
+    // less often vs normal-sized bets on later streets — real players fold
+    // second-best hands to sustained pressure; passives call down more.
+    if (!hasMonster && toCall > 0 && ctx.street !== 'flop') {
+      const marginShield = Math.max(0, Math.min((strength - 0.35) / 0.20, 1)) // 0 at 0.35 → 1 at 0.55
+      const baseContinue = ctx.street === 'turn'
+        ? 0.55 + marginShield * 0.45
+        : 0.35 + marginShield * 0.50
+      const continueProb = Math.min(baseContinue * passiveBoost, 1.0)
+      if (Math.random() > continueProb) return { type: 'fold' }
+    }
+
+    // Multiway flop discipline: a bet into 3+ players is much stronger than
+    // a heads-up c-bet — marginal made hands fold some of the time
+    if (!hasMonster && toCall > 0 && ctx.street === 'flop' && numActivePlayers >= 3) {
+      const marginShield = Math.max(0, Math.min((strength - 0.35) / 0.20, 1))
+      const continueProb = Math.min((0.72 + marginShield * 0.28) * passiveBoost, 1.0)
+      if (Math.random() > continueProb) return { type: 'fold' }
     }
     // Check-raise with strong hands OOP — texture-aware frequency
     if (ctx.checkedThisStreet && Math.random() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
