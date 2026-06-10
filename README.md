@@ -2,7 +2,7 @@
 
 **[Live Demo](https://nlh-simulation.netlify.app/)**
 
-> **This is a free, open-source, single-player educational tool** -- no real money, no gambling, no multiplayer. The simulator itself is serious: three professional poker audits, 29 realism fixes, real-time equity calculations, opponent HUD stats, and 27 bots with distinct playing styles. It just happens to also have funny commentary. Think of it as a poker training tool that doesn't take itself too seriously.
+> **This is a free, open-source, single-player educational tool** -- no real money, no gambling, no multiplayer. The simulator itself is serious: three professional poker audits plus a full statistical realism overhaul (40+ fixes), real-time equity calculations, opponent HUD stats, and 27 bots with distinct playing styles. It just happens to also have funny commentary. Think of it as a poker training tool that doesn't take itself too seriously.
 
 ![No Limit Hold'em Simulator](app/public/og-image.png)
 
@@ -13,9 +13,9 @@
 | ![TV Broadcast Mode](app/public/screenshot03.jpg) | ![Bot Analysis Report](app/public/screenshot04.jpg) |
 | *TV Broadcast: Mon & Chorman call the action, all cards face-up* | *Bot Analysis: 3,000-hand simulation with observed vs target stats* |
 
-A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits with 21 realism fixes plus a full rules/engine audit with 8 additional fixes. Min-raise enforcement, half-raise rule, river polarization, MDF defense, pre-computed ranges, hero bet-sizing exploitation.
+A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits (29 fixes) plus a statistical realism overhaul: combo-weighted ranges, board-relative hand strength, episodic tilt, raise-size-aware defense, per-persona range shapes and sizing personalities — validated against live-poker HUD bands with repeatable fixed-lineup simulations.
 
-### Bot AI (21 realism fixes + 8 engine/rules fixes)
+### Bot AI (21 realism fixes + 8 engine/rules fixes + statistical overhaul)
 - **Card-aware decisions** -- bots evaluate actual hole cards and board texture, not random probabilities
 - **Chen+ scoring** -- position- and style-adjusted hand strength (classic Chen also shown for reference)
 - **Board texture analysis** -- dry/wet, ace-high, paired, monotone — affects c-bet rates, barrel frequency, bluff sizing
@@ -40,7 +40,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Explicit draw detection** -- hand classification uses actual flush/straight draw detection, not strength-range overlap. Bottom pair is correctly identified as a made hand, not a draw.
 - **Per-persona tilt** -- Phellmuth tilts after 1 loss; Pvey needs 10+ consecutive losses
 - **Consistency system** -- bots occasionally misplay (1-12% depending on persona)
-- **25 bot personas** (7 fictional + 18 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles
+- **27 bot personas** (7 fictional + 20 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles plus range-shape, limp, and sizing personalities
 
 ### Real-Time Analysis
 - **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
@@ -84,7 +84,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 810 tests across 19 files
+- [Test Suites](#test-suites) -- 796 tests across 19 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- audit results, defense-in-depth, CSP headers, credential validation
 - [Roadmap](#roadmap)
@@ -177,7 +177,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 | Cohnny Jhan | 22% | Old-school TAG, traps, patient, consistent | 0.5x | 97% |
 | Krynn Benney | 25% | Modern GTO high-roller, creative lines | 0.6x | 95% |
 
-**How pro stats are derived:** The 18 pro persona stats are hand-crafted archetypes, not pulled from a PokerTracker or HendonMob database. Each profile is built from publicly known playstyle characteristics -- interviews, televised hands, training content, and community consensus about how these players approach the game. VPIP/PFR values reflect the player's documented tight-or-loose tendencies (e.g., a known LAG gets 30%+ VPIP, a known nit gets sub-22%). Aggression, bluff frequency, and tilt multipliers are tuned to match the player's public reputation (e.g., a famously tilt-prone player gets a high tilt multiplier; a "poker robot" gets near-zero). Consistency values reflect perceived technical precision. The goal is _recognizable playstyle archetypes_ for learning, not exact replication of real-world database stats. All pro persona names use swapped initials to avoid identity appropriation.
+**How pro stats are derived:** The 20 pro persona stats are hand-crafted archetypes, not pulled from a PokerTracker or HendonMob database. Each profile is built from publicly known playstyle characteristics -- interviews, televised hands, training content, and community consensus about how these players approach the game. VPIP/PFR values reflect the player's documented tight-or-loose tendencies (e.g., a known LAG gets 30%+ VPIP, a known nit gets sub-22%). Aggression, bluff frequency, and tilt multipliers are tuned to match the player's public reputation (e.g., a famously tilt-prone player gets a high tilt multiplier; a "poker robot" gets near-zero). Consistency values reflect perceived technical precision. The goal is _recognizable playstyle archetypes_ for learning, not exact replication of real-world database stats. All pro persona names use swapped initials to avoid identity appropriation.
 
 **Table composition:**
 - **Pro count selector**: 0 / 1 / 2 / 3 / All pros per table (default 2)
@@ -298,7 +298,7 @@ Sample lines:
 - *"That's poker. The cruelest game ever invented by someone who hated happiness."*
 - *"Winner winner, chicken dinner. I never understood that expression. Why chicken? Why not steak?"*
 
-**Persona-specific commentary:** Chorman has custom quips for each of the 18 pro-inspired bots, referencing their real-world counterparts' reputations and quirks:
+**Persona-specific commentary:** Chorman has custom quips for each of the 20 pro-inspired bots, referencing their real-world counterparts' reputations and quirks:
 
 | Bot | Chorman's Take |
 |-----|---------------|
@@ -355,7 +355,7 @@ The sliders let you dial in your preferred experience: crank Chorman to max for 
 - Both streams generate simultaneously on every game event -- switching modes displays the other stream's full history instantly
 - 400+ unique Chorman quips across 20+ categorized no-repeat pools (action, result, atmosphere, hand-specific, persona, self-aware, slider reactions)
 - `UniquePool` class tracks used indices per pool -- never repeats within a game, resets each new hand
-- 18 pro bots each have 4-5 persona-specific quips (~40% chance to fire on any pro action)
+- 20 pro bots each have 4-5 persona-specific quips (~40% chance to fire on any pro action)
 - Foreshadowing peeks at pre-dealt turn/river cards (~35-40% of applicable situations)
 - Auto-scrolls to new lines; pauses auto-scroll if user scrolls up manually
 - Toggle (on/off), mode (Hero/TV), Mon analysis level, and Chorman quip frequency all persisted in localStorage
@@ -493,7 +493,7 @@ This simulator was designed to be **fun and fast** first, realistic second. It r
 
 ### Persona Config Fields
 
-Each of the 25 bot personas is defined by a set of numerical stats in `holdem.config.ts`. These stats control every aspect of how the bot plays:
+Each of the 27 bot personas is defined by a set of numerical stats in `holdem.config.ts`. These stats control every aspect of how the bot plays:
 
 | Field | Range | What it controls | Example impact |
 |-------|-------|------------------|----------------|
@@ -502,12 +502,16 @@ Each of the 25 bot personas is defined by a set of numerical stats in `holdem.co
 | **Aggression** | 0.60--1.50 | Multiplier on postflop betting and raising frequency. Directly scales c-bet rates, barrel frequencies, and raise sizing. | Carl at 0.60 checks and calls. Dom Twan at 1.50 bets and raises at every opportunity. |
 | **Bluff Frequency** | 0.08--0.25 | How often the bot bets or raises with nothing (air). Controls c-bet bluffs, barrel bluffs, and river bluffs. | Tight Tony (8%) almost never bluffs -- if he bets, he has it. Wild Wendy (25%) bets with air a quarter of the time. |
 | **Creative Frequency** | 0.03--0.12 | Probability of unconventional plays: limp-reraises, trap-checks with monsters, slow-plays. | Lhil Paak (11%) and Utu Sngar (12%) take the most unorthodox lines. Tight Tony (3%) is textbook. |
-| **3-Bet Frequency** | 0.04--0.22 | How often the bot re-raises when facing an open. Includes both value 3-bets (premium hands) and bluff 3-bets (light hands for fold equity). | Calling Carl (4%) almost never 3-bets. Wild Wendy (22%) 3-bets constantly. |
-| **4-Bet Frequency** | 0.015--0.10 | How often the bot re-raises a 3-bet. Much narrower range than 3-bets. | Wild Wendy (10%) 4-bets liberally. Most pros are 3--7%. |
+| **3-Bet Frequency** | 0.028--0.22 | Per-opportunity rate of re-raising an open: value 3-bets (premium hands) plus bluff 3-bets (fold equity). Pros run live-realistic 3--9%; fictional teaching bots stay hot. Squeeze spots and full-ring tables discount it automatically. | Hill Phellmuth (2.8%) almost never 3-bets — his real-life leak. Wild Wendy (22%) 3-bets constantly. |
+| **4-Bet Frequency** | 0.014--0.10 | How often the bot re-raises a 3-bet. Much narrower range than 3-bets. | Wild Wendy (10%) 4-bets liberally. Most pros are 1.5--4%. |
 | **5-Bet Frequency** | 0.005--0.02 | How often the bot puts in the 5th bet preflop (essentially committing their stack). Almost always AA/KK. | Dom Twan at 2% does this with a slightly wider range than most. |
 | **Donk Bet Frequency** | 0.00--0.22 | How often the bot leads (bets) into the preflop raiser on the flop, rather than checking to them. This is considered a weak play by professionals. **All pro bots have 0%.** | Calling Carl (22%) donk-bets constantly -- a classic recreational player habit. Loose Lucy (18%) and Wild Wendy (20%) also lead frequently. Pro bots never donk-bet; they check to the raiser and use check-raises or floats instead. |
-| **Tilt Multiplier** | 0.3--2.5 | How fast the bot tilts after losses and how severely tilt affects their play. Scales both the trigger threshold (losses needed) and the magnitude of stat changes. | Hill Phellmuth (2.5x) tilts after 1 loss and becomes a maniac. Ihil Pvey (0.3x) needs 10+ consecutive losses and barely changes. |
+| **Tilt Multiplier** | 0.3--2.5 | How fast the bot tilts after losing pots it actually played (folding preflop neither tilts nor calms) and how severely tilt affects their play. | Hill Phellmuth (2.5x) tilts after a single lost pot and becomes a maniac for a few hands. Ihil Pvey (0.3x) needs 10+ consecutive lost pots and barely changes. |
 | **Consistency** | 0.88--0.99 | The probability of making the "correct" decision each hand. On a consistency miss, the bot makes a random off-strategy play (fold when it should call, raise with nothing, etc.). | Ihil Pvey (99%) almost never misplays. Wild Wendy (88%) makes a random play ~12% of the time. |
+| **Limp Frequency** | 0--0.65 | Chance to open-limp (instead of fold) hands in the PFR--VPIP gap when first in. Pros default to raise-or-fold (0). | Hill Phellmuth (55%) limps his "white magic" range. Calling Carl (65%) limps everything playable. |
+| **Style Bias** | per-category | Range *shape*: percentile shifts per hand category (suited connectors, big cards, pairs, suited aces) — so two bots with the same VPIP play different hands. | Naniel Degreanu plays suited connectors wider; Hill Phellmuth favors big cards; Boyle Drunson loves pairs; Sanessa Velbst 3-bets suited aces. |
+| **Bet Size Multiplier** | 0.85--1.20 | Sizing personality applied to opens and all postflop bets. | Naniel Degreanu (0.85x) plays small-ball. Dom Twan (1.2x) bets big everywhere. |
+| **Overbet Frequency** | 0--0.18 | Chance to overbet (1.2--1.5x pot) river value hands and bluffs — the polarized big-bet line. | Dom Twan (18%) drops river bombs. Most personas ~3%. |
 | **Leak** | text | A natural-language description of the bot's primary weakness, shown in the hand analysis modal and bot gallery. | "Folds too much to 3-bets; won't bluff rivers" (Tight Tony) |
 
 ### Chen Score — Classic Preflop Hand Strength
@@ -759,7 +763,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Deployment | Netlify (static) |
-| Testing | Vitest (810 tests across 19 files) |
+| Testing | Vitest (796 tests across 19 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -798,7 +802,7 @@ npx tsx scripts/simulate.ts 100 4
 **Arguments:**
 - First argument: number of hands (default 100)
 - Second argument: number of players (2--8, default 6)
-- `--pros`: only select from the 18 pro personas
+- `--pros`: only select from the 20 pro personas
 - `--fictional`: only select from the 7 fictional personas
 
 ### What It Tracks
@@ -928,7 +932,7 @@ holdem-simulator/
 │       └── sidePots.ts            # Side pot calculation and multi-way pot awards
 ├── scripts/
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 17 Vitest test suites (753 tests)
+├── tests/                         # 19 Vitest test suites (796 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config with OG meta tags
 ├── netlify.toml                   # Static deploy config with SPA redirect
@@ -942,7 +946,7 @@ All game parameters are centralized in `holdem.config.ts` (project root):
 - **Stakes**: 6 preset levels (Micro $0.25/$0.50 through Nosebleed $25/$50)
 - **Stack depth**: 50-200 BB slider, default 100 BB
 - **Chip denominations**: 4 tiers mapped to stake levels
-- **Bot personas**: 25 characters (7 fictional + 18 pro) with VPIP, PFR, aggression, bluffFreq, creativeFreq, tiltMultiplier, consistency
+- **Bot personas**: 27 characters (7 fictional + 20 pro) with VPIP, PFR, aggression, bluffFreq, creativeFreq, tiltMultiplier, consistency, limpFreq, styleBias, betSizeMult, overbetFreq
 - **Archetype presets**: 6 quick-select templates (Nit through Maniac)
 - **Custom ranges**: Min/max/step for every bot slider
 - **Equity thresholds**: Value bet, thin value, drawing, give-up cutoffs
@@ -958,7 +962,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (753 tests, 17 files, ~18 seconds)
+Run all tests: `yarn test` (796 tests, 19 files, ~20 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1011,7 +1015,7 @@ Run all tests: `yarn test` (753 tests, 17 files, ~18 seconds)
 - 100K-hand behavioral impact: tilted Tony vs calm Tony, mild vs full tilt
 
 ### Phase 4 -- Pro Bot Tests (`phase4-pro-bots.test.ts`)
-- All 18 pros validated: existence, stat ranges, tiltMultiplier, unique playstyles
+- All 20 pros validated: existence, stat ranges, tiltMultiplier, unique playstyles
 - Per-persona behavioral verification: Phellmuth tilt, Pvey composure, Degreanu creativity
 - Table composition: max configurable pros, no duplicates across 100 random generations
 
@@ -1118,7 +1122,7 @@ Deployed via `netlify.toml`:
 | **1** | Done | Visual foundation -- table, cards, chips, setup, stats panel, bet controls |
 | **2** | Done | Core engine -- deck, shuffle, hand evaluator, all 9 ranks, edge cases |
 | **3** | Done | Game loop -- betting rounds, side pots, all-in auto-runout, blind rotation |
-| **4** | Done | Bot AI -- 25 personas (18 pro), per-persona tilt + consistency, 737 tests |
+| **4** | Done | Bot AI -- 27 personas (20 pro), per-persona tilt + consistency |
 | **5** | Done | Stats -- session tracking, analytics, PokerStars/CSV/JSON export, replay |
 | **6** | Done | Advanced AI -- Chen+, board texture, table flow, donk bets, hand analysis modal |
 | **7** | Planned | Polish -- dealing animations, chip movement, celebrations |
@@ -1171,7 +1175,7 @@ This project is an homage to that time. The bot names that seem familiar but are
 
 Most poker trainers are either too simple (random bots, no personality) or too serious (solver outputs, no fun). This one tries to be both useful and enjoyable:
 
-- **Bots you recognize** -- 18 pro-inspired personas with distinct playstyles, tilt systems, and leaks. Phellmuth melts down after one loss. Pvey is an emotionless machine. Jellande bluffs his own grandmother.
+- **Bots you recognize** -- 20 pro-inspired personas with distinct playstyles, range shapes, sizing personalities, tilt systems, and leaks. Phellmuth limps his "white magic" range and melts down after one lost pot. Pvey is an emotionless machine. Jellande bluffs his own grandmother.
 - **Watch like TV or play like a pro** -- flip between Hero POV (serious training, cards face-down) and TV Broadcast (all cards face-up, Chorman Nad cracking jokes while Mon LeEachern calls the action). Switch mid-hand.
 - **Chorman is actually smart** -- slide from pure comedy to genuine strategic analysis. "That's an overbet — very strong hand or big bluff" mixed with "I've made better decisions at 3 AM at a Waffle House."
 - **Everything is real** -- actual hand evaluation, Monte Carlo equity, blocker-adjusted draw math, position-aware 3-bet sizing, kicker differentiation, SPR awareness, river polarization, MDF defense. 21 realism fixes from three professional audits.
