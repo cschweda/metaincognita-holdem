@@ -11,7 +11,7 @@
  * Spec: docs/superpowers/specs/2026-06-10-pro-bot-realism-design.md
  */
 import { describe, it, expect } from 'vitest'
-import { handPercentile } from '../app/utils/ranges'
+import { handPercentile, handCategory } from '../app/utils/ranges'
 import { updateTilt, createTiltState, decideBotAction, type DecisionContext, type BotProfile } from '../app/utils/botDecision'
 import config from '../holdem.config'
 import type { Card } from '../app/utils/cards'
@@ -149,5 +149,48 @@ describe('F3 — made hands respect bet size postflop', () => {
 
   it('turn overbets get more folds than flop overbets', () => {
     expect(strongFacingBet(1.5, 'turn')).toBeGreaterThan(strongFacingBet(1.5, 'flop'))
+  })
+})
+
+// ─── F6: Range shapes (styleBias) + limp model (limpFreq) ──────
+
+describe('F6 — hand categories, styleBias, limpFreq', () => {
+  it('categorizes hands correctly', () => {
+    expect(handCategory('88')).toBe('pair')
+    expect(handCategory('A5s')).toBe('suitedAce')
+    expect(handCategory('87s')).toBe('suitedConnector')
+    expect(handCategory('KQo')).toBe('bigCard')
+    expect(handCategory('AKs')).toBe('suitedAce')
+    expect(handCategory('J4o')).toBe('other')
+  })
+
+  const firstInCtx = (hole: [Card, Card]): DecisionContext => ({
+    street: 'preflop', toCall: 2, pot: 3, currentBet: 2, playerBet: 0, chips: 200, bb: 2,
+    numActivePlayers: 6, raiseLevel: 0, position: 'MP', holeCards: hole,
+  })
+
+  it('suited-connector bias widens those hands for a Negreanu-style bot', () => {
+    const base: BotProfile = { vpip: 0.22, pfr: 0.18, aggression: 1.0, bluffFreq: 0.10, creativeFreq: 0.05 }
+    const biased: BotProfile = { ...base, styleBias: { suitedConnector: -0.10 } }
+    const hole: [Card, Card] = [c(8, 'hearts'), c(7, 'hearts')] // 87s ≈ pct 0.31
+    let plainPlays = 0, biasedPlays = 0
+    for (let i = 0; i < 2000; i++) {
+      if (decideBotAction(base, firstInCtx(hole)).type !== 'fold') plainPlays++
+      if (decideBotAction(biased, firstInCtx(hole)).type !== 'fold') biasedPlays++
+    }
+    expect(biasedPlays).toBeGreaterThan(plainPlays + 300)
+  })
+
+  it('limpFreq=0 pro never open-limps; limpFreq=0.6 passive limps the gap band', () => {
+    const passive: BotProfile = { vpip: 0.30, pfr: 0.15, aggression: 0.8, bluffFreq: 0.08, creativeFreq: 0.04, limpFreq: 0.6 }
+    const pro: BotProfile = { ...passive, limpFreq: 0 }
+    let passiveLimps = 0, proLimps = 0
+    for (let i = 0; i < 3000; i++) {
+      const hole = dealRandomHole()
+      if (decideBotAction(passive, firstInCtx(hole)).type === 'call') passiveLimps++
+      if (decideBotAction(pro, firstInCtx(hole)).type === 'call') proLimps++
+    }
+    expect(proLimps).toBe(0)
+    expect(passiveLimps).toBeGreaterThan(100)
   })
 })

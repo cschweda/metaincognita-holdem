@@ -100,6 +100,25 @@ export function handPercentile(hole: [Card, Card]): number {
   return idx < 0 ? 1 : HAND_PERCENTILE[idx]!
 }
 
+export type HandCategory = 'pair' | 'suitedAce' | 'suitedConnector' | 'bigCard' | 'other'
+
+const RANK_VALS: Record<string, number> = { A: 14, K: 13, Q: 12, J: 11, T: 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 }
+
+/**
+ * Categorize a hand in 169-notation for per-persona range shaping.
+ * Mutually exclusive, priority: pair > suitedAce > suitedConnector > bigCard > other.
+ */
+export function handCategory(notation: string): HandCategory {
+  if (notation.length === 2) return 'pair'
+  const hi = RANK_VALS[notation[0]!]!
+  const lo = RANK_VALS[notation[1]!]!
+  const suited = notation.endsWith('s')
+  if (suited && hi === 14) return 'suitedAce'
+  if (suited && hi <= 12 && hi - lo <= 2) return 'suitedConnector'
+  if (hi >= 11 && lo >= 10) return 'bigCard'
+  return 'other'
+}
+
 export interface RangeInfo {
   position: string
   action: string

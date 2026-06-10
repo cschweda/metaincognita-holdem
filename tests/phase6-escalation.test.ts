@@ -295,8 +295,9 @@ describe('Preflop scenarios — realistic action sequences', () => {
       else folds++
     }
 
-    // Twan should 3-bet ~20% of the time, not just call
-    expect(raises / n).toBeGreaterThan(0.14)
+    // Twan should 3-bet ~12% of the time (retuned to realistic live-pro
+    // frequency, was 20%), not just call
+    expect(raises / n).toBeGreaterThan(0.08)
     // Twan either 3-bets or folds — he's an aggressor, not a caller
     // Any non-zero continue rate (raise + call) shows he's engaging
     expect((raises + calls) / n).toBeGreaterThan(0.15)

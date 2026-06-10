@@ -14,7 +14,7 @@
  */
 import type { Card } from './cards'
 import { chenScore, chenPlusScore, bestHand, detectDraws, type DrawInfo } from './handAnalysis'
-import { handRankIndex, handPercentile } from './ranges'
+import { handRankIndex, handPercentile, handCategory, holeCardsToNotation, type HandCategory } from './ranges'
 
 export interface BotProfile {
   vpip: number        // 0.10–0.50 — probability of voluntarily entering a pot
@@ -26,6 +26,10 @@ export interface BotProfile {
   fourBetFreq?: number  // 0.01–0.15 — probability of 4-betting when facing a 3-bet
   fiveBetFreq?: number  // 0.005–0.03 — probability of 5-betting when facing a 4-bet
   donkBetFreq?: number  // 0.00–0.25 — probability of leading into the preflop raiser (non-pro leak)
+  limpFreq?: number     // 0–1 — chance to open-limp (vs fold) hands in the PFR–VPIP band first-in
+  styleBias?: Partial<Record<HandCategory, number>> // percentile shift per hand category (negative = plays it wider)
+  betSizeMult?: number  // sizing personality: <1 small-ball, >1 big-bet (default 1.0)
+  overbetFreq?: number  // chance to overbet (1.2–1.5x pot) river value/bluffs (default 0.03)
 }
 
 // ─── Hero Adaptation ──────────────────────────────────────────
@@ -152,6 +156,11 @@ export function applyTilt(
     threeBetFreq: base.threeBetFreq !== undefined ? Math.min(base.threeBetFreq + 0.04 * s, 0.35) : undefined,
     fourBetFreq: base.fourBetFreq !== undefined ? Math.min(base.fourBetFreq + 0.02 * s, 0.20) : undefined,
     fiveBetFreq: base.fiveBetFreq !== undefined ? Math.min(base.fiveBetFreq + 0.01 * s, 0.05) : undefined,
+    donkBetFreq: base.donkBetFreq,
+    limpFreq: base.limpFreq,
+    styleBias: base.styleBias,
+    betSizeMult: base.betSizeMult,
+    overbetFreq: base.overbetFreq,
   }
 }
 
@@ -483,6 +492,11 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
         'MP': 0, 'MP+1': 0, 'UTG': 0.03, 'UTG+1': 0.02,
       }
       handPct = Math.max(0, Math.min(1, handPct + (POS_SHIFT[ctx.position ?? ''] ?? 0)))
+      // Per-persona range shape: Negreanu's suited connectors, Hellmuth's big cards
+      if (profile.styleBias) {
+        const bias = profile.styleBias[handCategory(holeCardsToNotation(ctx.holeCards))] ?? 0
+        handPct = Math.max(0, Math.min(1, handPct + bias))
+      }
       // Small jitter for variety (premium hands jitter less)
       const jitter = handPct < 0.10 ? 0.01 : handPct < 0.25 ? 0.03 : 0.05
       handPct = Math.max(0, Math.min(1, handPct + (Math.random() - 0.5) * jitter))
@@ -511,6 +525,21 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   if (toCall <= bb && raiseLevel <= 1) {
     const isBB = ctx.position === 'BB'
     const isSB = ctx.position === 'SB' || ctx.position === 'D/SB'
+
+    // Non-blind first-in (or over limpers): modern raise-or-fold. The PFR–VPIP
+    // gap only open-limps for personas with limpFreq (Hellmuth, loose-passives);
+    // everyone else folds those hands rather than limping them.
+    if (!isBB && !isSB) {
+      if (handPct < effectivePfr) {
+        const raiseSize = Math.round(currentBet * (2.5 + profile.aggression * 0.5))
+        return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
+      }
+      if (handPct < effectiveVpip && Math.random() < (profile.limpFreq ?? 0)) {
+        return { type: 'call' } // open-limp / over-limp
+      }
+      return { type: 'fold' }
+    }
+
     const isHeadsUp = ctx.numActivePlayers <= 2
     const defenseRange = isHeadsUp
       ? Math.min(effectiveVpip * 2.5, 0.85) // heads-up: defend ~85% of hands
@@ -520,9 +549,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // BB: 3-bet strong range, flat with discount hands
     const raiseThreshold = isSB
       ? defenseRange * 0.70   // SB raises 70% of defense range
-      : isBB
-        ? defenseRange * 0.45 // BB raises 45% of defense range (has positional discount)
-        : effectivePfr
+      : defenseRange * 0.45   // BB raises 45% of defense range (has positional discount)
 
     if (handPct < defenseRange) {
       if (handPct < raiseThreshold) {
@@ -619,21 +646,21 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   }
 
   if (raiseLevel === 3) {
+    // Facing 4-bet: pure hand value territory — raw percentile, no position shift
     const reraiseFreq = profile.fiveBetFreq ?? 0.01
-    // Facing 4-bet: only continuing with strong hands
     const flatCallFreq5 = effectiveVpip * 0.20
 
-    if (handPct < reraiseFreq) {
+    if (rawHandPct < reraiseFreq) {
       return { type: 'raise', amount: chips + playerBet }
     }
-    if (handPct < reraiseFreq + flatCallFreq5) {
+    if (rawHandPct < reraiseFreq + flatCallFreq5) {
       return { type: 'call' }
     }
     return { type: 'fold' }
   }
 
   // Facing 5-bet+
-  if (handPct < 0.01) return { type: 'call' }
+  if (rawHandPct < 0.01) return { type: 'call' }
   return { type: 'fold' }
 }
 
@@ -1147,9 +1174,26 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 }
 
 /**
+ * Deal a shuffled 52-card deck (Fisher-Yates) for the stat simulators.
+ */
+function shuffledDeckForSim(): Card[] {
+  const deck: Card[] = []
+  for (const suit of ['hearts', 'diamonds', 'clubs', 'spades'] as const) {
+    for (let rank = 2; rank <= 14; rank++) deck.push({ rank, suit })
+  }
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j]!, deck[i]!]
+  }
+  return deck
+}
+
+const SIM_POSITIONS = ['UTG', 'MP', 'CO', 'BTN', 'SB', 'BB']
+
+/**
  * Simulate N preflop + postflop decisions for a bot profile and return observed stats.
- * Used for verifying that a profile's observed VPIP, PFR, fold rate, raise rate,
- * and bluff rate statistically match its configured values.
+ * Deals real cards and rotates positions so it exercises the same card-aware
+ * decision path as the live game (not the probabilistic fallback).
  */
 export function simulateBotStats(
   profile: BotProfile,
@@ -1174,6 +1218,10 @@ export function simulateBotStats(
   const bb = 2
 
   for (let i = 0; i < numHands; i++) {
+    const deck = shuffledDeckForSim()
+    const holeCards: [Card, Card] = [deck[0]!, deck[1]!]
+    const position = SIM_POSITIONS[i % SIM_POSITIONS.length]!
+
     // Simulate preflop decision (facing a raise ~60% of the time)
     const facingRaise = Math.random() < 0.6
     const preflopCtx: DecisionContext = {
@@ -1185,6 +1233,9 @@ export function simulateBotStats(
       chips: 200,
       bb,
       numActivePlayers: 5,
+      raiseLevel: facingRaise ? 1 : 0,
+      position,
+      holeCards,
     }
     preflopHands++
     const preflopAction = decideBotAction(profile, preflopCtx)
@@ -1211,6 +1262,9 @@ export function simulateBotStats(
         chips: 180,
         bb,
         numActivePlayers: 3,
+        position,
+        holeCards,
+        community: [deck[2]!, deck[3]!, deck[4]!],
       }
 
       if (!facingBet) postflopNoBetSituations++
@@ -1263,12 +1317,16 @@ export function simulateEscalationStats(
   let callsTo3Bet = 0, callsTo4Bet = 0
 
   for (let i = 0; i < numHands; i++) {
+    const deck = shuffledDeckForSim()
+    const holeCards: [Card, Card] = [deck[0]!, deck[1]!]
+    const position = SIM_POSITIONS[i % SIM_POSITIONS.length]!
+
     // Test 3-bet: facing an open raise (raiseLevel=1)
     threeBetOpps++
     const ctx3: DecisionContext = {
       street: 'preflop', toCall: bb * 2.5, pot: bb * 4,
       currentBet: bb * 2.5, playerBet: 0, chips: 200, bb, numActivePlayers: 5,
-      raiseLevel: 1,
+      raiseLevel: 1, position, holeCards,
     }
     const action3 = decideBotAction(profile, ctx3)
     if (action3.type === 'raise') threeBets++
@@ -1278,7 +1336,7 @@ export function simulateEscalationStats(
     const ctx3bet: DecisionContext = {
       street: 'preflop', toCall: bb * 7.5, pot: bb * 12,
       currentBet: bb * 7.5, playerBet: 0, chips: 200, bb, numActivePlayers: 4,
-      raiseLevel: 2,
+      raiseLevel: 2, position, holeCards,
     }
     const action3bet = decideBotAction(profile, ctx3bet)
     if (action3bet.type === 'fold') foldsTo3Bet++
@@ -1291,7 +1349,7 @@ export function simulateEscalationStats(
     const ctx4bet: DecisionContext = {
       street: 'preflop', toCall: bb * 20, pot: bb * 30,
       currentBet: bb * 20, playerBet: 0, chips: 200, bb, numActivePlayers: 3,
-      raiseLevel: 3,
+      raiseLevel: 3, position, holeCards,
     }
     const action4bet = decideBotAction(profile, ctx4bet)
     if (action4bet.type === 'fold') foldsTo4Bet++

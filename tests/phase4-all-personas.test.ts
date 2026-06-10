@@ -17,7 +17,12 @@ import config from '../holdem.config'
 const N = 500000
 
 function profileFrom(p: typeof config.personas[0]): BotProfile {
-  return { vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq }
+  return {
+    vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq,
+    threeBetFreq: p.threeBetFreq, fourBetFreq: p.fourBetFreq, fiveBetFreq: p.fiveBetFreq,
+    donkBetFreq: p.donkBetFreq, limpFreq: (p as any).limpFreq, styleBias: (p as any).styleBias,
+    betSizeMult: (p as any).betSizeMult, overbetFreq: (p as any).overbetFreq,
+  }
 }
 
 // ─── Test every persona for stat alignment ─────────────────────

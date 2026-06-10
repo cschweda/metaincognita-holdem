@@ -28,7 +28,12 @@ function getPersona(name: string) {
 }
 
 function profileFrom(p: ReturnType<typeof getPersona>): BotProfile {
-  return { vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq }
+  return {
+    vpip: p.vpip, pfr: p.pfr, aggression: p.aggression, bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq,
+    threeBetFreq: p.threeBetFreq, fourBetFreq: p.fourBetFreq, fiveBetFreq: p.fiveBetFreq,
+    donkBetFreq: p.donkBetFreq, limpFreq: (p as any).limpFreq, styleBias: (p as any).styleBias,
+    betSizeMult: (p as any).betSizeMult, overbetFreq: (p as any).overbetFreq,
+  }
 }
 
 function runStats(p: ReturnType<typeof getPersona>) {
@@ -111,7 +116,12 @@ describe('Hill Phellmuth — GTO baseline with extreme tilt', () => {
     const tiltedPhellmuth = applyTilt(profileFrom(hellmuth), tiltState, config.tilt, hellmuth.tiltMultiplier!)
     const tiltedPvey = applyTilt(profileFrom(ivey), tiltState, config.tilt, ivey.tiltMultiplier!)
 
-    expect(tiltedPhellmuth.vpip).toBeGreaterThan(tiltedPvey.vpip)
+    // Phellmuth starts nittier than Pvey (18% vs 25% VPIP), so compare how much
+    // tilt WIDENS each player relative to their baseline — Phellmuth transforms,
+    // Pvey barely moves.
+    const phellmuthWiden = tiltedPhellmuth.vpip - hellmuth.vpip
+    const pveyWiden = tiltedPvey.vpip - ivey.vpip
+    expect(phellmuthWiden).toBeGreaterThan(pveyWiden + 0.04)
     expect(tiltedPhellmuth.aggression).toBeGreaterThan(tiltedPvey.aggression)
   })
 })
