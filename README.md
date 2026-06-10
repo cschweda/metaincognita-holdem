@@ -33,7 +33,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Pre-computed opening ranges** -- uses the ranked 169-hand EV list with position shifts, not just Chen+ approximation
 - **Range-shape personalities** -- per-persona `styleBias` (Negreanu plays suited connectors wider, Hellmuth favors big cards), `limpFreq` (Hellmuth's limpy "white magic", loose-passive stations), `betSizeMult` (small-ball vs big-bet), and `overbetFreq` (Dwan's 1.2-1.5x pot river bombs)
 - **Board-relative hand strength** -- "two pair" using a board pair, board trips, and played-the-board rivers are scored as the marginal hands they are, not monsters
-- **Minimum Defense Frequency (MDF)** -- bots defend enough of their range to prevent exploitable over-folding to large bets
+- **Minimum Defense Frequency (MDF)** -- bots defend enough of their range to prevent exploitable over-folding; multiway, the defense duty splits across remaining players (MDF is a heads-up concept)
 - **Hero bet-sizing exploitation** -- bots detect if you bet big with value and small with bluffs (or vice versa), then adjust
 - **Min-raise enforcement** -- engine enforces legal minimum raise amounts (last raise increment, not just BB). Short all-ins below min-raise are allowed but clamped correctly.
 - **Half-raise rule** -- an incomplete all-in (less than a full raise) does not reopen action for players who already acted. Standard tournament/cash game rule.
@@ -414,7 +414,7 @@ The bot decision engine was reviewed from a professional poker perspective acros
 - **Strong-hand threshold**: Lowered from 0.40 to 0.35 — all top pairs are "strong" regardless of kicker.
 - **Multiway inverse discount**: Monsters discount 20% less in multiway (still profitable). Bluffs discount 15% more (no fold equity).
 
-**Round 4 — statistical audit (6 fixes):**
+**Round 4 — statistical audit (6 fixes):** _(historical — several mechanisms below were further reworked by the v0.18 statistical realism overhaul; see CHANGELOG 0.18.x for current behavior)_
 
 A gambling-statistics review across 14,000+ simulated hands (3K×6-max mixed, 3K×6-max pros, 5K×8-max pros, 3K×6-max fictional) identified five systematic deviations from expected NLH distributions. All were fixed and re-validated:
 
@@ -648,14 +648,15 @@ When it's a bot's turn preflop, the decision proceeds in this order:
 
 4. **Short-stack check**: If below 25 BB and facing a raise, switch to push/fold mode. Shove with top ~15-25% of hands (wider when desperate), fold everything else.
 
-5. **Chen+ evaluation**: Compute the position- and style-adjusted Chen+ score for the bot's hole cards. Map it to a percentile via the calibrated table.
+5. **Hand percentile**: Look up the hole cards in the ranked 169-hand EV list and convert to a **combo-weighted percentile** (pairs = 6 combos, suited = 4, offsuit = 12 of 1,326 — so "percentile < VPIP" plays exactly VPIP% of dealt hands). Apply the position shift (BTN -8pp ... UTG +3pp), the persona's `styleBias` category shift, and a small jitter.
 
 6. **Decision**:
-   - **Not facing a raise (open action)**: Raise-or-fold with full VPIP range (no limping — modern NLH strategy). Check only with hands outside the VPIP range.
-   - **Completing BB/SB (small bet to call)**: BB defends with 125% of VPIP range (wide defense due to pot discount), raises 45% of defense range. SB raises 70% of defense range (3-bet-or-fold from worst postflop position).
-   - **Facing an open raise**: Value 3-bet with top hands (55% of 3-bet range by card quality), bluff 3-bet with playable hands (45% of 3-bet range by persona randomness), flat call with the remaining defense range (85% of VPIP in position, 60% out of position), or fold.
-   - **Facing a 3-bet**: Value 4-bet, bluff 4-bet, flat call (45% of VPIP), or fold.
-   - **Facing a 4-bet**: Shove with top hands, call (20% of VPIP), or fold.
+   - **First in (or over limpers)**: Open-raise the top `PFR x 1.6` of hands (capped at VPIP) — the open range runs wider than headline PFR because 3-bet opportunities are rarer. Hands in the remaining PFR-VPIP band open-limp at the persona's `limpFreq` (Phellmuth 55%, stations 45-65%, most pros 0) and otherwise fold. Open size is position-based (2.2x late / 2.5x early, scaled by aggression and `betSizeMult`).
+   - **Blind defense**: BB defends 125% of VPIP (pot discount), raising 45% of its defense range. SB plays 3-bet-or-fold-heavy (raises 70% of defense).
+   - **Facing an open**: Value 3-bet by raw card quality (55% of `threeBetFreq`), bluff 3-bet by persona randomness (45%), cold-call from the VPIP-PFR gap (stations flat wide, raise-or-fold TAGs flat narrow; very loose players wider still), or fold. All thresholds shrink continuously with raise size, with callers already in (squeeze discount), and at full-ring tables.
+   - **Facing a jam** (>=15bb or >=60% of stack): equity-driven, premium-only continues that narrow with jam size — a 20bb shove gets called by ~TT+/AQs+, a 100bb open-jam by ~KK+. Facing a reraise-jam in a pot you opened, defense widens so jam-spam can't run the table over.
+   - **Facing a 3-bet**: Value 4-bet by raw card quality, bluff 4-bet, flat call (45% of VPIP), or fold.
+   - **Facing a 4-bet**: Shove `fiveBetFreq` (~AA/KK), call (20% of VPIP), or fold.
    - **Facing a 5-bet+**: Only continue with the top 1% of hands.
 
 ### Postflop Decision Flow
@@ -676,17 +677,36 @@ After the flop, decisions are **position-aware** and **board-texture-aware**. Al
 
 **When facing a bet:**
 
-- **Monster hands**: Raise for value (20% + aggression × 30%), boosted IP. Check-raise OOP on dry boards.
-- **Strong hands**: Usually call. IP raises more often (aggression × 22%); OOP raises at aggression × 12%. Fold top-pair-only to pot-sized river bets from tight opponents.
-- **Draws** (flop/turn only): Semi-bluff raise rate is **75% higher in position** (bluffFreq × aggression × 0.75 IP vs × 0.40 OOP) — IP semi-bluffs have both fold equity and draw equity. Call if pot odds justify. Fold otherwise.
+Hand strength is **board-relative**: "two pair" using a board pair, board trips, and played-the-board rivers are scored as the marginal hands they are, not monsters. MDF splits across multiway defenders.
+
+- **Monster hands**: Raise for value (20% + aggression × 30%), boosted IP. Check-raise OOP on dry boards. Shallow-SPR (<2) commits on flop/turn only — one-pair hands never raise-jam rivers (nothing to protect).
+- **Strong hands** (top-pair class): Call normal bets, but respect pressure — fold to oversized bets (>0.7x pot) at a rate rising with size and falling with strength, fold to sustained turn/river barrels (passives call down more), and give multiway flop bets extra respect.
+- **Draws** (flop/turn only): Semi-bluff raise rate is **75% higher in position** (bluffFreq × aggression × 0.75 IP vs × 0.40 OOP). Call if pot odds justify. Fold otherwise.
 - **Weak made hands**: Call small bets on the flop, tighten by street. River calls are rare.
-- **Nothing**: Fold almost always. IP bluff-raises are twice as frequent as OOP (bluffFreq × 25% vs 12%). IP floats flop bets more often (35% of VPIP vs half-pot bets) to steal on later streets.
+- **Nothing**: Fold almost always. IP bluff-raises are twice as frequent as OOP. IP floats flop bets to steal later streets.
 
-Street pressure increases from flop (1.0x) to turn (0.75x) to river (0.55x) -- it takes a stronger hand to continue on later streets. Passive players (low aggression) get a boost to call frequency; aggressive players fold or raise instead of flat-calling.
+Street pressure increases from flop (1.0x) to turn (0.75x) to river (0.55x). Passive players call down more; aggressive players fold or raise instead of flat-calling. River value bets and bluffs can become 1.2-1.5x pot overbets at the persona's `overbetFreq`.
 
-### Exploitable Leak Audit (60,000 hands, 12 simulation runs)
+### Exploit Probe (adversarial validation)
 
-Every bot has tendencies a skilled player can exploit — that's the point. But are these leaks intentional (persona design) or accidental (engine bugs)? To find out, we ran 60,000 hands across 12 pro-only simulation runs (mix of 5K-hand 6-max and 8-max tables) and aggregated per-bot stats and profit/loss across every appearance.
+`scripts/exploit-probe.ts` plays a scripted hero with one degenerate strategy per run against a fixed pro lineup and reports hero EV in bb/100. If the bots are sound, every degenerate strategy loses:
+
+```bash
+npx tsx scripts/exploit-probe.ts all 6000
+```
+
+| Probe strategy | What it tests | Result (6,000 hands) |
+|---|---|---|
+| open-jam (any two, 100bb) | jam-call discipline | **-2,120 bb/100** |
+| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **-2,009 bb/100** |
+| overbet-spam (1.5x pot every street) | fold discipline | **-2,295 bb/100** |
+| minraise-spam | over-folding to min bets | **-1,274 bb/100** |
+| station (call everything) | thin value betting | **-1,069 bb/100** |
+| nit-value (jam only QQ+/AK) | paying off too light | +64 bb/100 (±38 noise — mildly +EV vs non-adapting tables, as in real life; the live game's hero-adaptation layer reacts to it) |
+
+### Exploitable Leak Audit (historical — pre-v0.18 configs)
+
+Every bot has tendencies a skilled player can exploit — that's the point. But are these leaks intentional (persona design) or accidental (engine bugs)? An earlier audit ran 60,000 hands across 12 pro-only simulation runs and aggregated per-bot stats and profit/loss across every appearance. _Stats below reflect pre-overhaul persona configs._
 
 **Consolidated stats across all runs (bots appearing 2+ times):**
 
@@ -768,7 +788,7 @@ Four levels of verification, each more realistic than the last:
 
 ## Bot Simulation Script
 
-The simulator includes a headless bot-vs-bot simulation script (`scripts/simulate.ts`) that runs thousands of hands without any UI. This is useful for validating bot behavior, tuning persona configs, and analyzing how bots perform against each other over statistically meaningful sample sizes.
+The simulator includes a headless bot-vs-bot simulation script (`scripts/simulate.ts`) that runs thousands of hands without any UI. This is useful for validating bot behavior, tuning persona configs, and analyzing how bots perform against each other over statistically meaningful sample sizes. Per-bot output includes observed-vs-config VPIP/PFR, aggression factor, **per-opportunity 3-bet%**, fold-to-3-bet, **WTSD/W$SD**, and win rate; players top up below 40bb like a live cash game.
 
 ### Analysis Report
 
@@ -794,6 +814,9 @@ npx tsx scripts/simulate.ts 1000 6 --pros
 
 # Fictional bots only
 npx tsx scripts/simulate.ts 500 6 --fictional
+
+# Pin an exact lineup (repeatable comparison runs)
+npx tsx scripts/simulate.ts 3000 8 --players="Hill Phellmuth,Dom Twan,Ihil Pvey,Serik Eidel,Naniel Degreanu,Sanessa Velbst,Rhip Ceese,Krynn Benney"
 
 # Quick smoke test
 npx tsx scripts/simulate.ts 100 4
@@ -931,6 +954,7 @@ holdem-simulator/
 │       ├── seats.ts               # Position assignment + polar coordinate layout
 │       └── sidePots.ts            # Side pot calculation and multi-way pot awards
 ├── scripts/
+│   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
 ├── tests/                         # 19 Vitest test suites (796 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters

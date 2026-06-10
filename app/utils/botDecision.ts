@@ -178,7 +178,12 @@ function generateRandomAction(ctx: DecisionContext): BotAction {
     const betSize = Math.round(ctx.pot * (0.3 + Math.random() * 0.2))
     return { type: 'raise', amount: Math.min(Math.max(betSize, ctx.bb), ctx.chips) }
   }
-  // Facing a bet: fold (45%), call (50%), min-raise-ish (5%)
+  // Facing a big bet (>10bb or >30% of stack), a brain fart is almost always
+  // a wrong fold — nobody "accidentally" calls off 100bb with a random hand
+  if (ctx.toCall > ctx.bb * 10 || ctx.toCall > ctx.chips * 0.3) {
+    return r < 0.92 ? { type: 'fold' } : { type: 'call' }
+  }
+  // Facing a normal bet: fold (45%), call (50%), min-raise-ish (5%)
   if (r < 0.45) return { type: 'fold' }
   if (r < 0.95) return { type: 'call' }
   const raiseSize = Math.round(ctx.currentBet * 1.5)
@@ -642,9 +647,18 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   const jamLike = toCall >= chips * 0.6 || (raiseLevel <= 1 && toCall >= bb * 15)
 
   if (jamLike) {
-    // Vs a jam: ~top 1.7% reshoves (QQ+/AKs), ~top 4.5% calls (TT+/AQs+/AKo).
-    // Uses the raw percentile — calling a jam is equity-driven, not position-driven.
-    const continueRange = Math.max(profile.fourBetFreq ?? 0.025, 0.04)
+    // Vs a jam the continue range is equity-driven (raw percentile) and
+    // narrows with the jam SIZE: a 15-25bb shove gets called by ~top 4.5%
+    // (TT+/AQs+/AKo — short stacks shove wide), but a 100bb open-jam
+    // represents only premiums, so it gets called by ~KK+ (top ~1%).
+    // Without this, a hero jamming only QQ+/AK prints money off TT/AQ calls.
+    // Facing a RERAISE-jam (raiseLevel 2+, we're in a raised pot) the table
+    // must collectively defend wide enough that any-two jamming loses —
+    // floor the shrink there or jam-spam runs over the table.
+    const jamBB = toCall / bb
+    const sizeShrink = Math.min(1, Math.pow(20 / Math.max(jamBB, 15), 1.1))
+    const jamSizeFactor = raiseLevel >= 2 ? Math.max(sizeShrink, 0.85) : sizeShrink
+    const continueRange = Math.max(profile.fourBetFreq ?? 0.025, 0.04) * jamSizeFactor
     if (rawHandPct < continueRange * 0.4 && chips > toCall) {
       return { type: 'raise', amount: chips + playerBet }
     }

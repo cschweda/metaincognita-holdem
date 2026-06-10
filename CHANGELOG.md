@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-06-10
+
+### Added
+- **Exploit probe** (`scripts/exploit-probe.ts`) — adversarial validation: a scripted hero plays one degenerate strategy per run (open-jam any two, 3-bet-jam, overbet-spam, min-raise spam, station, nit-value) against a fixed pro lineup and reports hero EV in bb/100. Five of six strategies lose 1,000-2,300 bb/100; nit-value sits at +64 +/- 38 (mildly +EV vs non-adapting opponents, as in real life).
+
+### Fixed
+- **Jam-call ranges scale with jam size** — a 20bb shove gets called by ~TT+/AQs+, but a 100bb open-jam now gets called by ~KK+ only (was a flat top-4.5% at any size; a hero jamming only QQ+/AK printed +210 bb/100 off TT/AQ calls). Facing a reraise-jam in a raised pot, defense stays wide enough that any-two jam-spam can't run the table over.
+- **Brain-fart misplays respect big bets** — the consistency misplay generator no longer randomly calls bets over 10bb / 30% of stack at meaningful frequency (nobody "accidentally" calls off 100bb with a random hand).
+
+### Documentation
+- README brought fully current: preflop/postflop decision-flow sections rewritten for the v0.18 engine (combo-weighted percentiles, limp model, jam defense, board-relative strength, call-down discipline), historical audit sections labeled as pre-overhaul, exploit probe and simulator flags documented.
+
 ## [0.18.0] - 2026-06-10
 
 ### Removed
