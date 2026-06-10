@@ -59,6 +59,8 @@ export function createTiltState(): TiltState {
 
 /**
  * Call after each hand with the result. Updates tilt state.
+ * `participated` = the bot voluntarily put chips in (or reached showdown).
+ * Folding preflop is NOT a loss — it neither tilts nor calms a player.
  */
 export function updateTilt(
   state: TiltState,
@@ -72,7 +74,9 @@ export function updateTilt(
     decayHands: [number, number]
   },
   tiltMultiplier: number = 1.0,
+  participated: boolean = true,
 ): void {
+  if (!participated) return
   if (won) {
     state.consecutiveLosses = 0
     return

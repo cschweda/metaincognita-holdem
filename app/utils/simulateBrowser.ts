@@ -252,7 +252,8 @@ export async function runSimulation(
     totalPot += pot
 
     if (winnerId >= 0) { botStats.get(winnerId)!.wins++; recentWinners.push(winnerId); if (recentWinners.length > TABLE_FLOW_WINDOW) recentWinners.shift() }
-    for (const p of players) { if (!p.eliminated) { const won = p.id === winnerId; updateTilt(p.tilt, won, !won && !p.folded && pot > STARTING_STACK * config.tilt.bigLossThreshold, config.tilt, p.tiltMultiplier) } }
+    // Tilt only on played hands: invested beyond a blind, or reached showdown
+    for (const p of players) { if (!p.eliminated) { const won = p.id === winnerId; const participated = p.totalInvested > BB || (!p.folded && isShowdown); updateTilt(p.tilt, won, !won && !p.folded && pot > STARTING_STACK * config.tilt.bigLossThreshold, config.tilt, p.tiltMultiplier, participated) } }
     for (const p of players) { if (p.chips <= 0 && !p.eliminated) p.eliminated = true }
     for (const p of players) { botStats.get(p.id)!.finalChips = p.chips }
 

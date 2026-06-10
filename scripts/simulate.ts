@@ -406,12 +406,15 @@ function simulateHand(
     if (recentWinners.length > TABLE_FLOW_WINDOW) recentWinners.shift()
   }
 
-  // Update tilt
+  // Update tilt — only hands the bot actually played (invested chips or showdown)
   for (const p of players) {
     if (p.eliminated) continue
     const won = p.id === winnerId
     const lostBigPot = !won && !p.folded && pot > STARTING_STACK * config.tilt.bigLossThreshold
-    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier)
+    const participated = actions.some(a =>
+      a.startsWith(`${p.name} `) && (a.includes('calls') || a.includes('raises') || a.includes('ALL-IN')))
+      || (!p.folded && remaining.length > 1)
+    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
   }
 
   // Eliminate busted players

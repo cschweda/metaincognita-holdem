@@ -12,6 +12,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { handPercentile } from '../app/utils/ranges'
+import { updateTilt, createTiltState } from '../app/utils/botDecision'
+import config from '../holdem.config'
 import type { Card } from '../app/utils/cards'
 
 const c = (rank: number, suit: Card['suit']): Card => ({ rank, suit })
@@ -53,5 +55,30 @@ describe('F4 — combo-weighted percentile', () => {
     }
     expect(below / N).toBeGreaterThan(0.22)
     expect(below / N).toBeLessThan(0.28)
+  })
+})
+
+// ─── F1: Tilt requires participation ───────────────────────────
+
+describe('F1 — tilt requires participation', () => {
+  it('folding preflop 20 times never tilts even Phellmuth', () => {
+    const state = createTiltState()
+    for (let i = 0; i < 20; i++) updateTilt(state, false, false, config.tilt, 2.5, false)
+    expect(state.tilted).toBe(false)
+    expect(state.consecutiveLosses).toBe(0)
+  })
+
+  it('played losses still tilt (participated defaults to true)', () => {
+    const state = createTiltState()
+    updateTilt(state, false, false, config.tilt, 2.5)
+    expect(state.tilted).toBe(true)
+  })
+
+  it('a fold between two played losses does not reset the loss count', () => {
+    const state = createTiltState()
+    updateTilt(state, false, false, config.tilt, 1.0, true)  // played loss
+    updateTilt(state, false, false, config.tilt, 1.0, false) // folded preflop
+    updateTilt(state, false, false, config.tilt, 1.0, true)  // played loss
+    expect(state.consecutiveLosses).toBe(2)
   })
 })

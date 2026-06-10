@@ -436,13 +436,17 @@ function endHand() {
   // Record winner for table flow dynamics
   if (winnerId >= 0) engine.recordHandWinner(winnerId)
 
-  // Update tilt for bots
+  // Update tilt for bots — only hands they actually played (invested chips or showdown)
+  const nonFoldedCount = gs.playerStates.value.filter(pl => !pl.folded && !pl.eliminated).length
   for (const p of gs.playerStates.value) {
     if (p.isHero || p.eliminated) continue
     const won = p.id === winnerId
     const chipsAtStart = startingStack.value
     const lostBigPot = !won && !p.folded && gs.pot.value > chipsAtStart * config.tilt.bigLossThreshold
-    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier)
+    const participated = gs.handActionLog.value.some(a =>
+      a.includes(p.name) && (a.includes('calls') || a.includes('raises') || a.includes('ALL-IN')))
+      || (!p.folded && nonFoldedCount > 1)
+    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
   }
 
   // Record hero actions for adaptation
