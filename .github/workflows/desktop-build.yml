@@ -1,0 +1,87 @@
+name: Desktop Build
+
+# Builds the Tauri desktop app for macOS (universal), Windows, and Linux.
+# Tauri can't cross-compile, so each OS builds on its own runner.
+#
+# Triggers:
+#   - pushing a version tag like `v0.18.1`  -> builds + attaches artifacts to a draft Release
+#   - manual run from the Actions tab (workflow_dispatch)
+# (To build on every push to main instead, add a `push: { branches: [main] }` trigger.)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Least privilege by default; the build job opts up to `contents: write` for the Release.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    permissions:
+      contents: write   # needed for tauri-action to create the Release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+            rust-targets: ''
+          - platform: windows-latest
+            args: ''
+            rust-targets: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            patchelf \
+            libayatana-appindicator3-dev
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Enable Corepack (yarn from packageManager field)
+        run: corepack enable
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch (pinned)
+        with:
+          toolchain: stable   # required: SHA-pinned ref can't infer the channel
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build desktop app
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # tauri-action runs the build (which runs `yarn generate` via beforeBuildCommand)
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Holdem Simulator ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

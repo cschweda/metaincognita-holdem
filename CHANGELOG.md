@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-06-24
+
+### Added
+- **Desktop app (Tauri 2)** — the simulator now builds as a native desktop app for macOS, Windows, and Linux. Same Nuxt SPA, packaged into the OS WebView via a minimal Rust core (no custom IPC commands, `core:default` capability only). `yarn tauri dev` opens a hot-reloading native window; `yarn tauri build` produces a local installer. See the new README "Desktop App (Tauri)" section.
+- **CI release pipeline** (`.github/workflows/desktop-build.yml`) — builds macOS (universal), Windows, and Linux installers on a version-tag push (`v*`) or manual dispatch, and attaches them to a draft GitHub Release.
+- **Offline icon bundling** — `nuxt.config.ts` `icon.clientBundle` embeds used icons into the client JS, so the static/desktop build renders fully offline with no runtime fetch to `api.iconify.design`.
+
+### Security
+- **Red/blue audit — Round 4 (Desktop & CI hardening).** Full findings live in the README "Security" section (now a collapsible audit log). Highlights:
+  - **Tauri WebView CSP** — the desktop build shipped with `"csp": null`; added a restrictive CSP to `tauri.conf.json` (mirrors the web policy, `connect-src 'self'` since the desktop app is fully offline, plus `object-src 'none'` / `base-uri 'self'`).
+  - **CI least privilege** — added a top-level `permissions: contents: read` to the release workflow; the build job opts up to `contents: write` only to create the Release.
+  - **CI supply chain** — pinned every GitHub Action in the release workflow to a full commit SHA (was floating tags like `@v4` / `@v0`); `dtolnay/rust-toolchain` gets an explicit `toolchain: stable` input.
+  - Confirmed safe: no XSS sinks anywhere (no `v-html` / `innerHTML` / `eval`), minimal Tauri IPC surface, no untrusted-input → shell flows in CI, and `route.query.hand` rendered through Vue escaping.
+
+### Documentation
+- README: new "Desktop App (Tauri)" section (prerequisites, `tauri dev` / `tauri build`, CI pipeline, config files); Security section restructured into a collapsible red/blue audit log (current round expanded, older rounds in `<details>`); Architecture updated for the dual web + desktop targets; Tech Stack, Project Structure tree, and table of contents brought current.
+- README: new "How the Bot Intelligence Works" section — plain-language explainer of where the pro stats come from (authored from live-poker stat bands, validated by simulation), how a stat becomes a decision (percentile thresholds + `Math.random()` frequency rolls, with a worked example), and an explicit "no AI, no cloud, no network — all local deterministic algorithms" statement.
+- README: table of contents expanded with nested sub-navigation for the large sections (bot intelligence, bot behavior, simulation, desktop, security) and reordered to match the document; fixed a duplicate-anchor collision where the Desktop App's "Configuration" subsection shadowed the main Configuration section (renamed to "Configuration Files").
+
 ## [0.18.1] - 2026-06-10
 
 ### Added

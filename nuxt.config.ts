@@ -11,6 +11,16 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // Embed used icons into the client JS so the static / desktop (Tauri) build
+  // renders them fully offline — no runtime fetch from api.iconify.design.
+  // Required because this is an ssr:false static SPA with no server icon route.
+  icon: {
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 256,
+    },
+  },
+
   alias: {
     '@config': resolve(__dirname, 'holdem.config.ts'),
   },

@@ -13,7 +13,7 @@
 | ![TV Broadcast Mode](app/public/screenshot03.jpg) | ![Bot Analysis Report](app/public/screenshot04.jpg) |
 | *TV Broadcast: Mon & Chorman call the action, all cards face-up* | *Bot Analysis: 3,000-hand simulation with observed vs target stats* |
 
-A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits (29 fixes) plus a statistical realism overhaul: combo-weighted ranges, board-relative hand strength, episodic tilt, raise-size-aware defense, per-persona range shapes and sizing personalities — validated against live-poker HUD bands with repeatable fixed-lineup simulations.
+A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits (29 fixes) plus a statistical realism overhaul: combo-weighted ranges, board-relative hand strength, episodic tilt, raise-size-aware defense, per-persona range shapes and sizing personalities — validated against live-poker HUD bands with repeatable fixed-lineup simulations. Runs in the browser or as a native desktop app (macOS, Windows, Linux) via Tauri 2.
 
 ### Bot AI (21 realism fixes + 8 engine/rules fixes + statistical overhaul)
 - **Card-aware decisions** -- bots evaluate actual hole cards and board texture, not random probabilities
@@ -78,15 +78,24 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 ## Table of Contents
 
 - [Features](#features) -- poker table, hand analysis, ranges, HUD, betting, bot configurator, tilt, consistency, sessions, replay, stats, commentary
-- [How Bot Behavior Works](#how-bot-behavior-works) -- persona config fields, Chen+, board texture, table flow, hero adaptation, poker realism audit, preflop/postflop decision flows
-- [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation, analysis page, hand history replay viewer
+- [How the Bot Intelligence Works](#how-the-bot-intelligence-works) -- start here if you're wondering whether this is "AI"
+  - [No AI, No Cloud, No Network](#no-ai-no-cloud-no-network) · [Where the Pro Stats Come From](#where-the-pro-stats-come-from) · [How a Stat Becomes a Decision](#how-a-stat-becomes-a-decision) · [Why Do It This Way?](#why-do-it-this-way)
+- [How Bot Behavior Works](#how-bot-behavior-works) -- the full technical pipeline
+  - [Poker Realism (audits)](#poker-realism-v0132--two-professional-audits) · [How This Compares to Pro Tools](#how-this-compares-to-pro-level-simulators) · [Persona Config Fields](#persona-config-fields)
+  - [Chen Score](#chen-score--classic-preflop-hand-strength) · [Chen+](#chen--this-apps-position--and-style-adjusted-extension) · [Board Texture](#board-texture-analysis) · [Table Flow](#table-flow) · [Hero Adaptation](#hero-adaptation)
+  - [Preflop Decision Flow](#preflop-decision-flow) · [Postflop Decision Flow](#postflop-decision-flow) · [Exploit Probe](#exploit-probe-adversarial-validation) · [Testing Approach](#testing-approach)
 - [Tech Stack](#tech-stack)
+- [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation
+  - [Analysis Report](#analysis-report) · [Usage](#usage) · [What It Tracks](#what-it-tracks) · [Interpreting Results](#interpreting-results) · [Multi-Run Analysis](#multi-run-analysis)
 - [Getting Started](#getting-started)
+- [Desktop App (Tauri)](#desktop-app-tauri) -- what it is, prerequisites, dev, release builds, CI
+  - [Prerequisites](#prerequisites) · [Running in Development](#running-in-development) · [Building a Release Locally](#building-a-release-locally) · [CI Release Pipeline](#ci-release-pipeline)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
 - [Test Suites](#test-suites) -- 796 tests across 19 files
 - [Poker Glossary](#poker-glossary)
-- [Security](#security) -- audit results, defense-in-depth, CSP headers, credential validation
+- [Security](#security) -- red/blue audit log (web + desktop)
+  - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Desktop Hardening](#desktop-hardening-tauri) · [Accepted Risks](#accepted-risks)
 - [Roadmap](#roadmap)
 - [Future Enhancements](#future-enhancements)
 - [Influences](#influences) -- Poker Academy Pro, PokerStars, Full Tilt, 2+2, Sklansky, ESPN WSOP
@@ -379,6 +388,65 @@ The sliders let you dial in your preferred experience: crank Chorman to max for 
 - Preflop -> Flop (3) -> Turn (1) -> River (1) -> Showdown
 - Hero sees hole cards face-up; opponents face-down until showdown (or click-to-peek)
 - Early wins (everyone folds) don't show undealt streets
+
+## How the Bot Intelligence Works
+
+> **Short version: there is no AI here.** No large language model, no neural network, no machine-learning model, no cloud service, and no API call of any kind. Every bot decision is made by a few hundred lines of ordinary TypeScript running locally in your browser (or the desktop WebView), in well under a millisecond. The running app makes **zero network requests** to decide anything — it works completely offline. The "intelligence" is hand-written poker logic plus a random-number generator, and that's the whole story.
+
+This section explains, in plain terms, **where the pro numbers come from**, **how the app turns those numbers into decisions**, and **why it's all deterministic local math** rather than an AI. For the exhaustive, layer-by-layer pipeline (Chen+, board texture, SPR, MDF, hero adaptation, street-by-street barreling), see [How Bot Behavior Works](#how-bot-behavior-works) directly below.
+
+### No AI, No Cloud, No Network
+
+The entire decision engine is the function `decideBotAction()` in `app/utils/botDecision.ts`. When it is a bot's turn, the game hands that function the bot's two cards, the board, the pot, the bet it is facing, its position, and a little history — and the function returns one of `fold` / `check` / `call` / `raise` (plus a size). That's it. To be unambiguous about what is *not* involved:
+
+- **No language model, no neural network.** Nothing is "prompted." There is no model file, no inference step, no training data. Contrast this with PokerSnowie (a neural net trained on billions of hands) or a GTO solver like PioSOLVER (which iterates to a Nash equilibrium) — see the [comparison table](#how-this-compares-to-pro-level-simulators). This app is firmly in the *hand-crafted heuristic* camp.
+- **No server, no API, no telemetry.** A bot never sends your hand anywhere and never fetches a move. As of v0.18 the app is local-only, and as of v0.19 even the icons are bundled into the build — so the running app makes no outbound calls at all. Disconnect from the internet and nothing changes.
+- **The only randomness is `Math.random()`.** And it is *not* used to pick moves blindly. It is used to hit *target frequencies* — so a bot configured to bluff 14% of the time actually bluffs about 14% of the time, and two identical spots don't always play out identically. Remove the random rolls and the logic is fully deterministic: same cards + same context → same reasoning, every time.
+- **It's fast and private because it's just math.** Each decision is a handful of comparisons and multiplications. No latency, no account, no data ever leaves your device.
+
+### Where the Pro Stats Come From
+
+Every poker player has a statistical fingerprint — the same numbers a tracking HUD (PokerTracker, Hold'em Manager) shows on screen: **VPIP** (how often they voluntarily enter a pot), **PFR** (how often they raise preflop), **AF** (aggression factor), **3-bet%**, **WTSD** (went to showdown), and so on. Each of the 27 personas *is* exactly that — a row of those numbers in `holdem.config.ts`. The full list of fields and what each one controls is in [Persona Config Fields](#persona-config-fields); here we care about how the numbers were chosen.
+
+They are **authored, not scraped and not learned.** Each persona's numbers are informed estimates that combine (a) the player's real-world reputation and era with (b) the published statistical *bands* for that archetype in live full-ring poker. A few examples of the intent:
+
+- **Hill Phellmuth** (Phil Hellmuth) — tight and limpy with a big-card bias and a famously short fuse: `VPIP 18 / PFR 11`, high `limpFreq`, `tiltMultiplier 2.5`.
+- **Dom Twan** (Tom Dwan) — hyper-aggressive LAG with oversized bets: `VPIP 32 / PFR 26`, `betSizeMult 1.2`, `overbetFreq 0.18`.
+- **Ihil Pvey** (Phil Ivey) — relentless and nearly unreadable: high aggression, `consistency 0.99`, `tiltMultiplier 0.3`.
+
+(The names are deliberately scrambled — this is parody and homage, not a claim to reproduce any real person's actual hand histories.)
+
+Crucially, the numbers are then **validated by simulation, not by a live feed.** The headless simulator (`scripts/simulate.ts`) and the in-engine helpers `simulateBotStats()` / `simulateEscalationStats()` deal thousands of hands and report each bot's *observed* VPIP / PFR / AF / per-opportunity 3-bet% right next to its *configured* targets. The configs were tuned until observed ≈ configured **and** the table-wide stats (preflop fold-outs, flops seen, showdowns, 3-bet pots, all-in %) landed inside real-NLH ranges. After the v0.18 statistical overhaul, observed VPIP lands within ~1–2 points of config across repeated runs. In other words, the "realism" is a closed loop you can re-run yourself: change a number, simulate, watch the behavior move. (See [Bot Simulation Script](#bot-simulation-script).)
+
+Two supporting sets of numbers come from the same place:
+
+- **Fictional teaching bots** (Tight Tony, Loose Lucy, …) are deliberately exaggerated archetypes with on-purpose leaks, so you can learn to exploit a "type" before facing a subtler pro.
+- **Archetype presets** (Nit / Tight / TAG / LAG / Loose-Passive / Maniac) are textbook templates you can drop onto any seat in the bot configurator.
+
+### How a Stat Becomes a Decision
+
+The idea that ties it all together: a percentage stat is turned into an action by combining a **measurement of the bot's actual hand** with either a **threshold** or a **dice roll** derived from that stat. Two patterns do almost all of the work.
+
+**Pattern 1 — stat as a threshold (preflop hand selection).** The bot converts its two cards into one of the 169 starting-hand classes and looks them up in a fixed, EV-ranked list to get a **percentile**: AA ≈ top 0.5%, QJo ≈ top 16%, 72o = the very bottom. Because the list is *combo-weighted*, "`percentile < VPIP`" literally means "this hand is in the best VPIP% of all hands I could be dealt." So:
+
+- A bot with **VPIP 25%** plays the **top ~25% of hands — not a random 25%.**
+- **Position** nudges the percentile (a Button hand counts as ~8% stronger; UTG ~3% weaker), because the same cards are worth more when you act last.
+- **Style Bias** nudges it per category, so two bots with the *same* VPIP still play *different* hands (Negreanu's suited connectors, Hellmuth's big cards).
+
+**Pattern 2 — stat as a dice roll (frequencies: bluffs, 3-bets, barrels).** For actions that should happen *some percentage of the time*, the engine computes a target rate from the persona's stat (and the situation), then rolls `Math.random()` against it. A 3-bet, for instance, is split into **value 3-bets** (gated by raw card quality vs a threshold from `threeBetFreq`) and **bluff 3-bets** (gated by `Math.random() <` a rate from `threeBetFreq`). Postflop bet/raise rates start from `aggression` and `bluffFreq`, then get multiplied by board texture, position, and SPR before the roll. Over thousands of hands these rolls realize the configured frequencies — which is exactly what the simulator checks.
+
+**A worked example.** It is folded to two different bots in middle position, each dealt **Q♣ J♦ (QJo)**, which ranks around the **top 16%** of starting hands:
+
+- **Tight Tony** (VPIP 14%): 16% is *outside* his top-14% opening range → **fold.**
+- **Loose Lucy** (VPIP 38%): 16% is well *inside* her range → **open-raise** (size ≈ a 2.2–2.5× base × her `betSizeMult`, nudged by aggression).
+
+Same two cards, opposite decisions — and the only thing that changed was one number in a config file. Now say Lucy gets called and the flop comes dry and King-high. As the preflop raiser she has a **range advantage**, so her c-bet rate is high (~0.85 for a strong hand on a dry board) × position and SPR modifiers; `Math.random()` clears it and she fires ~half-pot. Hold the same spot but give her air on a soaked, draw-heavy board and that rate collapses toward her `bluffFreq` — she mostly checks.
+
+**Postflop, in one breath.** After the flop the bot scores its *actual* hand on a 0–1 strength scale — made-hand rank, kicker quality, board-relative discounts (a "two pair" that's really one pair plus a pair on the board is marked down), and draw equity with blocker discounts — then buckets it: **monster ≥ 0.55, strong ≥ 0.35, weak-made 0.10–0.35, draw, or nothing < 0.10.** From there the same two patterns apply, filtered through board texture, position (in/out), SPR, who raised preflop, how many players are in, and a few opponent reads. Defensive guardrails keep it honest: **MDF** (defend enough not to be exploited by big bets), **call-down discipline** (fold marginal hands to sustained turn/river pressure), **bet-size sensitivity** (fold top pair to overbets), and **river polarization** (only monsters and busted draws bet; medium hands check). The full street-by-street version is in [How Bot Behavior Works](#how-bot-behavior-works).
+
+### Why Do It This Way?
+
+Because the goal is a game that is **fun, instant, and runs anywhere** — not a training solver. Heuristics give recognizable, distinct *personalities* (a solver plays one "perfect" style; these bots each play like *someone*), decisions in microseconds with no install or account, and behavior you can read, tune in the configurator, and re-simulate yourself. The honest trade-off — less bet-sizing granularity and no per-opponent range solving versus a paid tool — is laid out in [How This Compares to Pro-Level Simulators](#how-this-compares-to-pro-level-simulators).
 
 ## How Bot Behavior Works
 
@@ -779,10 +847,11 @@ Four levels of verification, each more realistic than the last:
 | Framework | Nuxt 4 (`ssr: false` -- static SPA) |
 | UI | Nuxt UI v4 |
 | Styling | Tailwind CSS v4 |
-| State | Reactive refs (Vue 3 Composition API) |
+| State | Vue 3 Composition API (reactive refs) + Pinia |
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
-| Deployment | Netlify (static) |
+| Web deploy | Netlify (static SPA) |
+| Desktop | Tauri 2 (Rust core + OS WebView) -- macOS / Windows / Linux |
 | Testing | Vitest (796 tests across 19 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
@@ -911,6 +980,66 @@ yarn generate
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Desktop App (Tauri)
+
+The simulator also ships as a **native desktop app** built with [Tauri 2](https://tauri.app/) — the same Nuxt SPA, packaged into a small native binary that runs in the operating system's own WebView (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux). There's no bundled Chromium the way Electron does it, so a release build is a few MB rather than a few hundred.
+
+**Why a desktop build?**
+- Runs fully **offline** — icons are bundled into the client JS and the sample hand history is packaged into the app, so there are no runtime network calls.
+- Native window, dock/taskbar presence, and OS integration.
+- Same code, same tests — the desktop target is just a second distribution of the web SPA, not a fork.
+
+### Prerequisites
+
+Tauri needs the **Rust toolchain** plus your platform's WebView/build dependencies (one-time setup):
+
+| Platform | Dependencies |
+|----------|--------------|
+| All | [Rust](https://rustup.rs/) (via `rustup`) |
+| macOS | Xcode Command Line Tools (`xcode-select --install`) |
+| Windows | Microsoft C++ Build Tools + WebView2 (preinstalled on Windows 11) |
+| Linux | `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, `patchelf`, `libayatana-appindicator3-dev` |
+
+See the [Tauri prerequisites guide](https://tauri.app/start/prerequisites/) for the exact, up-to-date list.
+
+### Running in Development
+
+```bash
+# Starts the Nuxt dev server and opens the native window with hot-reload —
+# edits to the Vue app refresh live inside the desktop shell.
+yarn tauri dev
+```
+
+`yarn tauri dev` runs the configured `beforeDevCommand` (`yarn dev`) and points the desktop WebView at `http://localhost:3000`. The first run compiles the Rust core, so it takes a minute; subsequent runs are fast.
+
+### Building a Release Locally
+
+```bash
+# Builds the static SPA (yarn generate) and packages a native installer
+# for the current OS into src-tauri/target/release/bundle/.
+yarn tauri build
+```
+
+This runs `beforeBuildCommand` (`yarn generate`) and produces a `.dmg`/`.app` (macOS), `.msi`/`.exe` (Windows), or `.deb`/`.AppImage` (Linux). Tauri can't cross-compile, so each platform's installer must be built on that platform.
+
+### CI Release Pipeline
+
+`.github/workflows/desktop-build.yml` builds all three platforms — macOS (universal), Windows, and Linux — on their respective runners and attaches the installers to a **draft GitHub Release**. It triggers on:
+
+- **a version tag** like `v0.19.0` (`git tag v0.19.0 && git push --tags`), or
+- a **manual run** from the Actions tab (`workflow_dispatch`).
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `src-tauri/tauri.conf.json` | App metadata, window size, bundle targets, and the WebView CSP (see [Security](#security)) |
+| `src-tauri/capabilities/default.json` | Permission set exposed to the frontend (`core:default` only) |
+| `src-tauri/src/lib.rs` & `main.rs` | Rust entry point — intentionally minimal, no custom commands |
+| `src-tauri/Cargo.toml` | Rust dependencies |
+
+The desktop build reads its version from the root `package.json`, so a single version bump covers web, changelog, and desktop.
+
 ## Project Structure
 
 ```
@@ -921,45 +1050,67 @@ holdem-simulator/
 │   ├── assets/css/main.css        # Tailwind + Nuxt UI imports, CSS variables
 │   ├── components/
 │   │   ├── BetControls.vue        # Fold/check/call/raise with slider, presets, tooltips
+│   │   ├── BotAvatar.vue          # Bot initials avatar with deterministic color
+│   │   ├── BotProfileModal.vue    # In-game bot stat adjustment modal
 │   │   ├── ChipStack.vue          # Visual chip denomination display
-│   │   ├── PlayingCard.vue        # Card face/back with CSS 3D flip
+│   │   ├── CommentaryPanel.vue    # Hero POV / TV Broadcast commentary feed
+│   │   ├── HandAnalysisModal.vue  # Street-by-street hand analysis with persona explanations
 │   │   ├── PlayerSeat.vue         # Nameplate, cards, action badge, tilt indicator
+│   │   ├── PlayingCard.vue        # Card face/back with CSS 3D flip
 │   │   ├── PokerTable.vue         # Felt table with polar-coordinate seat layout
 │   │   ├── PositionBadge.vue      # D/SB/BB/UTG/CO/MP position badges
-│   │   ├── BotAvatar.vue           # Bot initials avatar with deterministic color
-│   │   ├── BotProfileModal.vue    # In-game bot stat adjustment modal
-│   │   ├── HandAnalysisModal.vue  # Street-by-street hand analysis with persona explanations
 │   │   ├── SetupScreen.vue        # Game config, bot roster, pro count selector
 │   │   └── StatsPanel.vue         # 4-tab panel: Live, Session, Ranges, Table
 │   ├── composables/
+│   │   ├── useCommentary.ts       # Dual-stream commentary engine (Hero POV + TV Broadcast)
 │   │   ├── useGameEngine.ts       # Game loop, betting rounds, table flow dynamics
 │   │   ├── useGameState.ts        # Reactive game state (players, pot, street, community)
-│   │   └── useSessionStats.ts     # Session tracking, export, localStorage auto-save
+│   │   ├── useSessionStats.ts     # Session tracking, export, localStorage auto-save
+│   │   └── useStatsData.ts        # Loads sessions/hands from localStorage for the stats UI
 │   ├── pages/
+│   │   ├── analysis.vue           # In-browser 3,000-hand bot simulation report
 │   │   ├── bots.vue               # Bot gallery page with all 27 personas
 │   │   ├── index.vue              # Main game page (table, betting, bot loop, tilt, timeout)
 │   │   ├── replay.vue             # Hand replay with comparison panel
+│   │   ├── replay-hand.vue        # Paste & replay any PokerStars hand history on the table
 │   │   └── stats.vue              # Cross-session analytics, hand analysis, PokerStars export
-│   ├── public/
-│   │   ├── og-image.svg           # Open Graph social image (SVG source)
-│   │   └── og-image.png           # Open Graph social image (1200x630 PNG)
+│   ├── stores/
+│   │   └── heroProfile.ts         # Pinia store: hero adaptation profile (fold-to-3bet, tells)
+│   ├── public/                    # og-image, screenshots, analysis.html, sample-hands.txt
 │   └── utils/
 │       ├── botDecision.ts         # Bot decision engine, board texture, tilt, table flow
 │       ├── botDescriptions.ts     # Bot playstyle descriptions for UI
+│       ├── cardParser.ts          # Parse display-format card strings back into Card objects
 │       ├── cards.ts               # Card types, suit symbols, pip layouts
 │       ├── chips.ts               # Chip denomination breakdowns by stake tier
+│       ├── commentaryQuips.ts     # Static TV-Broadcast quip pools
+│       ├── commentaryStrategic.ts # Context-aware strategic commentary generators
+│       ├── downloadFile.ts        # Client-side file download via Blob URL
+│       ├── gameSimulation.ts      # Shared simulation core (browser + CLI)
 │       ├── handAnalysis.ts        # Hand evaluator, Chen/Chen+, draws, equity
 │       ├── pokerStarsExport.ts    # PokerStars hand history format converter
+│       ├── pokerStarsParser.ts    # PokerStars hand history parser (for replay)
 │       ├── ranges.ts              # 169 starting hands + position-based ranges
 │       ├── seats.ts               # Position assignment + polar coordinate layout
+│       ├── simulateBrowser.ts     # Browser-side bot-vs-bot simulation engine
 │       └── sidePots.ts            # Side pot calculation and multi-way pot awards
+├── src-tauri/                     # Tauri 2 desktop app
+│   ├── src/                       # Rust entry point (lib.rs / main.rs) — no custom commands
+│   ├── capabilities/default.json  # Frontend permission set (core:default)
+│   ├── icons/                     # Desktop + mobile app icons
+│   ├── tauri.conf.json            # App metadata, window, bundle targets, WebView CSP
+│   └── Cargo.toml                 # Rust dependencies
+├── .github/
+│   └── workflows/desktop-build.yml  # CI: build desktop installers, attach to draft Release
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
+│   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
 ├── tests/                         # 19 Vitest test suites (796 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
-├── nuxt.config.ts                 # Nuxt 4 config with OG meta tags
-├── netlify.toml                   # Static deploy config with SPA redirect
+├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
+├── netlify.toml                   # Static deploy config — SPA redirect + security headers
+├── CHANGELOG.md
 └── vitest.config.ts
 ```
 
@@ -1093,17 +1244,43 @@ Run all tests: `yarn test` (796 tests, 19 files, ~20 seconds)
 
 ## Security
 
-The codebase has been through a red/blue team adversarial security audit. This section documents the findings, remediations, and accepted risks.
+The codebase has been through multiple rounds of red/blue team adversarial security audits. This section is the running audit log: the most recent round is expanded, older rounds are collapsed below it. Each round documents findings, remediations, and accepted risks.
 
-### Architecture
+### Architecture & Threat Model
 
-The app is a **static SPA** deployed to Netlify. There is no server-side code at all — no database, no serverless functions. All game logic runs client-side. The security surface is:
+The app is a **client-side SPA** (Vue/Nuxt, `ssr: false`) with **two distribution targets**:
 
-- **Client-side code** — Vue/Nuxt SPA, no server rendering
-- **localStorage** — the only persistence layer
+- **Web** — static SPA on Netlify, hardened with HTTP security headers (below)
+- **Desktop** — native app via **Tauri 2** (macOS / Windows / Linux): the same frontend loaded in the OS WebView, wrapped by a minimal Rust core
+
+There is no server-side code anywhere — no database, no serverless functions, no accounts, no cloud sync. All game logic runs locally; `localStorage` is the only persistence layer. The realistic attack surface:
+
+- **Client-side code** — Vue/Nuxt SPA; all dynamic values render through Vue's auto-escaping (no `v-html` / `innerHTML` / `eval`)
+- **localStorage** — the user's own poker hands (fake money)
 - **Netlify** — static hosting with security headers
+- **Tauri Rust core** — minimal: no custom `#[tauri::command]` handlers, `core:default` capability only, no `fs` / `shell` / `http` plugins, `withGlobalTauri` off
+- **GitHub Actions** — the desktop release pipeline (`.github/workflows/desktop-build.yml`)
 
-### Audit Results
+### Audit Log
+
+#### Round 4 — Desktop & CI hardening (June 2026) — current
+
+Scope: the new Tauri desktop build, the GitHub Actions release pipeline, and the offline icon-bundling change.
+
+| # | Severity | Finding | Status |
+|---|----------|---------|--------|
+| 1 | Medium | **Tauri WebView shipped with no CSP** — `tauri.conf.json` had `"csp": null`. The web build enforces a CSP, but the desktop build (where the WebView sits next to the Tauri IPC bridge) injected none. Defense-in-depth gap; no live XSS sink exists to exploit it. | **Fixed** — restrictive CSP added to `tauri.conf.json`, mirroring the web policy with `connect-src` tightened to `'self'` (desktop is fully offline) plus `object-src 'none'` and `base-uri 'self'`. |
+| 2 | Low | **CI workflow relied on default token permissions** — no top-level `permissions` block. | **Fixed** — top-level `permissions: contents: read` (least privilege); the build job opts up to `contents: write` only to create the Release. |
+| 3 | Low | **Third-party Actions pinned to mutable tags** — `tauri-action@v0`, `dtolnay/rust-toolchain@stable`, `swatinem/rust-cache@v2`, `actions/*@v4`. | **Fixed** — all Actions pinned to full commit SHAs (with version comments); `dtolnay/rust-toolchain` also gets an explicit `toolchain: stable` input, since a SHA-pinned ref can't infer the channel. |
+| 4 | Info | **Icons now bundled into client JS** (`nuxt.config.ts` → `icon.clientBundle`), removing the runtime fetch to `api.iconify.design`. | **Confirmed** — the desktop CSP needs no external `connect-src`; the web CSP keeps the iconify origin only as a harmless fallback. |
+| 5 | Info | **CI workflow injection** — does any untrusted input reach a `run:` step? | **Confirmed safe** — only `github.ref_name` and `secrets.GITHUB_TOKEN` are interpolated, and only as `tauri-action` inputs, never into a shell command. |
+| 6 | Info | **Tauri IPC surface** | **Confirmed minimal** — no custom commands, `core:default` capability only, no `fs` / `shell` / `http` plugins, `withGlobalTauri` disabled. |
+| 7 | Info | **`route.query.hand` is fed into the hand-history parser** (`replay-hand.vue`). | **Confirmed safe** — parsed into structured objects rendered through Vue escaping; the worst case is a parse error. No sink. |
+
+<details>
+<summary><strong>Round 3 — Static SPA / local-only audit (2026)</strong></summary>
+
+
 
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
@@ -1112,7 +1289,14 @@ The app is a **static SPA** deployed to Netlify. There is no server-side code at
 | 3 | Info | No XSS vectors | **Confirmed safe** — No `v-html`, `innerHTML`, `eval`, or `document.write` anywhere |
 | 4 | Info | Query params in replay.vue | **Confirmed safe** — String cast, array index bounds check, localStorage lookup only |
 
-(Earlier audit rounds also covered the since-removed Supabase integration; those findings were fixed at the time and became moot when the app went local-only.)
+</details>
+
+<details>
+<summary><strong>Rounds 1–2 — Supabase era (historical, superseded)</strong></summary>
+
+Earlier audit rounds covered the since-removed Supabase integration — auth UI, anonymous sessions, auto-sync, and `sendBeacon` telemetry. Those findings were fixed at the time and became **moot in v0.18.0**, when the app went fully local-only (no accounts, no cloud, no external connections).
+
+</details>
 
 ### Security Headers
 
@@ -1129,8 +1313,19 @@ Deployed via `netlify.toml`:
 **CSP breakdown:**
 - `default-src 'self'` — only load resources from same origin
 - `script-src 'self' 'unsafe-inline' 'unsafe-eval'` — required by Nuxt/Vue runtime (nonce-based CSP would require SSR)
-- `connect-src 'self' https://api.iconify.design` — no API calls except icon fetching
+- `connect-src 'self' https://api.iconify.design` — `'self'` covers all runtime needs; the iconify origin is now only a fallback, since icons are bundled into the client JS (as of v0.19.0) and the web build no longer fetches them at runtime
 - `frame-ancestors 'none'` — prevents embedding in any frame
+
+### Desktop Hardening (Tauri)
+
+The desktop build is hardened independently of the web headers — Netlify's HTTP headers do not apply to a packaged app, so the equivalent protections live in `tauri.conf.json` and the capability files:
+
+| Control | Setting |
+|---------|---------|
+| Content-Security-Policy | Set in `tauri.conf.json` (Round 4). Tighter than the web policy — `connect-src 'self'` only, since the desktop app ships fully offline (icons bundled, sample hands packaged). |
+| Custom IPC commands | None — the Rust core registers no `#[tauri::command]`, so the frontend cannot invoke native code. |
+| Capabilities | `core:default` only (`src-tauri/capabilities/default.json`) — no `fs`, `shell`, or `http` plugins enabled. |
+| `withGlobalTauri` | Disabled (default) — Tauri APIs are not exposed on `window`. |
 
 ### Accepted Risks
 
