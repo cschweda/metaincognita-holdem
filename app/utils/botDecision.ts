@@ -708,11 +708,17 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // represents only premiums, so it gets called by ~KK+ (top ~1%).
     // Without this, a hero jamming only QQ+/AK prints money off TT/AQ calls.
     // Facing a RERAISE-jam (raiseLevel 2+, we're in a raised pot) the table
-    // must collectively defend wide enough that any-two jamming loses —
-    // floor the shrink there or jam-spam runs over the table.
+    // must collectively defend wide enough that any-two jamming loses, so the
+    // shrink is floored there — but the floor itself must decay with jam size,
+    // or it pays off premium-only reraise-jammers: a flat 0.85 floor called
+    // 100bb 3-bet jams with top ~3.4% (TT/AQ) per player, ~20%+ of jams
+    // table-wide, which is exactly the nit-value exploit. A 20-40bb reraise
+    // jam still gets the full wide defense; at 100bb the floor works out to
+    // ~top 2% (QQ+/AK), at several hundred bb effectively KK+.
     const jamBB = toCall / bb
     const sizeShrink = Math.min(1, Math.pow(20 / Math.max(jamBB, 15), 1.1))
-    const jamSizeFactor = raiseLevel >= 2 ? Math.max(sizeShrink, 0.85) : sizeShrink
+    const reraiseJamFloor = 0.85 * Math.sqrt(Math.min(1, 40 / Math.max(jamBB, 1)))
+    const jamSizeFactor = raiseLevel >= 2 ? Math.max(sizeShrink, reraiseJamFloor) : sizeShrink
     const continueRange = Math.max(profile.fourBetFreq ?? 0.025, 0.04) * jamSizeFactor
     if (rawHandPct < continueRange * 0.4 && chips > toCall) {
       return { type: 'raise', amount: chips + playerBet }

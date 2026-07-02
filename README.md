@@ -757,20 +757,22 @@ Street pressure increases from flop (1.0x) to turn (0.75x) to river (0.55x). Pas
 
 ### Exploit Probe (adversarial validation)
 
-`scripts/exploit-probe.ts` plays a scripted hero with one degenerate strategy per run against a fixed pro lineup and reports hero EV in bb/100. If the bots are sound, every degenerate strategy loses:
+`scripts/exploit-probe.ts` plays a scripted hero with one degenerate strategy per run against a fixed pro lineup and reports hero EV in bb/100. Stacks reset to exactly 100bb every hand so each hand is an i.i.d. sample at the depth the bots are calibrated for. If the bots are sound, every degenerate strategy loses:
 
 ```bash
-npx tsx scripts/exploit-probe.ts all 6000
+yarn probe all 10000
 ```
 
-| Probe strategy | What it tests | Result (6,000 hands) |
+| Probe strategy | What it tests | Result (10,000 hands) |
 |---|---|---|
-| open-jam (any two, 100bb) | jam-call discipline | **-2,120 bb/100** |
-| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **-2,009 bb/100** |
-| overbet-spam (1.5x pot every street) | fold discipline | **-2,295 bb/100** |
-| minraise-spam | over-folding to min bets | **-1,274 bb/100** |
-| station (call everything) | thin value betting | **-1,069 bb/100** |
-| nit-value (jam only QQ+/AK) | paying off too light | +64 bb/100 (±38 noise — mildly +EV vs non-adapting tables, as in real life; the live game's hero-adaptation layer reacts to it) |
+| open-jam (any two, 100bb) | jam-call discipline | **-306 bb/100** |
+| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **-314 bb/100** |
+| overbet-spam (1.5x pot every street) | fold discipline | **-1,274 bb/100** |
+| minraise-spam | over-folding to min bets | **-858 bb/100** |
+| station (call everything) | thin value betting | **-1,115 bb/100** |
+| nit-value (jam only QQ+/AK) | paying off too light | **-14 bb/100** |
+
+The suite runs in CI as a regression gate (`tests/exploit-probe.test.ts`): every strategy must stay below +10 bb/100. An earlier version of this table waved off nit-value at +64 bb/100 as "mildly +EV, as in real life" — the gate proved that wrong. Root cause was twofold: the reraise-jam defense floor ignored jam size (bots called 100bb 3-bet jams with top ~3.4% hands — TT/AQ — paying off premium-only jammers), and the old refill-when-felted harness let stacks balloon past 1,000bb, so a handful of monster coolers dominated the metric (±100 bb/100 run-to-run noise). The floor now decays with jam size (full defense vs ≤40bb jams, ~QQ+/AK vs 100bb, ~KK+ at several hundred bb) and the harness pins stacks at 100bb.
 
 ### Exploitable Leak Audit (historical — pre-v0.18 configs)
 

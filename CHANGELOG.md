@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **CI engine-leak gate** (`tests/exploit-probe.test.ts` + `.github/workflows/ci.yml`) — the exploit probe now runs as a regression test on every push/PR: each degenerate hero strategy must stay below +10 bb/100. The gate immediately caught a real leak the old probe's noise had hidden (see Fixed).
+- **Bitmask hand evaluator** (`handAnalysis.ts`) — `eval7`/`rank7`/`handCategory7` compute hand category and tiebreaks from rank/suit bitmasks with no 21-combo enumeration; equity estimation, hand-probability simulation, and side-pot resolution use them in hot loops. The brute-force evaluator survives as `bestHandOracle`, with an equivalence suite (`tests/bitmask-evaluator.test.ts`) proving identical rank/score/name/ordering over 100k+ random hands.
+
+### Fixed
+- **Nit-value leak: reraise-jam defense floor now decays with jam size** (`botDecision.ts`) — the v0.18.1 floor that keeps the table wide vs any-two reraise-jam-spam was flat (0.85), so bots called even 100bb 3-bet jams with top ~3.4% hands (TT/AQs) — paying off a hero who jams only QQ+/AK. The floor now gets full weight vs jams ≤40bb and decays as `sqrt(40/jamBB)`: ~top 2% (QQ+/AK) vs a 100bb reraise-jam, ~KK+ at several hundred bb. Probe: nit-value **+64 → −14 bb/100** while 3bet-jam any-two stays ruinous (−314 bb/100).
+- **Exploit-probe harness: stacks pin to exactly 100bb every hand** (`scripts/exploit-probe.ts`) — the old refill-only-below-40bb rule let winners' stacks balloon past 1,000bb, so a few monster coolers dominated the metric (±100 bb/100 swings run-to-run, the "±38 noise" was really much worse). Constant depth makes every hand an i.i.d. sample and the CI gate stable (~±3 bb/100 at 10k hands).
+- **`yarn probe` silently did nothing** — the CLI guard checked `process.argv[1]` for the script name, which vite-node consumes; keyed off `process.env.VITEST` instead.
+- **River thin value** (`botDecision.ts`) — strong one-pair hands (top pair / overpair) now bet ~⅓ pot on the river at a passivity/position/multiway-aware frequency instead of always check-calling, so bluff-catching is no longer free against the bots.
+- **No-fold-the-nuts brain fart** (`botDecision.ts`) — the consistency misplay can no longer randomly fold a strong made hand (two pair+); misplays are wrong folds of marginal hands, loose calls, and mis-sized stabs, not punted monsters.
+- **Paired-board nut awareness** (`botDecision.ts`) — made flushes/straights are discounted on paired (0.82×) and trips/double-paired (0.62×) boards where a full house is live, so bots stop stacking off non-nut flushes into boats.
+- **Betting-round orbit guard** — the round now ends only when a full lap finds nobody able to act, replacing a fixed iteration cap that could truncate a legitimate multi-raise multiway pot mid-action (engine + probe harness).
+- **Unbiased lineup shuffle** — bot lineup selection used `sort(() => Math.random() - 0.5)`; replaced with a Fisher-Yates util (`shuffle.ts`). Card decks were already correct.
+
+### Documentation
+- README: exploit-probe section rewritten — corrected run command (`yarn probe all 10000`), fresh fixed-depth results for all six strategies, and a post-mortem of the nit-value leak replacing the old "+64 bb/100 is fine, as in real life" rationalization.
+
 ## [0.19.0] - 2026-06-24
 
 ### Added
