@@ -6,6 +6,7 @@
  */
 import config from '@config'
 import { dynamicBotName, describeBotStyle, FICTIONAL_NAMES } from '~/utils/botDescriptions'
+import { shuffle } from '~/utils/shuffle'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
@@ -59,8 +60,8 @@ const maxPros = ref(playerCount.value - 1) // default: all pros (table size minu
 
 function generateDefaultBots(count: number): BotConfig[] {
   const proCount = Math.min(maxPros.value, proBots.length, count)
-  const shuffledPros = [...proBots].sort(() => Math.random() - 0.5).slice(0, proCount)
-  const shuffledFictional = [...fictionalBots].sort(() => Math.random() - 0.5)
+  const shuffledPros = shuffle(proBots).slice(0, proCount)
+  const shuffledFictional = shuffle(fictionalBots)
 
   const pool = [...shuffledPros, ...shuffledFictional]
   const selected = pool.slice(0, count)

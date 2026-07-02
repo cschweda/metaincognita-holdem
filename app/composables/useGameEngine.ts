@@ -246,15 +246,18 @@ export function useGameEngine(options: GameEngineOptions) {
     }
 
     let seat = startSeat
-    let loops = 0
+    // The real terminal condition is needsToAct becoming empty. The skip guard
+    // below breaks ONLY if a full orbit passes with nobody able to act (a stuck
+    // state) — unlike the old `loops >= count*4` cap, it can never truncate a
+    // legitimate multi-raise, multiway betting round mid-action.
+    let skips = 0
 
     while (gs.needsToAct.value.size > 0) {
       const p = gs.playerStates.value[seat]
 
       if (!gs.needsToAct.value.has(p.id)) {
         seat = (seat + 1) % count
-        loops++
-        if (loops >= count * 4) break
+        if (++skips > count) break
         continue
       }
 
@@ -309,12 +312,11 @@ export function useGameEngine(options: GameEngineOptions) {
           }
         }
       }
+      skips = 0 // an action occurred — reset the orbit guard
 
       if (gs.activePlayers.value.length <= 1) break
 
       seat = (seat + 1) % count
-      loops++
-      if (loops >= count * 4) break
     }
 
     gs.activeSeat.value = -1

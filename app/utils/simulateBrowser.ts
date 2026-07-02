@@ -11,6 +11,7 @@ import { bestHand, HAND_RANK_NAMES, HAND_RANKS } from './handAnalysis'
 import { calculateSidePots, awardPots } from './sidePots'
 import { toPokerStarsFormat } from './pokerStarsExport'
 import type { Card } from './cards'
+import { shuffle } from './shuffle'
 
 const FICTIONAL = ['Tight Tony', 'Loose Lucy', 'Aggressive Alex', 'Calling Carl', 'Tricky Tina', 'Solid Sam', 'Wild Wendy']
 
@@ -71,7 +72,7 @@ export async function runSimulation(
 
   // Pro bots only
   const pool = config.personas.filter(p => !FICTIONAL.includes(p.name))
-  const selected = [...pool].sort(() => Math.random() - 0.5).slice(0, numPlayers)
+  const selected = shuffle(pool).slice(0, numPlayers)
 
   const players: SimPlayer[] = selected.map((p, i) => ({
     id: i, name: p.name, chips: STARTING_STACK, holeCards: null,

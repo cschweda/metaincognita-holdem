@@ -7,7 +7,7 @@
  * wins each bucket.
  */
 import type { Card } from './cards'
-import { bestHand } from './handAnalysis'
+import { rank7 } from './handAnalysis'
 
 export interface PotContributor {
   id: number
@@ -74,8 +74,8 @@ export function awardPots(
   const potWinners: { potAmount: number; winnerId: number }[] = []
 
   for (const pot of pots) {
-    // Find best hand among eligible players
-    let bestScore: number[] | null = null
+    // Find best hand among eligible players (rank7: integer strength, equal ⇔ tie)
+    let bestVal = -1
     let bestId = -1
     const tiedIds: number[] = []
 
@@ -83,24 +83,15 @@ export function awardPots(
       const player = players.find(p => p.id === pid)
       if (!player?.holeCards) continue
 
-      const result = bestHand(player.holeCards, community)
-      if (!result) continue
+      const val = rank7([...player.holeCards, ...community])
 
-      if (!bestScore) {
-        bestScore = result.score
+      if (val > bestVal) {
+        bestVal = val
         bestId = pid
         tiedIds.length = 0
         tiedIds.push(pid)
-      } else {
-        const cmp = compareScores(result.score, bestScore)
-        if (cmp > 0) {
-          bestScore = result.score
-          bestId = pid
-          tiedIds.length = 0
-          tiedIds.push(pid)
-        } else if (cmp === 0) {
-          tiedIds.push(pid)
-        }
+      } else if (val === bestVal) {
+        tiedIds.push(pid)
       }
     }
 
@@ -120,11 +111,4 @@ export function awardPots(
   }
 
   return { awards, potWinners }
-}
-
-function compareScores(a: number[], b: number[]): number {
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    if (a[i] !== b[i]) return a[i] - b[i]
-  }
-  return 0
 }

@@ -170,20 +170,29 @@ export function applyTilt(
  * not random escalation. Raises here are rare and small so a misplay
  * doesn't cascade into a fake raise war.
  */
-function generateRandomAction(ctx: DecisionContext): BotAction {
+function generateRandomAction(ctx: DecisionContext, strongMade: boolean = false): BotAction {
   const r = Math.random()
   if (ctx.toCall === 0) {
-    // Not facing a bet: check (80%) or a smallish stab (20%)
+    // Not facing a bet: check (80%) or a smallish stab (20%).
+    // A checked monster is just a slowplay, so no special-casing needed here.
     if (r < 0.80) return { type: 'check' }
     const betSize = Math.round(ctx.pot * (0.3 + Math.random() * 0.2))
     return { type: 'raise', amount: Math.min(Math.max(betSize, ctx.bb), ctx.chips) }
   }
   // Facing a big bet (>10bb or >30% of stack), a brain fart is almost always
-  // a wrong fold — nobody "accidentally" calls off 100bb with a random hand
+  // a wrong fold — nobody "accidentally" calls off 100bb with a random hand.
+  // But nobody punts the nuts by accident either: a strong made hand (two pair+)
+  // calls rather than folding, so a misplay is never a folded monster.
   if (ctx.toCall > ctx.bb * 10 || ctx.toCall > ctx.chips * 0.3) {
+    if (strongMade) return { type: 'call' }
     return r < 0.92 ? { type: 'fold' } : { type: 'call' }
   }
-  // Facing a normal bet: fold (45%), call (50%), min-raise-ish (5%)
+  // Facing a normal bet: a strong made hand never folds (call, occasionally raise).
+  if (strongMade) {
+    if (r < 0.85) return { type: 'call' }
+    return { type: 'raise', amount: Math.min(Math.round(ctx.currentBet * 1.5), ctx.chips + ctx.playerBet) }
+  }
+  // Weak/unknown hand: fold (45%), call (50%), min-raise-ish (5%)
   if (r < 0.45) return { type: 'fold' }
   if (r < 0.95) return { type: 'call' }
   const raiseSize = Math.round(ctx.currentBet * 1.5)
@@ -246,7 +255,12 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
   if (consistency !== undefined && consistency < 1.0) {
     const missplayChance = 1.0 - consistency // e.g., 0.97 consistency = 3% chance
     if (Math.random() < missplayChance) {
-      return generateRandomAction(ctx)
+      // A brain-fart must never fold a strong made hand (two pair+) — real pro
+      // mistakes are wrong folds of marginal hands, loose calls, and mis-sized
+      // stabs, not punting the nuts.
+      const strongMade = !!(ctx.holeCards && ctx.community && ctx.community.length >= 3
+        && postflopHandStrength(ctx.holeCards, ctx.community) >= 0.55)
+      return generateRandomAction(ctx, strongMade)
     }
   }
 
@@ -484,6 +498,19 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[]): numbe
     }
   }
 
+  // Nut-awareness on paired boards: a flush or straight loses value when the
+  // board is paired, because a full house (or better) is now possible. Without
+  // this, a bot stacks off a non-nut flush into a likely boat on a paired board.
+  if (result.rank === 4 || result.rank === 5) {
+    const boardMaxCount = Math.max(...boardCounts.values())
+    const boardPairs = [...boardCounts.values()].filter(c => c >= 2).length
+    if (boardMaxCount >= 3 || boardPairs >= 2) {
+      strength *= 0.62 // trips / two-pair board — a full house is very likely against us
+    } else if (boardPairs === 1) {
+      strength *= 0.82 // single paired board — proceed with caution, don't auto-commit
+    }
+  }
+
   // Add draw equity with draw-type-specific blocker discounts
   // Flush draws: 9 outs, ~5% blocked on average → 0.95 discount
   // OESD: 8 outs, ~10% blocked → 0.90 discount
@@ -511,6 +538,34 @@ function maybeOverbet(pot: number, profile: BotProfile, bb: number): number | nu
   const freq = (profile.overbetFreq ?? 0.03) * (profile.aggression >= 1.3 ? 1.5 : 1.0)
   if (Math.random() >= freq) return null
   return Math.max(Math.round(pot * (1.2 + Math.random() * 0.3)), bb)
+}
+
+/**
+ * Thin value bet on the river with a strong-but-not-monster made hand
+ * (top pair / overpair, strength ~0.42–0.55). Small sizing (~30–40% pot) that
+ * gets called by worse and folds out nothing — the value the old logic left on
+ * the table by check-calling every non-monster river. Returns size or null.
+ */
+function maybeThinValueRiver(
+  pot: number,
+  profile: BotProfile,
+  bb: number,
+  strength: number,
+  oppPassive: boolean,
+  isMultiway: boolean,
+  isInPosition: boolean,
+): number | null {
+  if (strength < 0.42 || strength >= 0.55) return null
+  const freq = Math.min(
+    0.35
+      * (oppPassive ? 1.4 : 1.0)   // stations pay off light — bet thinner
+      * (isMultiway ? 0.5 : 1.0)   // multiway, someone has us beat more often
+      * (isInPosition ? 1.15 : 0.9)
+      * profile.aggression,
+    0.6,
+  )
+  if (Math.random() >= freq) return null
+  return sizedBet(pot, 0.30 + Math.random() * 0.12, profile, bb)
 }
 
 function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: number): BotAction {
@@ -1042,6 +1097,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
+      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition)
+      if (thin !== null) return { type: 'raise', amount: thin + playerBet }
       return { type: 'check' }
     }
 
@@ -1057,6 +1114,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           ?? sizedBet(pot, 0.55 + Math.random() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
+      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition)
+      if (thin !== null) return { type: 'raise', amount: thin + playerBet }
       return { type: 'check' } // medium hands check the river
     }
 

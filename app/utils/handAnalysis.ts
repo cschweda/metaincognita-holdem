@@ -257,7 +257,12 @@ function compareScores(a: number[], b: number[]): number {
   return 0
 }
 
-export function bestHand(holeCards: Card[], community: Card[]): HandResult | null {
+/**
+ * Reference evaluator — enumerates all C(n,5) 5-card combos and takes the max.
+ * O(21) allocations per call, but obviously correct. Retained as the test
+ * oracle that the fast bitmask evaluator (below) is proven equivalent to.
+ */
+export function bestHandOracle(holeCards: Card[], community: Card[]): HandResult | null {
   const all = [...holeCards, ...community]
   if (all.length < 5) return null
 
@@ -270,6 +275,192 @@ export function bestHand(holeCards: Card[], community: Card[]): HandResult | nul
     }
   }
   return best
+}
+
+// ─── Fast Bitmask Evaluator ────────────────────────────────────
+/**
+ * Evaluates 5–7 cards directly via rank/suit bitmasks — no 21-combo
+ * enumeration. Produces the SAME category + tiebreak semantics as
+ * evaluateFive, so score = [cat, ...tb] is byte-for-byte compatible with the
+ * old evaluator (the equivalence is enforced by tests/bitmask-evaluator.test.ts).
+ *
+ * cat: 0 high card … 8 straight flush. tb: ordered tiebreak ranks.
+ */
+const SUIT_INDEX: Record<Suit, number> = { hearts: 0, diamonds: 1, clubs: 2, spades: 3 }
+
+function popcount(x: number): number {
+  let c = 0
+  while (x) { x &= x - 1; c++ }
+  return c
+}
+
+/** Highest straight in a rank bitmask (bit r set = rank r present). Returns high (5–14) or 0. */
+function highestStraight(mask: number): number {
+  let m = mask
+  if (m & (1 << 14)) m |= (1 << 1) // Ace plays low for the wheel (A-2-3-4-5)
+  for (let hi = 14; hi >= 5; hi--) {
+    const need = (1 << hi) | (1 << (hi - 1)) | (1 << (hi - 2)) | (1 << (hi - 3)) | (1 << (hi - 4))
+    if ((m & need) === need) return hi
+  }
+  return 0
+}
+
+/** Top k ranks present in a bitmask, descending. */
+function topRanks(mask: number, k: number): number[] {
+  const out: number[] = []
+  for (let r = 14; r >= 2 && out.length < k; r--) if (mask & (1 << r)) out.push(r)
+  return out
+}
+
+/** Top k ranks present in a bitmask, descending, skipping the excluded ranks. */
+function topRanksExcluding(mask: number, exclude: number[], k: number): number[] {
+  const out: number[] = []
+  for (let r = 14; r >= 2 && out.length < k; r--) {
+    if (mask & (1 << r) && !exclude.includes(r)) out.push(r)
+  }
+  return out
+}
+
+interface Eval7 { cat: number; tb: number[]; flushSuit: number }
+
+function eval7(cards: Card[]): Eval7 {
+  const counts = new Int8Array(15) // counts[rank], rank 2..14
+  const suitMask = [0, 0, 0, 0]
+  let rankMask = 0
+  for (const c of cards) {
+    counts[c.rank]++
+    suitMask[SUIT_INDEX[c.suit]]! |= (1 << c.rank)
+    rankMask |= (1 << c.rank)
+  }
+
+  // Flush / straight flush
+  let flushSuit = -1
+  for (let s = 0; s < 4; s++) {
+    if (popcount(suitMask[s]!) >= 5) { flushSuit = s; break }
+  }
+  if (flushSuit >= 0) {
+    const sfHigh = highestStraight(suitMask[flushSuit]!)
+    if (sfHigh) return { cat: 8, tb: [sfHigh], flushSuit }
+  }
+
+  // Rank multiplicities, highest-first within each group
+  const quads: number[] = [], trips: number[] = [], pairs: number[] = []
+  for (let r = 14; r >= 2; r--) {
+    const n = counts[r]
+    if (n === 4) quads.push(r)
+    else if (n === 3) trips.push(r)
+    else if (n === 2) pairs.push(r)
+  }
+
+  if (quads.length) {
+    const q = quads[0]!
+    return { cat: 7, tb: [q, topRanksExcluding(rankMask, [q], 1)[0]!], flushSuit }
+  }
+
+  if (trips.length >= 1 && (pairs.length >= 1 || trips.length >= 2)) {
+    const t = trips[0]!
+    const pairCand = Math.max(trips.length >= 2 ? trips[1]! : 0, pairs.length ? pairs[0]! : 0)
+    return { cat: 6, tb: [t, pairCand], flushSuit }
+  }
+
+  if (flushSuit >= 0) {
+    return { cat: 5, tb: topRanks(suitMask[flushSuit]!, 5), flushSuit }
+  }
+
+  const stHigh = highestStraight(rankMask)
+  if (stHigh) return { cat: 4, tb: [stHigh], flushSuit }
+
+  if (trips.length) {
+    const t = trips[0]!
+    return { cat: 3, tb: [t, ...topRanksExcluding(rankMask, [t], 2)], flushSuit }
+  }
+
+  if (pairs.length >= 2) {
+    const hi = pairs[0]!, lo = pairs[1]!
+    return { cat: 2, tb: [hi, lo, topRanksExcluding(rankMask, [hi, lo], 1)[0]!], flushSuit }
+  }
+
+  if (pairs.length === 1) {
+    const p = pairs[0]!
+    return { cat: 1, tb: [p, ...topRanksExcluding(rankMask, [p], 3)], flushSuit }
+  }
+
+  return { cat: 0, tb: topRanks(rankMask, 5), flushSuit }
+}
+
+/**
+ * Allocation-free hand strength for 5–7 cards, packed into a single integer
+ * that is monotonic with poker hand strength (higher = better). Use this in
+ * hot loops (equity sims, side-pot resolution) instead of bestHand().score +
+ * compareScores — it encodes category + all tiebreaks, so equal ints ⇔ true tie.
+ */
+export function rank7(cards: Card[]): number {
+  const { cat, tb } = eval7(cards)
+  let v = cat
+  for (let i = 0; i < 5; i++) v = (v << 4) | (tb[i] ?? 0)
+  return v
+}
+
+/** Just the hand category (0–8) for 5–7 cards. */
+export function handCategory7(cards: Card[]): number {
+  return eval7(cards).cat
+}
+
+function nameFor(cat: number, tb: number[]): string {
+  switch (cat) {
+    case 8: return tb[0] === 14 ? 'Royal Flush' : `${RANK_DISPLAY[tb[0]!]}-high Straight Flush`
+    case 7: return `Four ${RANK_DISPLAY[tb[0]!]}s`
+    case 6: return `${RANK_DISPLAY[tb[0]!]}s full of ${RANK_DISPLAY[tb[1]!]}s`
+    case 5: return `${RANK_DISPLAY[tb[0]!]}-high Flush`
+    case 4: return `${RANK_DISPLAY[tb[0]!]}-high Straight`
+    case 3: return `Three ${RANK_DISPLAY[tb[0]!]}s`
+    case 2: return `${RANK_DISPLAY[tb[0]!]}s and ${RANK_DISPLAY[tb[1]!]}s`
+    case 1: return `Pair of ${RANK_DISPLAY[tb[0]!]}s`
+    default: return `${RANK_DISPLAY[tb[0]!]}-high`
+  }
+}
+
+/** Reconstruct the best five cards for display (bestFive is not used in hot paths). */
+function pickBestFive(cards: Card[], cat: number, tb: number[], flushSuit: number): Card[] {
+  const pool = [...cards]
+  const used: Card[] = []
+  const takeRank = (r: number, suitIdx?: number) => {
+    const i = pool.findIndex(c => c.rank === r && (suitIdx === undefined || SUIT_INDEX[c.suit] === suitIdx))
+    if (i >= 0) used.push(pool.splice(i, 1)[0]!)
+  }
+
+  if (cat === 8 || cat === 4) {
+    const hi = tb[0]!
+    const ranks = hi === 5 ? [5, 4, 3, 2, 14] : [hi, hi - 1, hi - 2, hi - 3, hi - 4]
+    for (const r of ranks) takeRank(r, cat === 8 ? flushSuit : undefined)
+    return used
+  }
+  if (cat === 5) {
+    return pool.filter(c => SUIT_INDEX[c.suit] === flushSuit).sort((a, b) => b.rank - a.rank).slice(0, 5)
+  }
+
+  const spec: Record<number, number[]> = { 7: [4, 1], 6: [3, 2], 3: [3, 1, 1], 2: [2, 2, 1], 1: [2, 1, 1, 1], 0: [1, 1, 1, 1, 1] }
+  const need = spec[cat]!
+  for (let i = 0; i < need.length; i++) {
+    for (let k = 0; k < need[i]!; k++) takeRank(tb[i]!)
+  }
+  return used
+}
+
+/**
+ * Best 5-card hand from 5–7 cards. Fast bitmask path; identical rank/name/score
+ * contract as the reference evaluator (bestHandOracle).
+ */
+export function bestHand(holeCards: Card[], community: Card[]): HandResult | null {
+  const all = [...holeCards, ...community]
+  if (all.length < 5) return null
+  const { cat, tb, flushSuit } = eval7(all)
+  return {
+    rank: cat,
+    name: nameFor(cat, tb),
+    score: [cat, ...tb],
+    bestFive: pickBestFive(all, cat, tb, flushSuit),
+  }
 }
 
 // ─── Draw Detection ────────────────────────────────────────────
@@ -485,24 +676,19 @@ export function estimateEquity(
       fullBoard.push(remaining[idx++])
     }
 
-    // Deal opponent hands
-    const heroResult = bestHand(holeCards, fullBoard)
-    if (!heroResult) continue
+    // Deal opponent hands (rank7: allocation-free integer strength)
+    const heroRank = rank7([...holeCards, ...fullBoard])
 
     let heroBest = true
     let tied = false
 
     for (let opp = 0; opp < numOpponents; opp++) {
-      const oppHole: Card[] = [remaining[idx++], remaining[idx++]]
-      const oppResult = bestHand(oppHole, fullBoard)
-      if (!oppResult) continue
-
-      const cmp = compareScores(heroResult.score, oppResult.score)
-      if (cmp < 0) {
+      const oppRank = rank7([remaining[idx++], remaining[idx++], ...fullBoard])
+      if (oppRank > heroRank) {
         heroBest = false
         break
       }
-      if (cmp === 0) tied = true
+      if (oppRank === heroRank) tied = true
     }
 
     if (heroBest && !tied) wins++
@@ -736,8 +922,7 @@ export function simulateHandProbabilities(
     }
 
     const fullBoard = [...community, ...remaining.slice(0, cardsNeeded)]
-    const result = bestHand(holeCards, fullBoard)
-    if (result) counts[result.rank]++
+    counts[handCategory7([...holeCards, ...fullBoard])]++
   }
 
   return HAND_RANK_ORDER.map(({ rank, name }) => ({
