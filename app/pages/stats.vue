@@ -323,7 +323,7 @@ const profitTrendClass = computed(() => {
               color="error"
               size="xs"
               icon="i-lucide-trash-2"
-              @click="showDeleteAllModal = true"
+              @click="() => { showDeleteAllModal = true }"
             >
               Delete All Data
             </UButton>
@@ -369,14 +369,14 @@ const profitTrendClass = computed(() => {
             <!-- Session actions -->
             <div class="flex items-center justify-between px-4 py-2 bg-gray-800/20 border-t border-gray-800/30">
               <div class="flex gap-1">
-                <UButton variant="ghost" color="neutral" size="2xs" @click.stop="exportSessionJSON(s)">JSON</UButton>
-                <UButton variant="ghost" color="neutral" size="2xs" @click.stop="exportSessionCSV(s)">CSV</UButton>
-                <UButton variant="ghost" color="neutral" size="2xs" @click.stop="exportSessionPokerStars(s)">PS</UButton>
+                <UButton variant="ghost" color="neutral" size="xs" @click.stop="exportSessionJSON(s)">JSON</UButton>
+                <UButton variant="ghost" color="neutral" size="xs" @click.stop="exportSessionCSV(s)">CSV</UButton>
+                <UButton variant="ghost" color="neutral" size="xs" @click.stop="exportSessionPokerStars(s)">PS</UButton>
               </div>
               <UButton
                 variant="ghost"
                 color="error"
-                size="2xs"
+                size="xs"
                 icon="i-lucide-trash-2"
                 @click.stop="openDeleteSessionModal(s)"
               >
@@ -594,7 +594,7 @@ const profitTrendClass = computed(() => {
     <UModal
       v-model:open="showHandModal"
       :dismissible="true"
-      :ui="{ width: 'max-w-2xl' }"
+      :ui="{ content: 'max-w-2xl' }"
     >
       <template #body>
         <div v-if="selectedHand" class="p-6 space-y-5">

@@ -21,6 +21,7 @@ export interface GameEngineOptions {
   makeBotDecision: (p: PlayerState, raiseLevel: number, streetContext?: {
     wasPreflopRaiser: boolean
     preflopCallers: number
+    checkedThisStreet?: boolean
     streetHistory?: { flop?: string; turn?: string }
     opponentReads?: { avgAggression: number; recentBluffRate: number; tableIsPassive: boolean }
     tableDynamics?: { dominantPlayerId?: number; dominantWinRate: number; myRecentWinRate: number; avgStackDepth: number; handsInWindow: number }
@@ -60,6 +61,7 @@ export function useGameEngine(options: GameEngineOptions) {
   const playerStreetActions = new Map<number, {
     flop?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
     turn?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
+    river?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
   }>()
 
   // Bot memory — track table-level tendencies across hands

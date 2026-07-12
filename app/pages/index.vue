@@ -851,12 +851,12 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             class="flex justify-center gap-2"
           >
             <UTooltip text="Queue a fold — will execute when it's your turn. Click cancel to change your mind.">
-              <UButton size="xs" variant="ghost" color="error" @click="queuedAction = 'fold'">
+              <UButton size="xs" variant="ghost" color="error" @click="() => { queuedAction = 'fold' }">
                 Pre-fold
               </UButton>
             </UTooltip>
             <UTooltip :text="gs.toCall.value > 0 ? 'Queue a call — will execute when it\'s your turn' : 'Queue a check — will execute when it\'s your turn'">
-              <UButton size="xs" variant="ghost" color="neutral" @click="queuedAction = gs.toCall.value > 0 ? 'call' : 'check'">
+              <UButton size="xs" variant="ghost" color="neutral" @click="() => { queuedAction = gs.toCall.value > 0 ? 'call' : 'check' }">
                 Pre-{{ gs.toCall.value > 0 ? 'call' : 'check' }}
               </UButton>
             </UTooltip>

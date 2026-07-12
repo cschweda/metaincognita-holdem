@@ -225,7 +225,7 @@ function handleStart() {
           :variant="stakeLevel === stake.level ? 'solid' : 'outline'"
           :color="stakeLevel === stake.level ? 'primary' : 'neutral'"
           size="sm"
-          @click="stakeLevel = stake.level"
+          @click="() => { stakeLevel = stake.level }"
         >
           <div class="text-center">
             <div class="font-semibold">{{ stake.name }}</div>
@@ -316,7 +316,7 @@ function handleStart() {
             <USelect
               :model-value="bot.name"
               :items="allPresetNames"
-              size="2xs"
+              size="xs"
               class="w-40"
               @update:model-value="(v: string) => applyPreset(i, v)"
             />

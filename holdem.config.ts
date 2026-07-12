@@ -147,7 +147,7 @@ export default {
     fullTiltThreshold: 5,                // consecutive losses for full tilt
 
     // Duration
-    decayHands: [3, 6],                  // tilt lasts 3–6 hands, then decays
+    decayHands: [3, 6] as [number, number], // tilt lasts 3–6 hands, then decays
   },
 
   deviation: {

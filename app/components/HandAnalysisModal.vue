@@ -352,7 +352,7 @@ function explainAction(
   if (act.action === 'call') return `${isHero ? 'You' : act.player} called${act.amount ? ` $${act.amount}` : ''}.`
   if (act.action === 'raise') return `${isHero ? 'You' : act.player} raised${act.amount ? ` to $${act.amount}` : ''}.`
   if (act.action === 'all-in') return `${isHero ? 'You' : act.player} went all-in${act.amount ? ` $${act.amount}` : ''}!`
-  return act.raw
+  return `${act.player}: ${act.action}`
 }
 
 // ─── Showdown summary ────────────────────────────────────────

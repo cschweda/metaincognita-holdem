@@ -1,0 +1,9 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // Nuxt layers noUncheckedIndexedAccess on top of strict; this codebase
+    // predates typechecking and its hot paths index arrays pervasively.
+    // Keep full strict-mode null checks, defer index-access strictness.
+    "noUncheckedIndexedAccess": false
+  }
+}

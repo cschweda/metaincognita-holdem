@@ -1189,7 +1189,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board?.isAceHigh ? 1.5 : 1.0)
           * (board?.isDry ? 1.4 : 1.0)
           * (board?.isLow ? 1.2 : 1.0)
-          * (oppPassive ? (ctx.street === 'river' ? 0.5 : 1.3) : 1.0)
+          * (oppPassive ? 1.3 : 1.0) // rivers never reach here — handled by the polarization block above
       if (hasNothing && rng() < probeRate) {
         const bluffSize = sizedBet(pot, 0.33 + rng() * 0.22, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }

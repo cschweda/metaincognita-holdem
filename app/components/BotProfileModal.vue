@@ -80,7 +80,7 @@ const styleDesc = computed(() => describeBotStyle(props.botConfig))
         <UButton variant="ghost" color="error" size="sm" @click="emit('reset')">
           Reset to Default
         </UButton>
-        <UButton color="primary" size="sm" @click="open = false">
+        <UButton color="primary" size="sm" @click="() => { open = false }">
           Done
         </UButton>
       </div>

@@ -173,7 +173,8 @@ export async function runSimulation(
         const p = ep as SimPlayer
         const tiltedProfile = applyTilt(p.profile, p.tilt, config.tilt, p.tiltMultiplier)
         return decideBotAction(tiltedProfile, {
-          street, toCall: round.currentBet - p.betThisRound, pot: round.pot,
+          street: street as 'preflop' | 'flop' | 'turn' | 'river',
+          toCall: round.currentBet - p.betThisRound, pot: round.pot,
           currentBet: round.currentBet, playerBet: p.betThisRound,
           chips: p.chips, bb: BB, numActivePlayers: active().length,
           raiseLevel: street === 'preflop' ? preflopRaiseLevel : 0,

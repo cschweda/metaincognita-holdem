@@ -1050,7 +1050,7 @@ export function useCommentary(gs: GS) {
           `Collects the chips. Easiest money at the table.`,
           `Wins it. Sometimes you don't need a showdown.`,
           `Takes it. The best hand is the one that doesn't get called.`,
-        ]), winner), 'showdown', 'norman')
+        ]), winner), 'showdown')
       }
     } else {
       addHero(pick([`${winner} takes it. We come up short.`, `Pot goes to ${winner}. That one hurts.`, `${winner} wins. Tough break.`]), 'showdown')
