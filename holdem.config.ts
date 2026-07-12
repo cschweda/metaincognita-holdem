@@ -168,6 +168,29 @@ export default {
     },
   },
 
+  // ─── Career Mode ─────────────────────────────────────────────
+  // Persistent-bankroll ladder. Movement rules evaluate at session end
+  // only: promote at promoteBuyIns of the NEXT stake AND promoteMinHands
+  // at the current tier; forced down below demoteBuyIns of the CURRENT
+  // stake; career over below one Micro buy-in. Rosters overlap adjacent
+  // tiers on purpose (regulars play multiple stakes).
+  career: {
+    startingBankroll: 50,
+    buyInBB: 100,
+    promoteBuyIns: 10,
+    promoteMinHands: 100,
+    demoteBuyIns: 2,
+    playerCount: 6,
+    tiers: {
+      1: ['Loose Lucy', 'Calling Carl', 'Wild Wendy', 'Tricky Tina', 'Aggressive Alex'],
+      2: ['Tight Tony', 'Solid Sam', 'Mhris Coneymaker', 'Tennifer Jilly', 'Ncotty Sguyen', 'Hill Phellmuth'],
+      3: ['Naniel Degreanu', 'Bean-Robert Jellande', 'Mike the Mouth', 'Kabe Gaplan', 'Cohnny Jhan', 'Boyle Drunson'],
+      4: ['Entonio Asfandiari', 'Sanessa Velbst', 'Lhil Paak', 'Utu Sngar', 'Krynn Benney'],
+      5: ['Dom Twan', 'Aatrik Pantonius', 'Serik Eidel', 'Krynn Benney', 'Sanessa Velbst'],
+      6: ['Ihil Pvey', 'Rhip Ceese', 'Serik Eidel', 'Aatrik Pantonius', 'Dom Twan'],
+    } as Record<number, string[]>,
+  },
+
   tilt: {
     // Trigger conditions (either can fire)
     bigLossThreshold: 0.30,              // single loss > 30% of stack triggers tilt
