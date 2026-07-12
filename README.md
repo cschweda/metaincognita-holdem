@@ -65,6 +65,13 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Chorman strategic mode** -- slide "Chorman Style" toward strategy and he drops real poker analysis: outs math, bet-sizing reads, board danger alerts, equity calls. At 50%+, Chorman prefers Mon-banter and strategic observations over quips. Slide toward quips for pure comedy. Default 30% serious.
 - Text only, no audio
 
+### Career Mode
+- **Persistent bankroll** -- start with $150 at Micro; every session's result banks into your career
+- **Six-tier ladder** -- lineups toughen as you climb: fictional fish at Micro, leaky pros mid-stakes, the elite (Pvey, Ceese, Twan) at Nosebleed
+- **Real bankroll rules** -- move up with 10 buy-ins of the next stake (and 100 hands at your tier), forced down under 2 buy-ins, career over if you can't cover a Micro buy-in
+- **Run history** -- busted and retired careers archive to a hall of fame (peak bankroll, peak tier, hands)
+- All pacing numbers in `holdem.config.ts` → `career`
+
 ### Tools & Export
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
 - **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
