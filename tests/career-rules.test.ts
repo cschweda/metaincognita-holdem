@@ -32,7 +32,7 @@ describe('buy-ins', () => {
 describe('session lifecycle', () => {
   it('start deducts the buy-in and records pending', () => {
     const s = startSession(freshCareer(cfg, NOW), cfg, stakes, NOW)
-    expect(s.bankroll).toBe(0)
+    expect(s.bankroll).toBe(cfg.startingBankroll - 50)
     expect(s.pendingSession).toEqual({ tier: 1, buyIn: 50, startedAt: NOW })
   })
   it('start throws when a session is already pending', () => {
@@ -46,13 +46,13 @@ describe('session lifecycle', () => {
   it('settle banks the cash-out and counts hands', () => {
     let s = startSession(freshCareer(cfg, NOW), cfg, stakes, NOW)
     s = settleSession(s, 80, 42, 'leave', NOW)
-    expect(s.bankroll).toBe(80)
+    expect(s.bankroll).toBe(cfg.startingBankroll - 50 + 80)
     expect(s.handsAtTier).toBe(42)
     expect(s.totalHands).toBe(42)
     expect(s.pendingSession).toBeNull()
     expect(s.sessions).toHaveLength(1)
     expect(s.sessions[0]).toMatchObject({ tier: 1, buyIn: 50, cashOut: 80, hands: 42, endedBy: 'leave' })
-    expect(s.peakBankroll).toBe(80)
+    expect(s.peakBankroll).toBe(cfg.startingBankroll - 50 + 80)
   })
   it('settle without a pending session throws', () => {
     expect(() => settleSession(freshCareer(cfg, NOW), 0, 0, 'leave', NOW)).toThrow()
@@ -105,7 +105,7 @@ describe('bust and archive', () => {
     expect(s.sessions).toHaveLength(0)
     expect(s.archivedRuns).toHaveLength(1)
     expect(s.archivedRuns[0]).toMatchObject({
-      endedBy: 'retired', peakBankroll: 500, totalHands: 60, sessionCount: 1,
+      endedBy: 'retired', peakBankroll: cfg.startingBankroll - 50 + 500, totalHands: 60, sessionCount: 1,
     })
   })
 })
@@ -114,7 +114,7 @@ describe('abandoned sessions', () => {
   it('refunds the buy-in and logs an abandoned record', () => {
     let s = startSession(freshCareer(cfg, NOW), cfg, stakes, NOW)
     s = refundAbandoned(s, NOW)
-    expect(s.bankroll).toBe(50)
+    expect(s.bankroll).toBe(cfg.startingBankroll)
     expect(s.pendingSession).toBeNull()
     expect(s.sessions[0]).toMatchObject({ endedBy: 'abandoned', cashOut: 50, hands: 0 })
   })

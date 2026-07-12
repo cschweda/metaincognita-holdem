@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Branch: `career-mode`. Commit per task. **No AI co-author trailer in commits** (user rule).
-- Pacing constants exactly as spec'd: `startingBankroll: 50`, `buyInBB: 100`, `promoteBuyIns: 10` (of NEXT stake), `promoteMinHands: 100` (at current tier, resets on any tier change), `demoteBuyIns: 2` (of CURRENT stake), `playerCount: 6`.
+- Pacing constants exactly as spec'd: `startingBankroll: 150` (was 50 — live testing showed a one-buy-in start makes any losing first session a career bust), `buyInBB: 100`, `promoteBuyIns: 10` (of NEXT stake), `promoteMinHands: 100` (at current tier, resets on any tier change), `demoteBuyIns: 2` (of CURRENT stake), `playerCount: 6`.
 - Movement rules evaluate at session end only. Bust threshold: bankroll < 1 Micro buy-in.
 - localStorage key `holdem-career-v1`; every write wrapped in try/catch; storage failure must never break gameplay.
 - `yarn test` + `yarn typecheck` green before every commit. No bot-logic changes → probe untouched.
@@ -75,7 +75,7 @@ export function refundAbandoned(state: CareerState, now: string): CareerState
   // stake; career over below one Micro buy-in. Rosters overlap adjacent
   // tiers on purpose (regulars play multiple stakes).
   career: {
-    startingBankroll: 50,
+    startingBankroll: 150,
     buyInBB: 100,
     promoteBuyIns: 10,
     promoteMinHands: 100,

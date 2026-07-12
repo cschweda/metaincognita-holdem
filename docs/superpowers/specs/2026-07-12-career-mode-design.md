@@ -10,7 +10,9 @@ calibration; all pacing numbers are config constants.
 
 ## The loop
 
-- One persistent **career bankroll**, starting at **$50** (one Micro buy-in).
+- One persistent **career bankroll**, starting at **$150** (three Micro
+  buy-ins — exactly one made the first session a coin-flip career: any losing
+  Micro session busted the run; caught in live verification).
 - From the `/career` dashboard the player starts a **session** at their
   current tier: exactly **100bb of tier stake** is deducted and they sit at
   the existing live table (`index.vue`) in a locked configuration.
@@ -24,7 +26,7 @@ calibration; all pacing numbers are config constants.
   - **Forced down** one tier when `bankroll < 2 buy-ins of the CURRENT stake`.
   - **Career over** when `bankroll < 1 Micro buy-in`: the run is archived
     (started/ended, peak bankroll, peak tier, total hands, session count)
-    and a fresh career begins at $50.
+    and a fresh career begins at $150.
 - Quick-play (existing setup screen) is untouched and remains the free
   practice mode at any stake.
 
@@ -112,7 +114,7 @@ mode.
 
 ```ts
 career: {
-  startingBankroll: 50,
+  startingBankroll: 150,  // 3 Micro buy-ins (1 made any losing first session a bust)
   buyInBB: 100,
   promoteBuyIns: 10,     // of the NEXT stake
   promoteMinHands: 100,  // at current tier

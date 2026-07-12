@@ -21,12 +21,60 @@ import { useGameEngine } from '~/composables/useGameEngine'
 import { useCommentary } from '~/composables/useCommentary'
 import type { PlayerState } from '~/composables/useGameState'
 import { useHeroProfileStore } from '~/stores/heroProfile'
+import { useCareerStore } from '~/stores/career'
+import { shuffle } from '~/utils/shuffle'
 import { isPro as isProBot } from '~/utils/botDescriptions'
 
 const phase = ref<'setup' | 'table' | 'timeout' | 'busted'>('setup')
 const { session, initSession, recordHand, resetSession, downloadJSON, downloadCSV } = useSessionStats()
 const settings = ref<GameSettings | null>(null)
 const heroProfileStore = useHeroProfileStore()
+const careerStore = useCareerStore()
+const careerMode = ref(false)
+
+// Career sessions arrive with a pendingSession set by /career's Play button.
+// Lock the table to the tier: stake, 6-max roster sample, 100bb buy-in.
+onMounted(() => {
+  if (careerStore.state.pendingSession) startCareerSession()
+})
+
+function startCareerSession() {
+  const pending = careerStore.state.pendingSession!
+  const roster = (config.career.tiers[pending.tier] ?? []) as string[]
+  const opponents = shuffle(roster).slice(0, config.career.playerCount - 1)
+  const botConfigs = opponents.map((name) => {
+    const p = config.personas.find(x => x.name === name)!
+    return {
+      preset: p.name, name: p.name,
+      vpip: p.vpip, pfr: p.pfr, aggression: p.aggression,
+      bluffFreq: p.bluffFreq, creativeFreq: p.creativeFreq,
+      tiltMultiplier: p.tiltMultiplier ?? 1.0,
+      threeBetFreq: p.threeBetFreq, fourBetFreq: p.fourBetFreq,
+      fiveBetFreq: p.fiveBetFreq, donkBetFreq: p.donkBetFreq,
+      limpFreq: p.limpFreq, styleBias: p.styleBias,
+      betSizeMult: p.betSizeMult, overbetFreq: p.overbetFreq,
+      leak: p.leak,
+    }
+  })
+  careerMode.value = true
+  handleStart({
+    playerCount: config.career.playerCount,
+    stakeLevel: pending.tier,
+    customBB: null,
+    stackBB: config.career.buyInBB,
+    heroName: 'Hero',
+    botConfigs,
+    guestMode: false,
+    commentaryMode: 'hero',
+  })
+}
+
+function endCareerSession(endedBy: 'leave' | 'felted' | 'timeout') {
+  const cashOut = endedBy === 'felted' ? 0 : (gs.hero.value?.chips ?? 0)
+  careerStore.settle(cashOut, session.value.handsPlayed, endedBy)
+  careerMode.value = false
+  navigateTo('/career')
+}
 
 // ─── KeepAlive: pause/resume timeout when navigating to/from stats ──
 onActivated(() => {
@@ -54,6 +102,13 @@ function handleTimeout() {
     heroState.folded = true
     heroState.lastAction = 'fold'
     gs.waitingForHero.value = false
+  }
+  if (careerMode.value) {
+    // Inactivity ends the career session; current stack settles like a leave.
+    // (Chips already committed to the abandoned pot are forfeited — same as
+    // walking away from a real table mid-hand.)
+    endCareerSession('timeout')
+    return
   }
   phase.value = 'timeout'
 }
@@ -654,10 +709,13 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           </div>
         </div>
         <div class="flex gap-3 justify-center">
-          <UButton v-if="config.session.rebuyEnabled" color="primary" size="lg" @click="handleRebuy">
+          <UButton v-if="careerMode" color="primary" size="lg" @click="() => endCareerSession('felted')">
+            Back to Career
+          </UButton>
+          <UButton v-if="!careerMode && config.session.rebuyEnabled" color="primary" size="lg" @click="handleRebuy">
             Re-buy (${{ startingStack }})
           </UButton>
-          <UButton variant="outline" color="neutral" size="lg" @click="backToSetup">
+          <UButton v-if="!careerMode" variant="outline" color="neutral" size="lg" @click="backToSetup">
             End Session
           </UButton>
           <NuxtLink to="/stats">
@@ -681,9 +739,9 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           color="neutral"
           size="sm"
           icon="i-lucide-arrow-left"
-          @click="backToSetup"
+          @click="careerMode ? endCareerSession('leave') : backToSetup()"
         >
-          Setup
+          {{ careerMode ? 'Leave table' : 'Setup' }}
         </UButton>
 
         <div class="flex items-center gap-4">
@@ -919,6 +977,15 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
               @click="dealNewHand"
             >
               Deal Next Hand
+            </UButton>
+            <UButton
+              v-if="careerMode && !gs.dealt.value || careerMode && gs.street.value === 'showdown'"
+              variant="outline"
+              color="neutral"
+              size="lg"
+              @click="() => endCareerSession('leave')"
+            >
+              Leave table (bank ${{ gs.hero.value?.chips ?? 0 }})
             </UButton>
           </div>
         </div>

@@ -184,6 +184,7 @@ function handleStart() {
       <div class="flex items-center gap-3">
         <NuxtLink to="/stats" class="hover:text-gray-300 transition-colors">Stats</NuxtLink>
         <NuxtLink to="/analysis" class="hover:text-gray-300 transition-colors">Bot Analysis</NuxtLink>
+        <NuxtLink to="/career" class="hover:text-gray-300 transition-colors">Career</NuxtLink>
       </div>
     </div>
 

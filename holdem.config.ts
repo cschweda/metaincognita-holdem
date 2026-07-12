@@ -175,7 +175,9 @@ export default {
   // stake; career over below one Micro buy-in. Rosters overlap adjacent
   // tiers on purpose (regulars play multiple stakes).
   career: {
-    startingBankroll: 50,
+    // 3 Micro buy-ins: exactly 1 made the first session a coin-flip career
+    // (any losing session at Micro busted the run — caught in live testing)
+    startingBankroll: 150,
     buyInBB: 100,
     promoteBuyIns: 10,
     promoteMinHands: 100,
