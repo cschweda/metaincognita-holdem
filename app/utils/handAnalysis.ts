@@ -630,6 +630,80 @@ export function probByRiver(outs: number, cardsRemaining: number): number {
   return (1 - miss1 * miss2) * 100
 }
 
+// ─── Monte Carlo Runouts (shared hot loop) ─────────────────────
+/**
+ * One pass of random runouts computing BOTH hero equity vs numOpponents
+ * random hands AND the hero hand-category histogram. The deck is built
+ * once and only the needed prefix is re-shuffled each iteration (uniform
+ * over the drawn cards; far less work than a full Fisher-Yates per
+ * iteration). analyzeHand gets equity and improvement probabilities
+ * from a single pass instead of two independent simulations.
+ */
+function runoutStats(
+  holeCards: [Card, Card],
+  community: Card[],
+  numOpponents: number,
+  iterations: number,
+  rng: Rng,
+): { equityPct: number; categoryCounts: number[] } {
+  const usedKeys = new Set([
+    ...holeCards.map(c => `${c.rank}-${c.suit}`),
+    ...community.map(c => `${c.rank}-${c.suit}`),
+  ])
+  const remaining: Card[] = []
+  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
+  for (const suit of suits) {
+    for (let rank = 2; rank <= 14; rank++) {
+      if (!usedKeys.has(`${rank}-${suit}`)) remaining.push({ rank, suit })
+    }
+  }
+
+  const boardNeeded = 5 - community.length
+  const cardsNeeded = boardNeeded + 2 * numOpponents
+  const categoryCounts = new Array(9).fill(0)
+  let wins = 0
+  let ties = 0
+
+  // Zero-allocation loop: one reusable 7-card buffer feeds rank7 (a pure
+  // reader). Slots 2-6 hold the board; slots 0-1 swap between hero and
+  // each opponent's hole cards.
+  const seven: Card[] = new Array(7)
+  for (let b = 0; b < community.length; b++) seven[b + 2] = community[b]!
+
+  for (let i = 0; i < iterations; i++) {
+    // Partial Fisher-Yates: shuffle only the prefix we will draw
+    for (let j = 0; j < cardsNeeded && j < remaining.length; j++) {
+      const k = j + Math.floor(rng() * (remaining.length - j))
+      ;[remaining[j], remaining[k]] = [remaining[k]!, remaining[j]!]
+    }
+
+    let idx = 0
+    for (let b = community.length; b < 5; b++) seven[b + 2] = remaining[idx++]!
+
+    seven[0] = holeCards[0]
+    seven[1] = holeCards[1]
+    const heroRank = rank7(seven)
+    categoryCounts[handCategory7(seven)]++
+
+    let heroBest = true
+    let tied = false
+    for (let opp = 0; opp < numOpponents; opp++) {
+      seven[0] = remaining[idx++]!
+      seven[1] = remaining[idx++]!
+      const oppRank = rank7(seven)
+      if (oppRank > heroRank) {
+        heroBest = false
+        break
+      }
+      if (oppRank === heroRank) tied = true
+    }
+    if (heroBest && !tied) wins++
+    else if (heroBest && tied) ties++
+  }
+
+  return { equityPct: ((wins + ties * 0.5) / iterations) * 100, categoryCounts }
+}
+
 // ─── Monte Carlo Equity Estimate ───────────────────────────────
 export function estimateEquity(
   holeCards: [Card, Card],
@@ -638,66 +712,7 @@ export function estimateEquity(
   iterations: number = 1000,
   rng: Rng = Math.random,
 ): number {
-  if (community.length === 5) {
-    // At showdown, just evaluate directly — no simulation needed
-    // But we don't know opponent cards, so still simulate
-  }
-
-  const usedKeys = new Set([
-    ...holeCards.map(c => `${c.rank}-${c.suit}`),
-    ...community.map(c => `${c.rank}-${c.suit}`),
-  ])
-
-  // Build remaining deck
-  const deck: Card[] = []
-  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
-  for (const suit of suits) {
-    for (let rank = 2; rank <= 14; rank++) {
-      if (!usedKeys.has(`${rank}-${suit}`)) {
-        deck.push({ rank, suit })
-      }
-    }
-  }
-
-  let wins = 0
-  let ties = 0
-
-  for (let i = 0; i < iterations; i++) {
-    // Shuffle remaining deck (Fisher-Yates on a copy)
-    const remaining = [...deck]
-    for (let j = remaining.length - 1; j > 0; j--) {
-      const k = Math.floor(rng() * (j + 1));
-      [remaining[j], remaining[k]] = [remaining[k], remaining[j]]
-    }
-
-    let idx = 0
-
-    // Complete the board
-    const fullBoard = [...community]
-    while (fullBoard.length < 5) {
-      fullBoard.push(remaining[idx++])
-    }
-
-    // Deal opponent hands (rank7: allocation-free integer strength)
-    const heroRank = rank7([...holeCards, ...fullBoard])
-
-    let heroBest = true
-    let tied = false
-
-    for (let opp = 0; opp < numOpponents; opp++) {
-      const oppRank = rank7([remaining[idx++], remaining[idx++], ...fullBoard])
-      if (oppRank > heroRank) {
-        heroBest = false
-        break
-      }
-      if (oppRank === heroRank) tied = true
-    }
-
-    if (heroBest && !tied) wins++
-    else if (heroBest && tied) ties++
-  }
-
-  return ((wins + ties * 0.5) / iterations) * 100
+  return runoutStats(holeCards, community, numOpponents, iterations, rng).equityPct
 }
 
 // ─── Hand Description (contextual) ────────────────────────────
@@ -899,40 +914,16 @@ export function simulateHandProbabilities(
     }))
   }
 
-  // Build remaining deck
-  const usedKeys = new Set([
-    ...holeCards.map(c => `${c.rank}-${c.suit}`),
-    ...community.map(c => `${c.rank}-${c.suit}`),
-  ])
-  const deck: Card[] = []
-  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
-  for (const suit of suits) {
-    for (let rank = 2; rank <= 14; rank++) {
-      if (!usedKeys.has(`${rank}-${suit}`)) deck.push({ rank, suit })
-    }
-  }
+  const { categoryCounts } = runoutStats(holeCards, community, 0, iterations, rng)
+  return categoryProbabilities(categoryCounts, iterations, currentRank)
+}
 
-  // Count how many times each rank is the best hand
-  const counts = new Array(9).fill(0)
-  const cardsNeeded = 5 - community.length
-
-  for (let i = 0; i < iterations; i++) {
-    // Shuffle remaining deck (partial Fisher-Yates for just the cards we need)
-    const remaining = [...deck]
-    for (let j = 0; j < cardsNeeded && j < remaining.length; j++) {
-      const k = j + Math.floor(rng() * (remaining.length - j));
-      [remaining[j], remaining[k]] = [remaining[k], remaining[j]]
-    }
-
-    const fullBoard = [...community, ...remaining.slice(0, cardsNeeded)]
-    counts[handCategory7([...holeCards, ...fullBoard])]++
-  }
-
+function categoryProbabilities(counts: number[], iterations: number, currentRank: number): HandProbability[] {
   return HAND_RANK_ORDER.map(({ rank, name }) => ({
     rank,
     name,
     current: currentRank >= rank,
-    probability: Math.round((counts[rank] / iterations) * 1000) / 10,
+    probability: Math.round((counts[rank]! / iterations) * 1000) / 10,
   }))
 }
 
@@ -974,15 +965,26 @@ export function analyzeHand(
   const probNext = probNextCard(outs, remaining)
   const probRiver = community.length === 3 ? probByRiver(outs, remaining) : probNext
 
-  // Equity (Monte Carlo)
-  const equity = streetName === 'preflop'
-    ? estimatePreflopEquity(chen, numOpponents)
-    : estimateEquity(holeCards, community, numOpponents, 1000, rng)
+  // Equity + improvement probabilities from ONE Monte Carlo pass postflop
+  // (equity and the category histogram walk the same 1,000 runouts).
+  // Preflop keeps the Chen-derived equity; the river is deterministic.
+  const currentRank = madeHand?.rank ?? -1
+  let equity: number
+  let handProbabilities: HandProbability[]
+  if (streetName === 'preflop') {
+    equity = estimatePreflopEquity(chen, numOpponents)
+    const { categoryCounts } = runoutStats(holeCards, community, 0, 800, rng)
+    handProbabilities = categoryProbabilities(categoryCounts, 800, currentRank)
+  } else if (community.length >= 5) {
+    equity = estimateEquity(holeCards, community, numOpponents, 1000, rng)
+    handProbabilities = simulateHandProbabilities(holeCards, community, 800, rng)
+  } else {
+    const stats = runoutStats(holeCards, community, numOpponents, 1000, rng)
+    equity = stats.equityPct
+    handProbabilities = categoryProbabilities(stats.categoryCounts, 1000, currentRank)
+  }
 
   const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0)
-
-  // Hand improvement probabilities
-  const handProbabilities = simulateHandProbabilities(holeCards, community, 800, rng)
 
   return {
     madeHand,
