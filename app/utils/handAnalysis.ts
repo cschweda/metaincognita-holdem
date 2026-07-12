@@ -6,6 +6,7 @@
  * Powers the real-time StatsPanel advisor. Works at every street from preflop through river.
  */
 import type { Card, Suit } from './cards'
+import type { Rng } from './rng'
 import { RANK_DISPLAY, SUIT_SYMBOLS } from './cards'
 
 // ─── Hand Rank Constants ───────────────────────────────────────
@@ -635,6 +636,7 @@ export function estimateEquity(
   community: Card[],
   numOpponents: number,
   iterations: number = 1000,
+  rng: Rng = Math.random,
 ): number {
   if (community.length === 5) {
     // At showdown, just evaluate directly — no simulation needed
@@ -664,7 +666,7 @@ export function estimateEquity(
     // Shuffle remaining deck (Fisher-Yates on a copy)
     const remaining = [...deck]
     for (let j = remaining.length - 1; j > 0; j--) {
-      const k = Math.floor(Math.random() * (j + 1));
+      const k = Math.floor(rng() * (j + 1));
       [remaining[j], remaining[k]] = [remaining[k], remaining[j]]
     }
 
@@ -882,6 +884,7 @@ export function simulateHandProbabilities(
   holeCards: [Card, Card],
   community: Card[],
   iterations: number = 800,
+  rng: Rng = Math.random,
 ): HandProbability[] {
   const currentResult = community.length >= 3 ? bestHand(holeCards, community) : null
   const currentRank = currentResult?.rank ?? -1
@@ -917,7 +920,7 @@ export function simulateHandProbabilities(
     // Shuffle remaining deck (partial Fisher-Yates for just the cards we need)
     const remaining = [...deck]
     for (let j = 0; j < cardsNeeded && j < remaining.length; j++) {
-      const k = j + Math.floor(Math.random() * (remaining.length - j));
+      const k = j + Math.floor(rng() * (remaining.length - j));
       [remaining[j], remaining[k]] = [remaining[k], remaining[j]]
     }
 
@@ -953,6 +956,7 @@ export function analyzeHand(
   numOpponents: number,
   position: string,
   toCall: number = 0,
+  rng: Rng = Math.random,
 ): HandAnalysis {
   const chen = chenScore(holeCards)
   const chenMax = chenPlusScore(holeCards, position)
@@ -973,12 +977,12 @@ export function analyzeHand(
   // Equity (Monte Carlo)
   const equity = streetName === 'preflop'
     ? estimatePreflopEquity(chen, numOpponents)
-    : estimateEquity(holeCards, community, numOpponents, 1000)
+    : estimateEquity(holeCards, community, numOpponents, 1000, rng)
 
   const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0)
 
   // Hand improvement probabilities
-  const handProbabilities = simulateHandProbabilities(holeCards, community, 800)
+  const handProbabilities = simulateHandProbabilities(holeCards, community, 800, rng)
 
   return {
     madeHand,

@@ -15,6 +15,7 @@
 import type { Card } from './cards'
 import { chenScore, chenPlusScore, bestHand, detectDraws, type DrawInfo } from './handAnalysis'
 import { handRankIndex, handPercentile, handCategory, holeCardsToNotation, type HandCategory } from './ranges'
+import type { Rng } from './rng'
 
 export interface BotProfile {
   vpip: number        // 0.10–0.50 — probability of voluntarily entering a pot
@@ -79,6 +80,7 @@ export function updateTilt(
   },
   tiltMultiplier: number = 1.0,
   participated: boolean = true,
+  rng: Rng = Math.random,
 ): void {
   if (!participated) return
   if (won) {
@@ -98,7 +100,7 @@ export function updateTilt(
   if (shouldTilt && !state.tilted) {
     state.tilted = true
     const [min, max] = config.decayHands
-    state.handsRemaining = min + Math.floor(Math.random() * (max - min + 1))
+    state.handsRemaining = min + Math.floor(rng() * (max - min + 1))
   }
 
   // Scale severity
@@ -171,12 +173,13 @@ export function applyTilt(
  * doesn't cascade into a fake raise war.
  */
 function generateRandomAction(ctx: DecisionContext, strongMade: boolean = false): BotAction {
-  const r = Math.random()
+  const rng = ctx.rng ?? Math.random
+  const r = rng()
   if (ctx.toCall === 0) {
     // Not facing a bet: check (80%) or a smallish stab (20%).
     // A checked monster is just a slowplay, so no special-casing needed here.
     if (r < 0.80) return { type: 'check' }
-    const betSize = Math.round(ctx.pot * (0.3 + Math.random() * 0.2))
+    const betSize = Math.round(ctx.pot * (0.3 + rng() * 0.2))
     return { type: 'raise', amount: Math.min(Math.max(betSize, ctx.bb), ctx.chips) }
   }
   // Facing a big bet (>10bb or >30% of stack), a brain fart is almost always
@@ -212,6 +215,7 @@ export interface DecisionContext {
   position?: string          // table position (UTG, MP, CO, BTN, SB, BB)
   holeCards?: [Card, Card]  // bot's hole cards (for card-aware decisions)
   community?: Card[]        // community cards (for card-aware postflop)
+  rng?: Rng                 // injectable random source (default Math.random) — seeded in sims/tests
   // Street awareness — what this bot did on earlier streets
   wasPreflopRaiser?: boolean  // was this bot the last preflop aggressor?
   preflopCallers?: number     // how many players called preflop (multiway pot?)
@@ -249,12 +253,13 @@ export interface BotAction {
  * up to 8-10% for loose cannons.
  */
 export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consistency?: number, heroProfile?: HeroProfile): BotAction {
+  const rng = ctx.rng ?? Math.random
   const { street } = ctx
 
   // ─── Consistency check: occasional off-strategy play ─────
   if (consistency !== undefined && consistency < 1.0) {
     const missplayChance = 1.0 - consistency // e.g., 0.97 consistency = 3% chance
-    if (Math.random() < missplayChance) {
+    if (rng() < missplayChance) {
       // A brain-fart must never fold a strong made hand (two pair+) — real pro
       // mistakes are wrong folds of marginal hands, loose calls, and mis-sized
       // stabs, not punting the nuts.
@@ -272,7 +277,7 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
   // ─── Table Flow: adjust for table dynamics ─────
   adaptedProfile = applyTableDynamics(adaptedProfile, ctx.tableDynamics)
 
-  const rand = Math.random()
+  const rand = rng()
 
   // ─── Preflop ───────────────────────────────────────────────
   if (street === 'preflop') {
@@ -534,10 +539,10 @@ function sizedBet(pot: number, baseFrac: number, profile: BotProfile, bb: number
  * Roll for a river overbet (1.2-1.5x pot) — the polarized big-bet line.
  * Overbettors (Dwan) use this for both value and bluffs. Returns size or null.
  */
-function maybeOverbet(pot: number, profile: BotProfile, bb: number): number | null {
+function maybeOverbet(pot: number, profile: BotProfile, bb: number, rng: Rng = Math.random): number | null {
   const freq = (profile.overbetFreq ?? 0.03) * (profile.aggression >= 1.3 ? 1.5 : 1.0)
-  if (Math.random() >= freq) return null
-  return Math.max(Math.round(pot * (1.2 + Math.random() * 0.3)), bb)
+  if (rng() >= freq) return null
+  return Math.max(Math.round(pot * (1.2 + rng() * 0.3)), bb)
 }
 
 /**
@@ -554,6 +559,7 @@ function maybeThinValueRiver(
   oppPassive: boolean,
   isMultiway: boolean,
   isInPosition: boolean,
+  rng: Rng = Math.random,
 ): number | null {
   if (strength < 0.42 || strength >= 0.55) return null
   const freq = Math.min(
@@ -564,11 +570,12 @@ function maybeThinValueRiver(
       * profile.aggression,
     0.6,
   )
-  if (Math.random() >= freq) return null
-  return sizedBet(pot, 0.30 + Math.random() * 0.12, profile, bb)
+  if (rng() >= freq) return null
+  return sizedBet(pot, 0.30 + rng() * 0.12, profile, bb)
 }
 
 function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: number): BotAction {
+  const rng = ctx.rng ?? Math.random
   const { toCall, chips, bb, currentBet, playerBet } = ctx
   const raiseLevel = ctx.raiseLevel ?? 1
   const stackBB = chips / bb
@@ -621,7 +628,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       }
       // Small jitter for variety (premium hands jitter less)
       const jitter = handPct < 0.10 ? 0.01 : handPct < 0.25 ? 0.03 : 0.05
-      handPct = Math.max(0, Math.min(1, handPct + (Math.random() - 0.5) * jitter))
+      handPct = Math.max(0, Math.min(1, handPct + (rng() - 0.5) * jitter))
     } else {
       // Fallback to Chen+ for any edge case
       const chenMax = chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression })
@@ -663,7 +670,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
         const raiseSize = Math.round(currentBet * (2.5 + (profile.aggression - 1) * 0.5) * (profile.betSizeMult ?? 1.0))
         return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
       }
-      if (handPct < effectiveVpip && Math.random() < (profile.limpFreq ?? 0)) {
+      if (handPct < effectiveVpip && rng() < (profile.limpFreq ?? 0)) {
         return { type: 'call' } // open-limp / over-limp
       }
       return { type: 'fold' }
@@ -692,7 +699,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
 
   // ─── Facing a raise — value + bluff 3-bet split ─────────
   // Value 3-bets: card quality driven (handPct < threshold)
-  // Bluff 3-bets: persona randomness driven (Math.random < threshold)
+  // Bluff 3-bets: persona randomness driven (rng draw < threshold)
 
   // ─── Raise-size awareness (applies to all facing-raise levels) ──
   // A 2.5bb open and a 25bb jam are different worlds: defense ranges shrink
@@ -772,7 +779,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // Bluff 3-bet — persona-driven random, needs a playable hand
-    if (handPct < effectiveVpip && Math.random() < bluffRate * squeezeMod && chips > currentBet * 3) {
+    if (handPct < effectiveVpip && rng() < bluffRate * squeezeMod && chips > currentBet * 3) {
       const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
@@ -794,7 +801,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       const raiseSize = Math.round(currentBet * 2.5)
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    if (handPct < effectiveVpip && Math.random() < bluffRate4 && chips > currentBet * 2.5) {
+    if (handPct < effectiveVpip && rng() < bluffRate4 && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * 2.5)
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
@@ -910,6 +917,7 @@ function rangeAdvantage(board: BoardTexture, isPreflopRaiser: boolean): number {
 }
 
 function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: number, heroProfile?: HeroProfile): BotAction {
+  const rng = ctx.rng ?? Math.random
   const { toCall, pot, chips, bb, currentBet, playerBet, numActivePlayers } = ctx
 
   // ─── Card-aware hand strength ──────────────────────────
@@ -926,27 +934,27 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // ─── Probabilistic fallback (no cards provided) ─────
   if (!cardAware) {
     if (toCall === 0) {
-      if (Math.random() < profile.bluffFreq) {
-        const bluffSize = sizedBet(pot, 0.33 + Math.random() * 0.22, profile, bb)
+      if (rng() < profile.bluffFreq) {
+        const bluffSize = sizedBet(pot, 0.33 + rng() * 0.22, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
-      if (Math.random() < 0.22 * profile.aggression) {
-        const betSize = Math.round(pot * (0.45 + profile.aggression * 0.2 + Math.random() * 0.15))
+      if (rng() < 0.22 * profile.aggression) {
+        const betSize = Math.round(pot * (0.45 + profile.aggression * 0.2 + rng() * 0.15))
         return { type: 'raise', amount: Math.max(betSize, bb) + playerBet }
       }
       return { type: 'check' }
     }
     const potOddsFb = toCall / (pot + toCall)
-    if (Math.random() < profile.bluffFreq * 0.5 * profile.aggression && chips > currentBet * 2) {
-      const rs = Math.round(currentBet * (2.2 + Math.random() * 0.8))
+    if (rng() < profile.bluffFreq * 0.5 * profile.aggression && chips > currentBet * 2) {
+      const rs = Math.round(currentBet * (2.2 + rng() * 0.8))
       return { type: 'raise', amount: Math.min(rs, chips + playerBet) }
     }
-    if (toCall / Math.max(pot, 1) > 0.75 && Math.random() > profile.vpip * 1.5) return { type: 'fold' }
-    if (Math.random() < 0.10 * profile.aggression && chips > currentBet * 2.5) {
+    if (toCall / Math.max(pot, 1) > 0.75 && rng() > profile.vpip * 1.5) return { type: 'fold' }
+    if (rng() < 0.10 * profile.aggression && chips > currentBet * 2.5) {
       const rs = Math.round(currentBet * (2.0 + profile.aggression * 0.5))
       return { type: 'raise', amount: Math.min(rs, chips + playerBet) }
     }
-    if (Math.random() < profile.vpip * 1.3 * (1 - potOddsFb)) return { type: 'call' }
+    if (rng() < profile.vpip * 1.3 * (1 - potOddsFb)) return { type: 'call' }
     return { type: 'fold' }
   }
 
@@ -1026,10 +1034,10 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : hasDraw ? 0.50 + profile.aggression * 0.10
         : hasWeakMade ? (board?.isDry ? 0.40 : 0.25)
         : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod * ipAggBoost
-      if (Math.random() < cbetRate) {
+      if (rng() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
-        const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + Math.random() * 0.12, profile, bb)
+        const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + rng() * 0.12, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
@@ -1065,8 +1073,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : hasDraw ? 0.45 + profile.aggression * 0.10
         : hasNothing ? profile.bluffFreq * 0.5 * profile.aggression
         : 0.25) * turnTexture * turnMulti * ipAggBoost
-      if (Math.random() < barrelRate) {
-        const betSize = sizedBet(pot, 0.50 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+      if (rng() < barrelRate) {
+        const betSize = sizedBet(pot, 0.50 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
@@ -1098,12 +1106,12 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const barrelRate = hasMonster ? 0.85
         : hasNothing ? profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost * ipAggBoost
         : 0  // strong hands and weak made hands CHECK the river (polarization)
-      if (Math.random() < barrelRate) {
-        const betSize = maybeOverbet(pot, profile, bb)
-          ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+      if (rng() < barrelRate) {
+        const betSize = maybeOverbet(pot, profile, bb, rng)
+          ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
-      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition)
+      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition, rng)
       if (thin !== null) return { type: 'raise', amount: thin + playerBet }
       return { type: 'check' }
     }
@@ -1111,16 +1119,16 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     // River polarization for non-raiser: only bet monsters (value) or bluffs
     if (ctx.street === 'river') {
       if (hasMonster) {
-        const betSize = maybeOverbet(pot, profile, bb)
-          ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+        const betSize = maybeOverbet(pot, profile, bb, rng)
+          ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
-      if (hasNothing && Math.random() < profile.bluffFreq * 0.35 * profile.aggression) {
-        const bluffSize = maybeOverbet(pot, profile, bb)
-          ?? sizedBet(pot, 0.55 + Math.random() * 0.20, profile, bb)
+      if (hasNothing && rng() < profile.bluffFreq * 0.35 * profile.aggression) {
+        const bluffSize = maybeOverbet(pot, profile, bb, rng)
+          ?? sizedBet(pot, 0.55 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
-      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition)
+      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition, rng)
       if (thin !== null) return { type: 'raise', amount: thin + playerBet }
       return { type: 'check' } // medium hands check the river
     }
@@ -1142,9 +1150,9 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         * (board?.isAceHigh ? 1.15 : 1.0) // represent the ace
         * (board?.isWet ? 0.85 : 1.0)     // wet = opponent has more draws
         * (oppPassive ? 1.25 : 1.0)       // passive opponents fold more
-      if (Math.random() < probeBase * probeTexture) {
+      if (rng() < probeBase * probeTexture) {
         const sizeMult = board?.isWet ? 0.55 : board?.isDry ? 0.35 : 0.45
-        const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + Math.random() * 0.12, profile, bb)
+        const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + rng() * 0.12, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
       return { type: 'check' }
@@ -1156,8 +1164,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const leadRate = donkFreq > 0
         ? donkFreq + profile.aggression * 0.15 // fictional: use their donk freq
         : (0.15 + profile.aggression * 0.15) * callerRangeAdv // pro: rare, texture-based
-      if (Math.random() < leadRate) {
-        const betSize = sizedBet(pot, 0.45 + profile.aggression * 0.15 + Math.random() * 0.15, profile, bb)
+      if (rng() < leadRate) {
+        const betSize = sizedBet(pot, 0.45 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
     }
@@ -1167,8 +1175,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const drawLeadRate = donkFreq > 0
         ? donkFreq * 0.7
         : (profile.bluffFreq + profile.aggression * 0.08) * callerRangeAdv
-      if (Math.random() < drawLeadRate) {
-        const betSize = sizedBet(pot, 0.40 + Math.random() * 0.20, profile, bb)
+      if (rng() < drawLeadRate) {
+        const betSize = sizedBet(pot, 0.40 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
     }
@@ -1182,12 +1190,12 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board?.isDry ? 1.4 : 1.0)
           * (board?.isLow ? 1.2 : 1.0)
           * (oppPassive ? (ctx.street === 'river' ? 0.5 : 1.3) : 1.0)
-      if (hasNothing && Math.random() < probeRate) {
-        const bluffSize = sizedBet(pot, 0.33 + Math.random() * 0.22, profile, bb)
+      if (hasNothing && rng() < probeRate) {
+        const bluffSize = sizedBet(pot, 0.33 + rng() * 0.22, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
-      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && Math.random() < probeRate * 0.8) {
-        const betSize = sizedBet(pot, 0.30 + Math.random() * 0.20, profile, bb)
+      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && rng() < probeRate * 0.8) {
+        const betSize = sizedBet(pot, 0.30 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
     }
@@ -1258,8 +1266,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     if (isShallowSPR && chips <= pot * 1.5) {
       return { type: 'raise', amount: chips + playerBet }
     }
-    if (Math.random() < monsterRaiseRate && chips > currentBet * 2) {
-      const raiseSize = Math.round(currentBet * (2.2 + Math.random() * 0.8))
+    if (rng() < monsterRaiseRate && chips > currentBet * 2) {
+      const raiseSize = Math.round(currentBet * (2.2 + rng() * 0.8))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
   }
@@ -1274,7 +1282,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const strengthShield = Math.max(0, Math.min((strength - 0.30) / 0.25, 1))
       const streetWeight = ctx.street === 'turn' ? 1.0 : 0.8
       const foldProb = Math.min(sizePressure * (1 - strengthShield * 0.65) * streetWeight, 0.92)
-      if (Math.random() < foldProb) return { type: 'fold' }
+      if (rng() < foldProb) return { type: 'fold' }
     }
 
     // Call-down discipline: marginal made hands (top pair, mid pair) continue
@@ -1286,7 +1294,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         ? 0.55 + marginShield * 0.45
         : 0.35 + marginShield * 0.50
       const continueProb = Math.min(baseContinue * passiveBoost, 1.0)
-      if (Math.random() > continueProb) return { type: 'fold' }
+      if (rng() > continueProb) return { type: 'fold' }
     }
 
     // Multiway flop discipline: a bet into 3+ players is much stronger than
@@ -1294,21 +1302,21 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     if (!hasMonster && toCall > 0 && ctx.street === 'flop' && numActivePlayers >= 3) {
       const marginShield = Math.max(0, Math.min((strength - 0.35) / 0.20, 1))
       const continueProb = Math.min((0.72 + marginShield * 0.28) * passiveBoost, 1.0)
-      if (Math.random() > continueProb) return { type: 'fold' }
+      if (rng() > continueProb) return { type: 'fold' }
     }
     // Check-raise with strong hands OOP — texture-aware frequency
-    if (ctx.checkedThisStreet && Math.random() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
-      const raiseSize = Math.round(currentBet * (2.5 + Math.random() * 0.5))
+    if (ctx.checkedThisStreet && rng() < checkRaiseBoost * profile.aggression && chips > currentBet * 2.5) {
+      const raiseSize = Math.round(currentBet * (2.5 + rng() * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // IP raises strong hands more — extract value with position advantage
     const strongRaiseRate = profile.aggression * (isInPosition ? 0.22 : 0.12)
-    if (Math.random() < strongRaiseRate && chips > currentBet * 2.5) {
+    if (rng() < strongRaiseRate && chips > currentBet * 2.5) {
       const raiseSize = Math.round(currentBet * (2.0 + profile.aggression * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // Fold top pair to pot-sized+ bets on the river (could be beaten)
-    if (ctx.street === 'river' && betToPotRatio > 0.8 && strength < 0.50 && Math.random() > profile.vpip) {
+    if (ctx.street === 'river' && betToPotRatio > 0.8 && strength < 0.50 && rng() > profile.vpip) {
       return { type: 'fold' }
     }
     return { type: 'call' }
@@ -1318,22 +1326,22 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   if (hasDraw && ctx.street !== 'river') {
     // IP semi-bluff is one of the most profitable plays in poker
     const semiBluffRate = profile.bluffFreq * profile.aggression * (isInPosition ? 0.75 : 0.40)
-    if (Math.random() < semiBluffRate && chips > currentBet * 2) {
-      const raiseSize = Math.round(currentBet * (2.2 + Math.random() * 0.8))
+    if (rng() < semiBluffRate && chips > currentBet * 2) {
+      const raiseSize = Math.round(currentBet * (2.2 + rng() * 0.8))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
     // Need decent pot odds to call a draw
     if (betToPotRatio < 0.4) return { type: 'call' }
     if (isWithinMDF) return { type: 'call' } // MDF: must defend this hand
-    if (Math.random() < profile.vpip * 0.5 * streetFactor) return { type: 'call' }
+    if (rng() < profile.vpip * 0.5 * streetFactor) return { type: 'call' }
     return { type: 'fold' }
   }
 
   // Weak made hands — call small bets on flop, tighten on later streets
   if (hasWeakMade) {
-    if (betToPotRatio < 0.4 && Math.random() < profile.vpip * 0.7 * streetFactor) return { type: 'call' }
-    if (isWithinMDF && Math.random() < 0.80) return { type: 'call' } // MDF defense (some mixing)
-    if (Math.random() < profile.vpip * 0.2 * streetFactor) return { type: 'call' }
+    if (betToPotRatio < 0.4 && rng() < profile.vpip * 0.7 * streetFactor) return { type: 'call' }
+    if (isWithinMDF && rng() < 0.80) return { type: 'call' } // MDF defense (some mixing)
+    if (rng() < profile.vpip * 0.2 * streetFactor) return { type: 'call' }
     return { type: 'fold' }
   }
 
@@ -1341,8 +1349,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // IP bluff-raises are more credible (acting last). OOP bluff-raises are rare.
   // River bluff fix: DON'T bluff into passive opponents on the river — their river bets are real
   const riverBluffPenalty = (ctx.street === 'river' && oppPassive) ? 0.3 : 1.0
-  if (Math.random() < profile.bluffFreq * (isInPosition ? 0.25 : 0.12) * profile.aggression * riverBluffPenalty && chips > currentBet * 2) {
-    const raiseSize = Math.round(currentBet * (2.5 + Math.random()))
+  if (rng() < profile.bluffFreq * (isInPosition ? 0.25 : 0.12) * profile.aggression * riverBluffPenalty && chips > currentBet * 2) {
+    const raiseSize = Math.round(currentBet * (2.5 + rng()))
     return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
   }
 
@@ -1353,11 +1361,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     const floatRate = isInPosition
       ? betToPotRatio < 0.5 ? profile.vpip * 0.35 : profile.vpip * 0.15
       : betToPotRatio < 0.3 ? profile.vpip * 0.15 : 0
-    if (Math.random() < floatRate) return { type: 'call' }
+    if (rng() < floatRate) return { type: 'call' }
   }
 
   // MDF defense even with air — sometimes must defend to stay unexploitable
-  if (isWithinMDF && ctx.street !== 'river' && Math.random() < 0.25) {
+  if (isWithinMDF && ctx.street !== 'river' && rng() < 0.25) {
     return { type: 'call' }
   }
 
@@ -1367,13 +1375,13 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 /**
  * Deal a shuffled 52-card deck (Fisher-Yates) for the stat simulators.
  */
-function shuffledDeckForSim(): Card[] {
+function shuffledDeckForSim(rng: Rng = Math.random): Card[] {
   const deck: Card[] = []
   for (const suit of ['hearts', 'diamonds', 'clubs', 'spades'] as const) {
     for (let rank = 2; rank <= 14; rank++) deck.push({ rank, suit })
   }
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [deck[i], deck[j]] = [deck[j]!, deck[i]!]
   }
   return deck
@@ -1389,6 +1397,7 @@ const SIM_POSITIONS = ['UTG', 'MP', 'CO', 'BTN', 'SB', 'BB']
 export function simulateBotStats(
   profile: BotProfile,
   numHands: number = 1000,
+  rng: Rng = Math.random,
 ): {
   vpip: number       // observed VPIP (0–1)
   pfr: number        // observed PFR (0–1)
@@ -1409,13 +1418,14 @@ export function simulateBotStats(
   const bb = 2
 
   for (let i = 0; i < numHands; i++) {
-    const deck = shuffledDeckForSim()
+    const deck = shuffledDeckForSim(rng)
     const holeCards: [Card, Card] = [deck[0]!, deck[1]!]
     const position = SIM_POSITIONS[i % SIM_POSITIONS.length]!
 
     // Simulate preflop decision (facing a raise ~60% of the time)
-    const facingRaise = Math.random() < 0.6
+    const facingRaise = rng() < 0.6
     const preflopCtx: DecisionContext = {
+      rng,
       street: 'preflop',
       toCall: facingRaise ? bb * 2.5 : bb,
       pot: bb * 1.5,
@@ -1441,10 +1451,11 @@ export function simulateBotStats(
     // If didn't fold preflop, simulate a postflop decision
     if (preflopAction.type !== 'fold') {
       // ~50% of the time face a bet, ~50% checked to
-      const facingBet = Math.random() < 0.5
+      const facingBet = rng() < 0.5
       const postPot = bb * 6
 
       const postCtx: DecisionContext = {
+      rng,
         street: 'flop',
         toCall: facingBet ? Math.round(postPot * 0.6) : 0,
         pot: postPot,
@@ -1490,6 +1501,7 @@ export function simulateBotStats(
 export function simulateEscalationStats(
   profile: BotProfile,
   numHands: number = 50000,
+  rng: Rng = Math.random,
 ): {
   threeBetRate: number
   fourBetRate: number
@@ -1508,13 +1520,14 @@ export function simulateEscalationStats(
   let callsTo3Bet = 0, callsTo4Bet = 0
 
   for (let i = 0; i < numHands; i++) {
-    const deck = shuffledDeckForSim()
+    const deck = shuffledDeckForSim(rng)
     const holeCards: [Card, Card] = [deck[0]!, deck[1]!]
     const position = SIM_POSITIONS[i % SIM_POSITIONS.length]!
 
     // Test 3-bet: facing an open raise (raiseLevel=1)
     threeBetOpps++
     const ctx3: DecisionContext = {
+      rng,
       street: 'preflop', toCall: bb * 2.5, pot: bb * 4,
       currentBet: bb * 2.5, playerBet: 0, chips: 200, bb, numActivePlayers: 5,
       raiseLevel: 1, position, holeCards,
@@ -1525,6 +1538,7 @@ export function simulateEscalationStats(
     // Test facing a 3-bet (raiseLevel=2)
     foldsTo3BetOpps++
     const ctx3bet: DecisionContext = {
+      rng,
       street: 'preflop', toCall: bb * 7.5, pot: bb * 12,
       currentBet: bb * 7.5, playerBet: 0, chips: 200, bb, numActivePlayers: 4,
       raiseLevel: 2, position, holeCards,
@@ -1538,6 +1552,7 @@ export function simulateEscalationStats(
     // Test facing a 4-bet (raiseLevel=3)
     foldsTo4BetOpps++
     const ctx4bet: DecisionContext = {
+      rng,
       street: 'preflop', toCall: bb * 20, pot: bb * 30,
       currentBet: bb * 20, playerBet: 0, chips: 200, bb, numActivePlayers: 3,
       raiseLevel: 3, position, holeCards,

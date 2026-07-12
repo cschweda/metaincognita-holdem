@@ -6,6 +6,7 @@
  *   npx tsx scripts/simulate.ts [numHands] [numPlayers]
  *   npx tsx scripts/simulate.ts 100
  *   npx tsx scripts/simulate.ts 500 8
+ *   npx tsx scripts/simulate.ts 1000 6 --seed=42   (deterministic run)
  *
  * Output: scripts/output/sim-<timestamp>.txt
  */
@@ -24,11 +25,17 @@ import { calculateSidePots, awardPots } from '../app/utils/sidePots'
 import { toPokerStarsFormat } from '../app/utils/pokerStarsExport'
 import type { Card, Suit } from '../app/utils/cards'
 import { RANK_DISPLAY, SUIT_SYMBOLS } from '../app/utils/cards'
+import { mulberry32 } from '../app/utils/rng'
+import type { Rng } from '../app/utils/rng'
+import { shuffle } from '../app/utils/shuffle'
 
 // ─── Config ───────────────────────────────────────────────────
 
 const NUM_HANDS = parseInt(process.argv[2] || '100', 10)
 const NUM_PLAYERS = Math.min(Math.max(parseInt(process.argv[3] || '6', 10), 2), 8)
+const seedArg = process.argv.find(a => a.startsWith('--seed='))
+const SEED = seedArg ? parseInt(seedArg.split('=')[1]!, 10) : undefined
+const rng: Rng = SEED !== undefined ? mulberry32(SEED) : Math.random
 const STAKE = config.stakes.find(s => s.level === 3)! // Medium $1/$2
 const BB = STAKE.bb
 const SB = STAKE.sb
@@ -78,7 +85,7 @@ function shuffleDeck(): Card[] {
     }
   }
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]]
   }
   return deck
@@ -117,7 +124,7 @@ if (playersArg) {
     return p
   })
 } else {
-  const shuffledPersonas = [...pool].sort(() => Math.random() - 0.5)
+  const shuffledPersonas = shuffle(pool, rng)
   selectedPersonas = shuffledPersonas.slice(0, NUM_PLAYERS)
 }
 
@@ -281,6 +288,7 @@ function simulateHand(
           checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
           streetHistory: playerStreetActions.get(p.id) as any,
           tableDynamics: getTableDynamics(p.id),
+          rng,
         },
         p.consistency,
       )
@@ -450,7 +458,7 @@ function simulateHand(
     const participated = actions.some(a =>
       a.startsWith(`${p.name} `) && (a.includes('calls') || a.includes('raises') || a.includes('ALL-IN')))
       || (!p.folded && remaining.length > 1)
-    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
+    updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated, rng)
   }
 
   // Eliminate busted players

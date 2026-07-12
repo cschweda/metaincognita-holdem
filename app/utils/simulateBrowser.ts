@@ -9,6 +9,8 @@ import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } fr
 import type { BotProfile, TiltState } from './botDecision'
 import { bestHand, HAND_RANK_NAMES, HAND_RANKS } from './handAnalysis'
 import { calculateSidePots, awardPots } from './sidePots'
+import { mulberry32 } from './rng'
+import type { Rng } from './rng'
 import { toPokerStarsFormat } from './pokerStarsExport'
 import type { Card } from './cards'
 import { shuffle } from './shuffle'
@@ -65,14 +67,16 @@ export async function runSimulation(
   onProgress: (pct: number, hand: number) => void,
   stakeLevel: number = 3,
   abortSignal?: { aborted: boolean },
+  seed?: number,
 ): Promise<SimResult> {
+  const rng: Rng = seed !== undefined ? mulberry32(seed) : Math.random
   const STAKE = config.stakes.find(s => s.level === stakeLevel) || config.stakes.find(s => s.level === 3)!
   const BB = STAKE.bb, SB = STAKE.sb, STARTING_STACK = BB * 100
   const TABLE_FLOW_WINDOW = 20
 
   // Pro bots only
   const pool = config.personas.filter(p => !FICTIONAL.includes(p.name))
-  const selected = shuffle(pool).slice(0, numPlayers)
+  const selected = shuffle(pool, rng).slice(0, numPlayers)
 
   const players: SimPlayer[] = selected.map((p, i) => ({
     id: i, name: p.name, chips: STARTING_STACK, holeCards: null,
@@ -117,7 +121,7 @@ export async function runSimulation(
 
     const count = players.length
     const positions = assignPositions(count, dealerSeat)
-    const deck = shuffleDeck()
+    const deck = shuffleDeck(rng)
     let idx = 0
 
     for (const p of players) {
@@ -172,6 +176,7 @@ export async function runSimulation(
           wasPreflopRaiser: p.id === preflopRaiserId, preflopCallers: preflopCallerCount,
           checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
           streetHistory: playerStreetActions.get(p.id) as any, tableDynamics: getTableDynamics(p.id),
+          rng,
         }, p.consistency)
 
         if (action.type === 'fold') { p.folded = true; p.lastAction = 'fold'; actions.push(`${p.name} folds`) }
@@ -254,7 +259,7 @@ export async function runSimulation(
 
     if (winnerId >= 0) { botStats.get(winnerId)!.wins++; recentWinners.push(winnerId); if (recentWinners.length > TABLE_FLOW_WINDOW) recentWinners.shift() }
     // Tilt only on played hands: invested beyond a blind, or reached showdown
-    for (const p of players) { if (!p.eliminated) { const won = p.id === winnerId; const participated = p.totalInvested > BB || (!p.folded && isShowdown); updateTilt(p.tilt, won, !won && !p.folded && pot > STARTING_STACK * config.tilt.bigLossThreshold, config.tilt, p.tiltMultiplier, participated) } }
+    for (const p of players) { if (!p.eliminated) { const won = p.id === winnerId; const participated = p.totalInvested > BB || (!p.folded && isShowdown); updateTilt(p.tilt, won, !won && !p.folded && pot > STARTING_STACK * config.tilt.bigLossThreshold, config.tilt, p.tiltMultiplier, participated, rng) } }
     for (const p of players) { if (p.chips <= 0 && !p.eliminated) p.eliminated = true }
     for (const p of players) { botStats.get(p.id)!.finalChips = p.chips }
 
