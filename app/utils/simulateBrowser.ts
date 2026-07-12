@@ -242,7 +242,7 @@ export async function runSimulation(
     } else {
       const contributors = players.filter(p => !p.eliminated).map(p => ({ id: p.id, totalInvested: p.totalInvested, folded: p.folded, holeCards: p.holeCards }))
       const pots = calculateSidePots(contributors)
-      const { awards } = awardPots(pots, players.map(p => ({ id: p.id, holeCards: p.holeCards })), community)
+      const { awards } = awardPots(pots, players.map(p => ({ id: p.id, holeCards: p.holeCards })), community, dealerSeat)
       let maxAward = 0
       for (const [pid, amount] of awards) { players[pid].chips += amount; if (amount > maxAward) { maxAward = amount; winnerId = pid; winnerName = players[pid].name } }
     }

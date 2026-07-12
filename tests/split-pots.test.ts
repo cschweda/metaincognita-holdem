@@ -196,3 +196,34 @@ describe('Side pot splitting', () => {
     expect(awards.get(1)).toBeUndefined()
   })
 })
+
+describe('Odd chip award order', () => {
+  // Board plays for everyone: A-K-Q-J-T rainbow → three-way chopped pot.
+  const community = [c('As'), c('Kh'), c('Qd'), c('Jc'), c('Ts')]
+  const players = [
+    { id: 0, holeCards: [c('2h'), c('3h')] as [Card, Card] },
+    { id: 1, holeCards: [c('2c'), c('3c')] as [Card, Card] },
+    { id: 2, holeCards: [c('2d'), c('4d')] as [Card, Card] },
+  ]
+  const pots = [{ amount: 100, eligible: [0, 1, 2] }] // 100 / 3 = 33 rem 1
+
+  it('remainder goes to first seat left of the button', () => {
+    // Button on seat 1 → first seat clockwise is seat 2
+    const { awards } = awardPots(pots, players, community, 1)
+    expect(awards.get(2)).toBe(34)
+    expect(awards.get(0)).toBe(33)
+    expect(awards.get(1)).toBe(33)
+  })
+
+  it('button on last seat wraps to seat 0', () => {
+    const { awards } = awardPots(pots, players, community, 2)
+    expect(awards.get(0)).toBe(34)
+    expect(awards.get(1)).toBe(33)
+    expect(awards.get(2)).toBe(33)
+  })
+
+  it('without buttonSeat, keeps legacy ascending-id order', () => {
+    const { awards } = awardPots(pots, players, community)
+    expect(awards.get(0)).toBe(34)
+  })
+})

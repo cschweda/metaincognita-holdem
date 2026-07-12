@@ -417,6 +417,7 @@ function simulateHand(
       pots,
       players.map(p => ({ id: p.id, holeCards: p.holeCards })),
       community,
+      dealerSeat,
     )
     let maxAward = 0
     for (const [pid, amount] of awards) {

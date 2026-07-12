@@ -253,6 +253,7 @@ function endHand() {
       pots,
       gs.playerStates.value.map(p => ({ id: p.id, holeCards: p.holeCards })),
       community,
+      gs.dealerSeat.value,
     )
     let maxAward = 0
     for (const [pid, amount] of awards) {

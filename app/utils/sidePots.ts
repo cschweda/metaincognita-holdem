@@ -69,6 +69,7 @@ export function awardPots(
   pots: SidePot[],
   players: { id: number; holeCards: [Card, Card] | null }[],
   community: Card[],
+  buttonSeat?: number,
 ): { awards: Map<number, number>; potWinners: { potAmount: number; winnerId: number; winnerName?: string }[] } {
   const awards = new Map<number, number>()
   const potWinners: { potAmount: number; winnerId: number }[] = []
@@ -97,13 +98,20 @@ export function awardPots(
 
     // Award pot (split if tied)
     if (tiedIds.length > 1) {
-      const share = Math.floor(pot.amount / tiedIds.length)
-      const remainder = pot.amount - share * tiedIds.length
-      for (let i = 0; i < tiedIds.length; i++) {
-        const award = share + (i === 0 ? remainder : 0) // first player gets remainder
-        awards.set(tiedIds[i], (awards.get(tiedIds[i]) || 0) + award)
+      // Odd chip goes to the first tied player clockwise from the button
+      // (standard flop-game rule). Without a button, keep ascending-id order.
+      const n = players.length
+      const orderedIds = buttonSeat === undefined
+        ? tiedIds
+        : [...tiedIds].sort((a, b) =>
+            ((a - buttonSeat - 1 + 2 * n) % n) - ((b - buttonSeat - 1 + 2 * n) % n))
+      const share = Math.floor(pot.amount / orderedIds.length)
+      const remainder = pot.amount - share * orderedIds.length
+      for (let i = 0; i < orderedIds.length; i++) {
+        const award = share + (i === 0 ? remainder : 0)
+        awards.set(orderedIds[i], (awards.get(orderedIds[i]) || 0) + award)
       }
-      potWinners.push({ potAmount: pot.amount, winnerId: tiedIds[0] })
+      potWinners.push({ potAmount: pot.amount, winnerId: orderedIds[0] })
     } else if (bestId >= 0) {
       awards.set(bestId, (awards.get(bestId) || 0) + pot.amount)
       potWinners.push({ potAmount: pot.amount, winnerId: bestId })

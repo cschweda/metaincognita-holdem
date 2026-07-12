@@ -421,6 +421,7 @@ function endHand() {
       pots,
       gs.playerStates.value.map(p => ({ id: p.id, holeCards: p.holeCards })),
       community,
+      gs.dealerSeat.value,
     )
 
     // Apply chip awards and detect splits
