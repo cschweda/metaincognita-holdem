@@ -155,10 +155,10 @@ function createPlayers(): SimPlayer[] {
       fourBetFreq: persona.fourBetFreq,
       fiveBetFreq: persona.fiveBetFreq,
       donkBetFreq: persona.donkBetFreq,
-      limpFreq: (persona as any).limpFreq,
-      styleBias: (persona as any).styleBias,
-      betSizeMult: (persona as any).betSizeMult,
-      overbetFreq: (persona as any).overbetFreq,
+      limpFreq: persona.limpFreq,
+      styleBias: persona.styleBias,
+      betSizeMult: persona.betSizeMult,
+      overbetFreq: persona.overbetFreq,
     },
   }))
 }

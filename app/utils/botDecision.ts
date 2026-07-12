@@ -33,6 +33,19 @@ export interface BotProfile {
   overbetFreq?: number  // chance to overbet (1.2–1.5x pot) river value/bluffs (default 0.03)
 }
 
+/**
+ * A configured bot persona — BotProfile plus the identity/meta fields the
+ * holdem.config personas carry. holdem.config.ts annotates its personas
+ * array with this type, so field-name typos fail typecheck instead of
+ * silently reading as undefined.
+ */
+export interface Persona extends BotProfile {
+  name: string
+  tiltMultiplier?: number
+  consistency?: number
+  leak?: string
+}
+
 // ─── Hero Adaptation ──────────────────────────────────────────
 
 export interface HeroProfile {

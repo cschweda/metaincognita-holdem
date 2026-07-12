@@ -143,11 +143,11 @@ function resetBotToDefault() {
   bot.fourBetFreq = original.fourBetFreq
   bot.fiveBetFreq = original.fiveBetFreq
   bot.donkBetFreq = original.donkBetFreq
-  bot.limpFreq = (original as any).limpFreq
-  bot.styleBias = (original as any).styleBias
-  bot.betSizeMult = (original as any).betSizeMult
-  bot.overbetFreq = (original as any).overbetFreq
-  bot.tiltMultiplier = original.tiltMultiplier
+  bot.limpFreq = original.limpFreq
+  bot.styleBias = original.styleBias
+  bot.betSizeMult = original.betSizeMult
+  bot.overbetFreq = original.overbetFreq
+  bot.tiltMultiplier = original.tiltMultiplier ?? 1.0
   bot.name = original.name
 }
 

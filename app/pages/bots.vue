@@ -28,7 +28,7 @@ const filteredPersonas = computed(() => {
     switch (sortBy.value) {
       case 'vpip': return b.vpip - a.vpip
       case 'aggression': return b.aggression - a.aggression
-      case 'threeBetFreq': return b.threeBetFreq - a.threeBetFreq
+      case 'threeBetFreq': return (b.threeBetFreq ?? 0) - (a.threeBetFreq ?? 0)
       default: return a.name.localeCompare(b.name)
     }
   })

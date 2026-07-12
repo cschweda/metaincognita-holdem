@@ -1,3 +1,5 @@
+import type { Persona } from './app/utils/botDecision'
+
 /**
  * No Limit Hold'em Simulator — Single Source of Truth Configuration
  *
@@ -76,7 +78,7 @@ export default {
   // (live pros ~4-9%, aggressive outliers ~10-12%). limpFreq = chance to open-limp
   // the PFR-VPIP band. styleBias shifts hand-category percentiles (negative = wider).
   // betSizeMult/overbetFreq express sizing personality (small-ball vs overbettor).
-  personas: [
+  personas: ([
     { name: 'Tight Tony',      vpip: 0.14, pfr: 0.11, aggression: 0.85, bluffFreq: 0.08, creativeFreq: 0.03, tiltMultiplier: 1.0, consistency: 0.95, threeBetFreq: 0.05, fourBetFreq: 0.02, fiveBetFreq: 0.008, donkBetFreq: 0.05, limpFreq: 0.20, leak: 'Folds too much to 3-bets; won\'t bluff rivers' },
     { name: 'Loose Lucy',      vpip: 0.38, pfr: 0.22, aggression: 1.10, bluffFreq: 0.14, creativeFreq: 0.05, tiltMultiplier: 1.0, consistency: 0.92, threeBetFreq: 0.10, fourBetFreq: 0.03, fiveBetFreq: 0.008, donkBetFreq: 0.18, limpFreq: 0.45, styleBias: { suitedConnector: -0.04, other: -0.02 }, leak: 'Plays too many hands, especially suited junk' },
     { name: 'Aggressive Alex',  vpip: 0.26, pfr: 0.22, aggression: 1.40, bluffFreq: 0.20, creativeFreq: 0.06, tiltMultiplier: 1.2, consistency: 0.93, threeBetFreq: 0.16, fourBetFreq: 0.06, fiveBetFreq: 0.012, donkBetFreq: 0.12, leak: 'Over-bets draws, 3-bets too wide' },
@@ -104,7 +106,7 @@ export default {
     { name: 'Ncotty Sguyen',  vpip: 0.30, pfr: 0.20, aggression: 1.15, bluffFreq: 0.16, creativeFreq: 0.08, tiltMultiplier: 1.2, consistency: 0.91, threeBetFreq: 0.049, fourBetFreq: 0.021, fiveBetFreq: 0.008, donkBetFreq: 0, limpFreq: 0.15, leak: '"The Prince of Poker" — loose-aggressive with flair. Loves to gamble, talks big, and backs it up. Can tilt after bad beats.' },
     { name: 'Cohnny Jhan',    vpip: 0.22, pfr: 0.18, aggression: 1.10, bluffFreq: 0.11, creativeFreq: 0.05, tiltMultiplier: 0.5, consistency: 0.97, threeBetFreq: 0.042, fourBetFreq: 0.021, fiveBetFreq: 0.01, donkBetFreq: 0, leak: '"The Orient Express" — old-school tight-aggressive. Traps with big hands, patient, waits for the right spot. Consistent.' },
     { name: 'Krynn Benney',   vpip: 0.25, pfr: 0.21, aggression: 1.30, bluffFreq: 0.17, creativeFreq: 0.08, tiltMultiplier: 0.6, consistency: 0.95, threeBetFreq: 0.063, fourBetFreq: 0.032, fiveBetFreq: 0.012, donkBetFreq: 0, leak: 'Modern high-roller — game-theory oriented with creative lines. Mixes frequencies well but can be exploited by extreme nits.' },
-  ],
+  ] satisfies Persona[] as Persona[]),
 
   // ─── Bot Presets (quick-select archetypes for bot configurator) ─
   botPresets: [

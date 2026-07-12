@@ -102,7 +102,7 @@ function applyPreset(botIndex: number, presetName: string) {
   bot.aggression = preset.aggression
   bot.bluffFreq = preset.bluffFreq
   bot.creativeFreq = preset.creativeFreq
-  bot.tiltMultiplier = ('tiltMultiplier' in preset) ? (preset as any).tiltMultiplier : 1.0
+  bot.tiltMultiplier = 'tiltMultiplier' in preset ? (preset.tiltMultiplier ?? 1.0) : 1.0
   bot.threeBetFreq = (preset as any).threeBetFreq
   bot.fourBetFreq = (preset as any).fourBetFreq
   bot.fiveBetFreq = (preset as any).fiveBetFreq
