@@ -9,6 +9,8 @@ import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } fr
 import type { BotProfile, TiltState } from './botDecision'
 import { bestHand, HAND_RANK_NAMES, HAND_RANKS } from './handAnalysis'
 import { calculateSidePots, awardPots } from './sidePots'
+import { startBettingRound, runBettingRound } from './bettingEngine'
+import type { BettingRound, EngineAction } from './bettingEngine'
 import { mulberry32 } from './rng'
 import type { Rng } from './rng'
 import { toPokerStarsFormat } from './pokerStarsExport'
@@ -59,7 +61,7 @@ export interface SimResult {
   allHandsPS: string // full PokerStars hand history for all hands
 }
 
-import { simDisplayCard as displayCard, simShuffleDeck as shuffleDeck, simFindSeat as findSeat } from './gameSimulation'
+import { simDisplayCard as displayCard, simShuffleDeck as shuffleDeck, simFindSeat as findSeat, getTableDynamics as sharedTableDynamics } from './gameSimulation'
 
 export async function runSimulation(
   numHands: number,
@@ -98,12 +100,13 @@ export async function runSimulation(
   const allHands: SimHandRecord[] = []
 
   function getTableDynamics(botId: number) {
-    if (recentWinners.length < 5) return { dominantWinRate: 0, myRecentWinRate: 0, avgStackDepth: 100, handsInWindow: recentWinners.length }
-    const wins = new Map<number, number>()
-    for (const w of recentWinners) wins.set(w, (wins.get(w) ?? 0) + 1)
-    let domId = -1, domWins = 0
-    for (const [id, cnt] of wins) { if (cnt > domWins) { domWins = cnt; domId = id } }
-    return { dominantPlayerId: domId, dominantWinRate: domWins / recentWinners.length, myRecentWinRate: (wins.get(botId) ?? 0) / recentWinners.length, avgStackDepth: players.reduce((s, p) => s + p.chips, 0) / players.length / BB, handsInWindow: recentWinners.length }
+    return sharedTableDynamics(
+      recentWinners,
+      players.filter(p => !p.eliminated).map(p => p.chips),
+      BB,
+      botId,
+      config.tableFlow.minHands,
+    )
   }
 
   for (let h = 0; h < numHands; h++) {
@@ -136,7 +139,7 @@ export async function runSimulation(
     const community: Card[] = [deck[idx++], deck[idx++], deck[idx++]]
     idx++; community.push(deck[idx++]); idx++; community.push(deck[idx++])
 
-    let pot = 0, currentBet = 0
+    let pot = 0, currentBet = 0, lastRaiseIncrement = 0
     let street: 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' = 'preflop'
     let preflopRaiseLevel = 0, preflopRaiserId = -1, preflopCallerCount = 0
     const playerStreetActions = new Map<number, { flop?: string; turn?: string }>()
@@ -158,60 +161,64 @@ export async function runSimulation(
       p.chips -= amt; p.betThisRound = amt; p.totalInvested += amt; pot += amt
     }
     currentBet = BB
+    lastRaiseIncrement = BB
 
-    function runBettingRound(startSeat: number) {
-      const needsToAct = new Set(players.filter(p => !p.folded && !p.eliminated && p.chips > 0).map(p => p.id))
-      let seat = startSeat, loops = 0
-      while (needsToAct.size > 0) {
-        const p = players[seat]
-        if (!needsToAct.has(p.id)) { seat = (seat + 1) % count; loops++; if (loops >= count * 4) break; continue }
-        if (active().length <= 1) break
-
+    function playBettingRound(startSeat: number) {
+      const round: BettingRound = {
+        players, currentBet, lastRaiseIncrement, pot, bb: BB,
+        needsToAct: new Set<number>(),
+      }
+      startBettingRound(round)
+      runBettingRound(round, startSeat, (ep) => {
+        const p = ep as SimPlayer
         const tiltedProfile = applyTilt(p.profile, p.tilt, config.tilt, p.tiltMultiplier)
-        const action = decideBotAction(tiltedProfile, {
-          street, toCall: currentBet - p.betThisRound, pot, currentBet, playerBet: p.betThisRound,
+        return decideBotAction(tiltedProfile, {
+          street, toCall: round.currentBet - p.betThisRound, pot: round.pot,
+          currentBet: round.currentBet, playerBet: p.betThisRound,
           chips: p.chips, bb: BB, numActivePlayers: active().length,
           raiseLevel: street === 'preflop' ? preflopRaiseLevel : 0,
-          position: positions[p.id] || '', holeCards: p.holeCards ?? undefined, community,
+          position: positions[p.id] || '', holeCards: p.holeCards ?? undefined,
+          // Bots see only the cards dealt so far — the old code leaked the full
+          // 5-card runout into flop/turn decisions (clairvoyance bug)
+          community: street === 'preflop' ? []
+            : street === 'flop' ? community.slice(0, 3)
+            : street === 'turn' ? community.slice(0, 4)
+            : community,
           wasPreflopRaiser: p.id === preflopRaiserId, preflopCallers: preflopCallerCount,
           checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
           streetHistory: playerStreetActions.get(p.id) as any, tableDynamics: getTableDynamics(p.id),
           rng,
-        }, p.consistency)
-
-        if (action.type === 'fold') { p.folded = true; p.lastAction = 'fold'; actions.push(`${p.name} folds`) }
-        else if (action.type === 'check') { p.lastAction = 'check'; actions.push(`${p.name} checks`) }
-        else if (action.type === 'call') {
-          const amt = Math.min(currentBet - p.betThisRound, p.chips)
-          p.chips -= amt; p.betThisRound += amt; p.totalInvested += amt; pot += amt; p.lastAction = 'call'
-          actions.push(`${p.name} calls $${amt}`)
+        }, p.consistency) as EngineAction
+      }, (ep, _action, result) => {
+        const p = ep as SimPlayer
+        if (result.type === 'fold') { p.lastAction = 'fold'; actions.push(`${p.name} folds`) }
+        else if (result.type === 'check') { p.lastAction = 'check'; actions.push(`${p.name} checks`) }
+        else if (result.type === 'call') {
+          p.lastAction = 'call'
+          actions.push(`${p.name} calls $${result.amount}`)
           if (street === 'preflop') { botStats.get(p.id)!.vpipHands++; preflopCallerCount++ }
           botStats.get(p.id)!.callCount++
-        } else if (action.type === 'raise') {
-          const raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
-          const toAdd = raiseTotal - p.betThisRound
-          p.chips -= toAdd; p.betThisRound = raiseTotal; p.totalInvested += toAdd; pot += toAdd; currentBet = raiseTotal
-          p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
-          if (p.chips <= 0) handHadAllIn = true
-          actions.push(p.chips <= 0 ? `${p.name} goes ALL-IN $${raiseTotal}` : `${p.name} raises to $${raiseTotal}`)
+        } else {
+          p.lastAction = result.isAllIn ? 'all-in' : 'raise'
+          if (result.isAllIn) handHadAllIn = true
+          actions.push(result.isAllIn ? `${p.name} goes ALL-IN $${result.amount}` : `${p.name} raises to $${result.amount}`)
           if (street === 'preflop') { preflopRaiseLevel++; preflopRaiserId = p.id; botStats.get(p.id)!.vpipHands++; botStats.get(p.id)!.pfrHands++ }
           botStats.get(p.id)!.raiseCount++
-          for (const ap of active()) { if (ap.id !== p.id && ap.chips > 0) needsToAct.add(ap.id) }
         }
 
         if (street !== 'preflop') {
           const existing = playerStreetActions.get(p.id) || {}
           const key = street as 'flop' | 'turn'
-          if (key === 'flop' || key === 'turn') { existing[key] = action.type; playerStreetActions.set(p.id, existing) }
+          if (key === 'flop' || key === 'turn') { existing[key] = result.type; playerStreetActions.set(p.id, existing) }
         }
-        needsToAct.delete(p.id)
-        if (active().length <= 1) break
-        seat = (seat + 1) % count; loops++; if (loops >= count * 4) break
-      }
+      })
+      currentBet = round.currentBet
+      pot = round.pot
+      lastRaiseIncrement = round.lastRaiseIncrement
     }
 
     // Play streets
-    runBettingRound((bbSeat + 1) % count)
+    playBettingRound((bbSeat + 1) % count)
     const reachedFlop = active().length > 1
     if (!reachedFlop) preflopFoldOuts++
 
@@ -231,9 +238,10 @@ export async function runSimulation(
       if (activeChips().length <= 1 && active().length >= 2) continue
       for (const p of players) { p.betThisRound = 0; if (!p.folded) p.lastAction = null }
       currentBet = 0
+      lastRaiseIncrement = BB
       let startSeat = (dealerSeat + 1) % count
       for (let i = 0; i < count; i++) { const p = players[startSeat]; if (!p.folded && !p.eliminated && p.chips > 0) break; startSeat = (startSeat + 1) % count }
-      runBettingRound(startSeat)
+      playBettingRound(startSeat)
     }
 
     // Showdown

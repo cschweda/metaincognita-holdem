@@ -7,6 +7,10 @@ import { displayCard } from '~/utils/cards'
 import type { Card } from '~/utils/cards'
 import { assignPositions } from '~/utils/seats'
 import { chenScore, chenPlusScore, bestHand, detectDraws, HAND_RANK_NAMES } from '~/utils/handAnalysis'
+import config from '@config'
+import { getTableDynamics as sharedTableDynamics } from '~/utils/gameSimulation'
+import { applyEngineAction, startBettingRound } from '~/utils/bettingEngine'
+import type { BettingRound } from '~/utils/bettingEngine'
 import type { useGameState, PlayerState } from '~/composables/useGameState'
 
 export interface GameEngineOptions {
@@ -70,24 +74,13 @@ export function useGameEngine(options: GameEngineOptions) {
   const recentWinnerIds: number[] = []
 
   function getTableDynamics(botId: number) {
-    if (recentWinnerIds.length < 10) return undefined
-    const winCounts = new Map<number, number>()
-    for (const id of recentWinnerIds) winCounts.set(id, (winCounts.get(id) ?? 0) + 1)
-    const total = recentWinnerIds.length
-    let dominantId = -1, dominantWins = 0
-    for (const [id, wins] of winCounts) {
-      if (wins > dominantWins) { dominantId = id; dominantWins = wins }
-    }
-    const myWins = winCounts.get(botId) ?? 0
-    const avgStack = gs.playerStates.value.reduce((s, p) => s + (p.eliminated ? 0 : p.chips), 0) /
-      gs.playerStates.value.filter(p => !p.eliminated).length
-    return {
-      dominantPlayerId: dominantId,
-      dominantWinRate: dominantWins / total,
-      myRecentWinRate: myWins / total,
-      avgStackDepth: avgStack / bb.value,
-      handsInWindow: total,
-    }
+    return sharedTableDynamics(
+      recentWinnerIds,
+      gs.playerStates.value.filter(p => !p.eliminated).map(p => p.chips),
+      bb.value,
+      botId,
+      config.tableFlow.minHands,
+    )
   }
 
   function findSeatByPosition(label: string): number {
@@ -133,67 +126,61 @@ export function useGameEngine(options: GameEngineOptions) {
     scheduleTimeout(() => runBettingRound(preflopStart), 600)
   }
 
+  // Bridge the reactive state to the shared rules module. Player objects are
+  // mutated through their reactive proxies; scalar refs are snapshotted in and
+  // written back after each engine call. needsToAct is shared by reference.
+  function engineRound(): BettingRound {
+    return {
+      players: gs.playerStates.value,
+      currentBet: gs.currentBet.value,
+      lastRaiseIncrement: gs.lastRaiseIncrement.value,
+      pot: gs.pot.value,
+      bb: bb.value,
+      needsToAct: gs.needsToAct.value,
+    }
+  }
+  function writeBack(r: BettingRound) {
+    gs.currentBet.value = r.currentBet
+    gs.lastRaiseIncrement.value = r.lastRaiseIncrement
+    gs.pot.value = r.pot
+  }
+
   /**
    * Apply a player action and return whether it reopens betting (full raise).
-   * Enforces minimum raise rules: incomplete all-ins are allowed but don't
-   * reopen action for players who already acted at the current bet level.
+   * All betting legality (min-raise, half-raise rule, clamps, needsToAct)
+   * lives in the shared bettingEngine module; this wrapper adds the UI/log
+   * bookkeeping the live game needs.
    */
   function applyAction(p: PlayerState, action: { type: string; amount?: number }): boolean {
-    let isFullRaise = false
+    const betBefore = p.betThisRound
+    const r = engineRound()
+    const result = applyEngineAction(r, p.id,
+      action.type === 'raise'
+        ? { type: 'raise', amount: action.amount ?? 0 }
+        : { type: action.type as 'fold' | 'check' | 'call' })
+    writeBack(r)
 
-    if (action.type === 'fold') {
-      p.folded = true
+    if (result.type === 'fold') {
       p.lastAction = 'fold'
       p.currentBetAmount = 0
       gs.handActionLog.value.push(`${p.name} folds`)
-    } else if (action.type === 'check') {
+    } else if (result.type === 'check') {
       p.lastAction = 'check'
       p.currentBetAmount = 0
       gs.handActionLog.value.push(`${p.name} checks`)
-    } else if (action.type === 'call') {
-      const callAmt = Math.min(gs.currentBet.value - p.betThisRound, p.chips)
-      p.chips -= callAmt
-      p.betThisRound += callAmt
-      p.totalInvested += callAmt
-      if (p.id === 0) gs.heroTotalWagered.value += callAmt
-      gs.pot.value += callAmt
+    } else if (result.type === 'call') {
+      if (p.id === 0) gs.heroTotalWagered.value += result.amount
       p.lastAction = 'call'
-      p.currentBetAmount = callAmt
-      gs.handActionLog.value.push(`${p.name} calls $${callAmt}`)
-    } else if (action.type === 'raise') {
-      const prevBet = gs.currentBet.value
-      const minRaiseAmt = prevBet === 0
-        ? bb.value
-        : prevBet + Math.max(gs.lastRaiseIncrement.value, bb.value)
-
-      let raiseTotal = Math.min(action.amount!, p.chips + p.betThisRound)
-      const isAllIn = raiseTotal >= p.chips + p.betThisRound
-
-      // Enforce minimum raise — unless it's an all-in for less
-      if (!isAllIn && raiseTotal < minRaiseAmt) {
-        raiseTotal = Math.min(minRaiseAmt, p.chips + p.betThisRound)
-      }
-
-      // Half-raise rule: an incomplete raise (all-in below min) doesn't reopen action
-      isFullRaise = raiseTotal >= minRaiseAmt
-
-      const toAdd = raiseTotal - p.betThisRound
-      p.chips -= toAdd
-      p.betThisRound = raiseTotal
-      p.totalInvested += toAdd
-      gs.pot.value += toAdd
-      gs.currentBet.value = raiseTotal
-
-      // Update last raise increment for next min-raise calculation
-      gs.lastRaiseIncrement.value = Math.max(raiseTotal - prevBet, bb.value)
-
-      if (p.id === 0) gs.heroTotalWagered.value += toAdd
-      p.lastAction = p.chips <= 0 ? 'all-in' : 'raise'
-      p.currentBetAmount = raiseTotal
+      p.currentBetAmount = result.amount
+      gs.handActionLog.value.push(`${p.name} calls $${result.amount}`)
+    } else if (result.type === 'raise') {
+      if (p.id === 0) gs.heroTotalWagered.value += result.amount - betBefore
+      p.lastAction = result.isAllIn ? 'all-in' : 'raise'
+      p.currentBetAmount = result.amount
       gs.handActionLog.value.push(
-        p.chips <= 0
-          ? `${p.name} goes ALL-IN $${raiseTotal}`
-          : `${p.name} raises to $${raiseTotal}`,
+        result.isAllIn
+          ? `${p.name} goes ALL-IN $${result.amount}`
+          : `${p.name} raises to $${result.amount}`,
       )
       // Track escalation on preflop
       if (gs.street.value === 'preflop') {
@@ -222,7 +209,7 @@ export function useGameEngine(options: GameEngineOptions) {
       if (action.type === 'check') recentTableChecks++
     }
 
-    return isFullRaise
+    return result.reopened
   }
 
   async function runBettingRound(startSeat: number, resume: boolean = false) {
@@ -238,11 +225,9 @@ export function useGameEngine(options: GameEngineOptions) {
     }
 
     if (!resume) {
-      gs.needsToAct.value = new Set(
-        gs.playerStates.value
-          .filter(p => !p.folded && !p.eliminated && p.chips > 0)
-          .map(p => p.id),
-      )
+      const r = engineRound()
+      startBettingRound(r)
+      gs.needsToAct.value = r.needsToAct
     }
 
     let seat = startSeat
@@ -300,18 +285,9 @@ export function useGameEngine(options: GameEngineOptions) {
         } : undefined,
         tableDynamics: getTableDynamics(p.id),
       })
-      const reopensAction = applyAction(p, action)
-
-      gs.needsToAct.value.delete(p.id)
-
-      // Only reopen action for full raises (half-raise rule: short all-ins don't reopen)
-      if (action.type === 'raise' && reopensAction) {
-        for (const ap of gs.activePlayers.value) {
-          if (ap.id !== p.id && ap.chips > 0 && !ap.folded) {
-            gs.needsToAct.value.add(ap.id)
-          }
-        }
-      }
+      // applyAction delegates to the shared engine, which owns all
+      // needsToAct bookkeeping (actor removal + half-raise-aware reopens)
+      applyAction(p, action)
       skips = 0 // an action occurred — reset the orbit guard
 
       if (gs.activePlayers.value.length <= 1) break
@@ -392,7 +368,6 @@ export function useGameEngine(options: GameEngineOptions) {
     onHeroActivity?.()
     if (!gs.hero.value) return
     applyAction(gs.hero.value, { type: 'fold' })
-    gs.needsToAct.value.delete(gs.hero.value.id)
     gs.waitingForHero.value = false
     resumeBettingAfterHero()
   }
@@ -401,7 +376,6 @@ export function useGameEngine(options: GameEngineOptions) {
     onHeroActivity?.()
     if (!gs.hero.value) return
     applyAction(gs.hero.value, { type: 'check' })
-    gs.needsToAct.value.delete(gs.hero.value.id)
     gs.waitingForHero.value = false
     resumeBettingAfterHero()
   }
@@ -410,7 +384,6 @@ export function useGameEngine(options: GameEngineOptions) {
     onHeroActivity?.()
     if (!gs.hero.value) return
     applyAction(gs.hero.value, { type: 'call' })
-    gs.needsToAct.value.delete(gs.hero.value.id)
     gs.waitingForHero.value = false
     resumeBettingAfterHero()
   }
@@ -418,17 +391,8 @@ export function useGameEngine(options: GameEngineOptions) {
   function handleRaise(amount: number) {
     onHeroActivity?.()
     if (!gs.hero.value) return
-    const cappedAmount = Math.min(amount, gs.hero.value.chips + gs.hero.value.betThisRound)
-    const reopensAction = applyAction(gs.hero.value, { type: 'raise', amount: cappedAmount })
-    gs.needsToAct.value.delete(gs.hero.value.id)
-    // Only reopen action for full raises (half-raise rule)
-    if (reopensAction) {
-      for (const ap of gs.activePlayers.value) {
-        if (ap.id !== gs.hero.value.id && ap.chips > 0 && !ap.folded) {
-          gs.needsToAct.value.add(ap.id)
-        }
-      }
-    }
+    // Legality (stack clamp, min-raise, half-raise reopens) lives in the engine
+    applyAction(gs.hero.value, { type: 'raise', amount })
     gs.waitingForHero.value = false
     resumeBettingAfterHero()
   }
