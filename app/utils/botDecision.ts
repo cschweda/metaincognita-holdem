@@ -16,6 +16,11 @@ import type { Card } from './cards'
 import { chenScore, chenPlusScore, bestHand, detectDraws, type DrawInfo } from './handAnalysis'
 import { handRankIndex, handPercentile, handCategory, holeCardsToNotation, type HandCategory } from './ranges'
 import type { Rng } from './rng'
+import config from '../../holdem.config'
+
+// Strategy constants — single source of truth in holdem.config.ts (see the
+// strategy block there for tuning rules; changes require a probe re-run)
+const STRAT = config.strategy
 
 export interface BotProfile {
   vpip: number        // 0.10–0.50 — probability of voluntarily entering a pot
@@ -628,12 +633,8 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
       handPct = handPercentile(ctx.holeCards)
       rawHandPct = handPct
       // Position shift: late position makes hands more playable
-      const POS_SHIFT: Record<string, number> = {
-        'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.08, // D/SB = button in heads-up
-        'CO': -0.05, 'SB': 0, 'BB': -0.03,
-        'MP': 0, 'MP+1': 0, 'UTG': 0.03, 'UTG+1': 0.02,
-      }
-      handPct = Math.max(0, Math.min(1, handPct + (POS_SHIFT[ctx.position ?? ''] ?? 0)))
+      // D/SB = button in heads-up; table lives in config.strategy.posShift
+      handPct = Math.max(0, Math.min(1, handPct + (STRAT.posShift[ctx.position ?? ''] ?? 0)))
       // Per-persona range shape: Negreanu's suited connectors, Hellmuth's big cards
       if (profile.styleBias) {
         const bias = profile.styleBias[handCategory(holeCardsToNotation(ctx.holeCards))] ?? 0
@@ -718,8 +719,8 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
   // A 2.5bb open and a 25bb jam are different worlds: defense ranges shrink
   // continuously with size, and jam-like raises get premium-only continues.
   const openSizeBB = currentBet / bb
-  const sizePenalty = openSizeBB <= 3 ? 1.0 : Math.pow(3 / openSizeBB, 0.85)
-  const jamLike = toCall >= chips * 0.6 || (raiseLevel <= 1 && toCall >= bb * 15)
+  const sizePenalty = openSizeBB <= 3 ? 1.0 : Math.pow(3 / openSizeBB, STRAT.preflop.sizePenaltyExp)
+  const jamLike = toCall >= chips * STRAT.preflop.jamToCallStackRatio || (raiseLevel <= 1 && toCall >= bb * STRAT.preflop.jamOpenBBThreshold)
 
   if (jamLike) {
     // Vs a jam the continue range is equity-driven (raw percentile) and
@@ -736,11 +737,11 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // jam still gets the full wide defense; at 100bb the floor works out to
     // ~top 2% (QQ+/AK), at several hundred bb effectively KK+.
     const jamBB = toCall / bb
-    const sizeShrink = Math.min(1, Math.pow(20 / Math.max(jamBB, 15), 1.1))
-    const reraiseJamFloor = 0.85 * Math.sqrt(Math.min(1, 40 / Math.max(jamBB, 1)))
+    const sizeShrink = Math.min(1, Math.pow(20 / Math.max(jamBB, 15), STRAT.preflop.jamSizeShrinkExp))
+    const reraiseJamFloor = STRAT.preflop.reraiseJamFloorBase * Math.sqrt(Math.min(1, 40 / Math.max(jamBB, 1)))
     const jamSizeFactor = raiseLevel >= 2 ? Math.max(sizeShrink, reraiseJamFloor) : sizeShrink
-    const continueRange = Math.max(profile.fourBetFreq ?? 0.025, 0.04) * jamSizeFactor
-    if (rawHandPct < continueRange * 0.4 && chips > toCall) {
+    const continueRange = Math.max(profile.fourBetFreq ?? 0.025, STRAT.preflop.jamContinueFloor) * jamSizeFactor
+    if (rawHandPct < continueRange * STRAT.preflop.jamRaisePortion && chips > toCall) {
       return { type: 'raise', amount: chips + playerBet }
     }
     if (rawHandPct < continueRange) return { type: 'call' }
@@ -753,7 +754,7 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     // Cold-call range is very narrow — only in position with hands too weak to 3-bet but too strong to fold.
     const reraiseFreq = profile.threeBetFreq ?? (profile.pfr * 0.45 * profile.aggression)
     const valueFreq = reraiseFreq * 0.55 * Math.sqrt(sizePenalty)   // top hands by card quality
-    const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15) * Math.pow(sizePenalty, 1.5)
+    const bluffRate = (reraiseFreq * 0.45) / Math.max(effectiveVpip, 0.15) * Math.pow(sizePenalty, STRAT.preflop.bluffSizePenaltyExp)
 
     const ipPositions = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO']
     const inPosition = ipPositions.includes(ctx.position ?? '')
@@ -991,14 +992,14 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     d.type.includes('Flush') || d.type.includes('straight'))
 
   // Made hand classification — draws and made hands are independent axes
-  const hasMonster = strength >= 0.55
-  const hasStrongHand = strength >= 0.35
+  const hasMonster = strength >= STRAT.postflop.monsterStrength
+  const hasStrongHand = strength >= STRAT.postflop.strongStrength
   // A draw is a DRAWING hand (flush/straight draw) that isn't already strong
   const hasDraw = hasFlushOrStraightDraw && !hasStrongHand
   // Weak made hands: bottom pair, weak kicker, etc. — NOT draws
-  const hasWeakMade = !hasFlushOrStraightDraw && strength >= 0.10 && strength < 0.35
+  const hasWeakMade = !hasFlushOrStraightDraw && strength >= STRAT.postflop.weakMadeStrength && strength < STRAT.postflop.strongStrength
   // Nothing: no made hand AND no draw
-  const hasNothing = strength < 0.10 && !hasFlushOrStraightDraw
+  const hasNothing = strength < STRAT.postflop.weakMadeStrength && !hasFlushOrStraightDraw
 
   // Street awareness context
   const isPreflopRaiser = ctx.wasPreflopRaiser ?? false
@@ -1043,10 +1044,10 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       // SPR adjustment: shallow = bet more (committed), deep = be cautious
       const sprMod = isShallowSPR ? 1.15 : isDeepSPR ? 0.85 : 1.0
 
-      const cbetRate = (hasStrongHand ? (board?.isDry ? 0.85 : board?.isWet ? 0.55 : 0.65)
-        : hasDraw ? 0.50 + profile.aggression * 0.10
-        : hasWeakMade ? (board?.isDry ? 0.40 : 0.25)
-        : (0.15 + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod * ipAggBoost
+      const cbetRate = (hasStrongHand ? (board?.isDry ? STRAT.cbet.strongDry : board?.isWet ? STRAT.cbet.strongWet : STRAT.cbet.strongNeutral)
+        : hasDraw ? STRAT.cbet.drawBase + profile.aggression * 0.10
+        : hasWeakMade ? (board?.isDry ? STRAT.cbet.weakMadeDry : STRAT.cbet.weakMadeOther)
+        : (STRAT.cbet.airBase + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod * ipAggBoost
       if (rng() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
@@ -1081,11 +1082,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         : 1.0
       // Multiway discount on turn too
       const turnMulti = isMultiway ? 0.70 : 1.0
-      const barrelRate = (hasMonster ? 0.90
-        : hasStrongHand ? 0.70
-        : hasDraw ? 0.45 + profile.aggression * 0.10
+      const barrelRate = (hasMonster ? STRAT.barrel.turnMonster
+        : hasStrongHand ? STRAT.barrel.turnStrong
+        : hasDraw ? STRAT.barrel.turnDrawBase + profile.aggression * 0.10
         : hasNothing ? profile.bluffFreq * 0.5 * profile.aggression
-        : 0.25) * turnTexture * turnMulti * ipAggBoost
+        : STRAT.barrel.turnDefault) * turnTexture * turnMulti * ipAggBoost
       if (rng() < barrelRate) {
         const betSize = sizedBet(pot, 0.50 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }

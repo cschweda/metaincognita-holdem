@@ -131,6 +131,43 @@ export default {
   },
 
   // ─── Tilt & Deviation ───────────────────────────────────────
+  // ─── Bot Strategy Constants ──────────────────────────────────
+  // Lifted verbatim from botDecision.ts so difficulty can be tuned or
+  // A/B-tested without editing branch logic. These are the audited
+  // baselines validated by the exploit probe (README Security, Round 5);
+  // any change here requires re-running `yarn probe` — nit-value and
+  // 3bet-jam pull the jam-defense values in opposite directions.
+  strategy: {
+    // Percentile shift by position: negative = plays wider (late position)
+    posShift: {
+      'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.08,
+      'CO': -0.05, 'SB': 0, 'BB': -0.03,
+      'MP': 0, 'MP+1': 0, 'UTG': 0.03, 'UTG+1': 0.02,
+    } as Record<string, number>,
+    preflop: {
+      sizePenaltyExp: 0.85,        // value 3-bet range shrink vs open size
+      bluffSizePenaltyExp: 1.5,    // bluff 3-bet range shrink vs open size
+      jamToCallStackRatio: 0.6,    // toCall >= chips * this → jam-like
+      jamOpenBBThreshold: 15,      // raiseLevel<=1 && toCall >= bb*this → jam-like
+      jamSizeShrinkExp: 1.1,       // continue-range shrink vs jam size
+      reraiseJamFloorBase: 0.85,   // reraise-jam defense floor (decays with size)
+      jamContinueFloor: 0.04,      // minimum jam-continue range
+      jamRaisePortion: 0.4,        // top fraction of continue range that reraises
+    },
+    postflop: {
+      monsterStrength: 0.55,       // strength >= this → monster
+      strongStrength: 0.35,        // strength >= this → strong made hand
+      weakMadeStrength: 0.10,      // strength in [this, strong) → weak made
+    },
+    cbet: {
+      strongDry: 0.85, strongWet: 0.55, strongNeutral: 0.65,
+      drawBase: 0.50, weakMadeDry: 0.40, weakMadeOther: 0.25, airBase: 0.15,
+    },
+    barrel: {
+      turnMonster: 0.90, turnStrong: 0.70, turnDrawBase: 0.45, turnDefault: 0.25,
+    },
+  },
+
   tilt: {
     // Trigger conditions (either can fire)
     bigLossThreshold: 0.30,              // single loss > 30% of stack triggers tilt
