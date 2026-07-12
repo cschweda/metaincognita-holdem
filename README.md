@@ -1265,7 +1265,22 @@ There is no server-side code anywhere — no database, no serverless functions, 
 
 ### Audit Log
 
-#### Round 4 — Desktop & CI hardening (June 2026) — current
+#### Round 5 — Engine integrity: unified betting rules + deterministic probe (July 2026) — current
+
+Scope: the betting-rules engine across all four execution paths (live game, browser sim, CLI sim, exploit probe), RNG injectability, and the CI difficulty gate.
+
+| # | Severity | Finding | Status |
+|---|----------|---------|--------|
+| 1 | High | **Betting rules had diverged across the four implementations** — only the live engine enforced minimum raises and the half-raise/reopen rule; both simulators and the exploit probe accepted illegal raise sizes, and two still used the `loops >= count*4` betting cap the live engine had replaced (it can truncate legitimate multi-raise rounds). Persona validation and the CI difficulty gate were measuring bots under different rules than the game the user plays. | **Fixed** — one shared `bettingEngine.ts` (min-raise, half-raise, skip-guard termination) now consumed by all four paths; the live engine delegates legality to it and keeps only UI bookkeeping. |
+| 2 | Medium | **Browser-sim bots were clairvoyant** — `simulateBrowser.ts` passed the full 5-card runout into flop/turn decision contexts, so `/analysis` bots made decisions knowing future cards. The CLI sim and probe correctly sliced by street. | **Fixed** — community cards are street-sliced identically in all paths. |
+| 3 | Medium | **CI exploit-probe gate was flaky by construction** — a statistical pass/fail over unseeded `Math.random()`; a sound strategy could randomly breach the bound, and failures could never be reproduced. | **Fixed** — an injectable RNG (`mulberry32`) threads through dealing, decisions, and tilt; the gate is seeded per strategy with a byte-identical repeat-run test. |
+| 4 | Low | **Split-pot odd chip always went to the lowest player id**, deterministically favoring low seats over a session. | **Fixed** — remainder goes to the first tied player clockwise from the button (standard rule). |
+| 5 | Low | **PokerStars export silently dropped fractional amounts** (`raises to $12.5` at Micro/Low/High stakes) — integer-only regexes, while the parser accepted decimals. | **Fixed** — decimal-safe matching, PokerStars-style formatting. |
+
+Post-unification probe battery (6,000 hands per strategy, 100bb resets): every degenerate strategy loses under the real rules — open-jam −253.5 / −323.1 bb/100 (seeds 20260712 / 999), 3bet-jam −293.7 / −349.1, overbet-spam −1009.6 / −1166.3, minraise-spam −943.7 / −845.8, station −1085.3 / −1078.3, nit-value −18.0 / +2.4. Nit-value remains the knife-edge — its mean sits in the noise band around zero (a real leak historically shows +15 to +50), so the +10 bb/100 CI bound stands unchanged.
+
+<details>
+<summary><strong>Round 4 — Desktop & CI hardening (June 2026)</strong></summary>
 
 Scope: the new Tauri desktop build, the GitHub Actions release pipeline, and the offline icon-bundling change.
 
@@ -1278,6 +1293,8 @@ Scope: the new Tauri desktop build, the GitHub Actions release pipeline, and the
 | 5 | Info | **CI workflow injection** — does any untrusted input reach a `run:` step? | **Confirmed safe** — only `github.ref_name` and `secrets.GITHUB_TOKEN` are interpolated, and only as `tauri-action` inputs, never into a shell command. |
 | 6 | Info | **Tauri IPC surface** | **Confirmed minimal** — no custom commands, `core:default` capability only, no `fs` / `shell` / `http` plugins, `withGlobalTauri` disabled. |
 | 7 | Info | **`route.query.hand` is fed into the hand-history parser** (`replay-hand.vue`). | **Confirmed safe** — parsed into structured objects rendered through Vue escaping; the worst case is a parse error. No sink. |
+
+</details>
 
 <details>
 <summary><strong>Round 3 — Static SPA / local-only audit (2026)</strong></summary>
