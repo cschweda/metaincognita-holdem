@@ -51,8 +51,9 @@ that makes bot difficulty measurable, tunable, and trustworthy. Player-facing fe
   - The sims (`simulateBrowser.ts`, `scripts/simulate.ts`) and `scripts/exploit-probe.ts`
     accept a seed and construct one `mulberry32` stream per run.
 - Tests: same seed → byte-identical sim output twice; `tests/exploit-probe.test.ts` pins a
-  seed so the CI gate is deterministic. Statistical suites get seeds for reproducibility
-  without changing their assertion bands.
+  seed so the CI gate is deterministic. The other statistical suites (phase4-*) keep their
+  band assertions unseeded for now — re-seeding them shifts sampled distributions and risks
+  band churn unrelated to this work; seeding them is cheap follow-up once the engine lands.
 
 **Alternatives considered:** module-global `setRng()` (simpler call sites, but hidden state
 breaks test isolation); a DI class (over-engineering). Parameter threading chosen.
