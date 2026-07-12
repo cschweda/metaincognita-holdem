@@ -28,6 +28,11 @@ function cardsToPS(cards: string): string {
   return cards.split(' ').filter(Boolean).map(toPS).join(' ')
 }
 
+// PokerStars amount style: whole dollars bare ($12), cents two-decimal ($12.50)
+function fmtAmt(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
+
 function boardToPS(board: string): string {
   if (!board) return ''
   return board.split(' ').filter(Boolean).map(toPS).join(' ')
@@ -128,14 +133,14 @@ export function toPokerStarsFormat(
     const checkMatch = action.match(/^(.+?) checks$/)
     if (checkMatch) { lines.push(`${checkMatch[1]}: checks`); continue }
 
-    const callMatch = action.match(/^(.+?) calls \$(\d+)$/)
-    if (callMatch) { lines.push(`${callMatch[1]}: calls $${callMatch[2]}`); continue }
+    const callMatch = action.match(/^(.+?) calls \$([0-9.]+)$/)
+    if (callMatch) { lines.push(`${callMatch[1]}: calls $${fmtAmt(parseFloat(callMatch[2]))}`); continue }
 
-    const raiseMatch = action.match(/^(.+?) raises to \$(\d+)$/)
-    if (raiseMatch) { lines.push(`${raiseMatch[1]}: raises to $${raiseMatch[2]}`); continue }
+    const raiseMatch = action.match(/^(.+?) raises to \$([0-9.]+)$/)
+    if (raiseMatch) { lines.push(`${raiseMatch[1]}: raises to $${fmtAmt(parseFloat(raiseMatch[2]))}`); continue }
 
-    const allInMatch = action.match(/^(.+?) goes ALL-IN \$(\d+)$/)
-    if (allInMatch) { lines.push(`${allInMatch[1]}: bets $${allInMatch[2]} and is all-in`); continue }
+    const allInMatch = action.match(/^(.+?) goes ALL-IN \$([0-9.]+)$/)
+    if (allInMatch) { lines.push(`${allInMatch[1]}: bets $${fmtAmt(parseFloat(allInMatch[2]))} and is all-in`); continue }
   }
 
   // Showdown
