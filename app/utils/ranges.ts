@@ -68,12 +68,16 @@ export function holeCardsToNotation(hole: [Card, Card]): string {
   return `${high}${low}${a.suit === b.suit ? 's' : 'o'}`
 }
 
+const HAND_INDEX = new Map(ALL_HANDS.map((h, i) => [h, i]))
+
 /**
  * Get the hand's rank index in ALL_HANDS (0 = best, 168 = worst).
  * Returns -1 if not found (shouldn't happen with a standard deck).
+ * O(1) map lookup — the preflop path calls this several times per
+ * decision, millions of times per simulation run.
  */
 export function handRankIndex(hole: [Card, Card]): number {
-  return ALL_HANDS.indexOf(holeCardsToNotation(hole))
+  return HAND_INDEX.get(holeCardsToNotation(hole)) ?? -1
 }
 
 // Combos per hand class: pair = 6, suited = 4, offsuit = 12 (1326 total).

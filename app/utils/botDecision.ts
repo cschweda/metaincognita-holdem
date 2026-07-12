@@ -414,7 +414,7 @@ function chenToPercentile(chen: number): number {
  * Returns a hand strength score 0-1 for postflop decisions.
  * 0 = nothing, 1 = monster. Includes draw equity.
  */
-function postflopHandStrength(holeCards: [Card, Card], community: Card[]): number {
+function postflopHandStrength(holeCards: [Card, Card], community: Card[], knownDraws?: DrawInfo[]): number {
   if (community.length < 3) return 0.5
 
   const result = bestHand(holeCards, community)
@@ -538,7 +538,7 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[]): numbe
   // Flush draws: 9 outs, ~5% blocked on average → 0.95 discount
   // OESD: 8 outs, ~10% blocked → 0.90 discount
   // Gutshot: 4 outs, ~15-20% blocked → 0.82 discount (fewer outs = blockers matter more)
-  const draws = detectDraws(holeCards, community)
+  const draws = knownDraws ?? detectDraws(holeCards, community)
   for (const draw of draws) {
     if (draw.type.includes('Flush draw')) strength = Math.max(strength, 0.33 * 0.95)
     if (draw.type.includes('Open-ended')) strength = Math.max(strength, 0.28 * 0.90)
@@ -937,8 +937,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // ─── Card-aware hand strength ──────────────────────────
   // When no cards provided (backward compat / tests), use pure probabilistic mode
   const cardAware = !!(ctx.holeCards && ctx.community && ctx.community.length >= 3)
+  // Detect draws once — postflopHandStrength and the decision logic below
+  // share the same scan (it used to run twice per decision)
+  const decisionDraws: DrawInfo[] = cardAware ? detectDraws(ctx.holeCards!, ctx.community!) : []
   const strength = cardAware
-    ? postflopHandStrength(ctx.holeCards!, ctx.community!)
+    ? postflopHandStrength(ctx.holeCards!, ctx.community!, decisionDraws)
     : -1 // sentinel: use old probabilistic logic
 
   // ─── Board texture analysis ───────────────────────────
@@ -987,7 +990,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const isDeepSPR = spr > 12     // deep — be cautious committing, more positional play
 
   // Explicit draw detection (not inferred from strength ranges — fixes bucket overlap)
-  const draws: DrawInfo[] = cardAware ? detectDraws(ctx.holeCards!, ctx.community!) : []
+  const draws: DrawInfo[] = decisionDraws
   const hasFlushOrStraightDraw = draws.some(d =>
     d.type.includes('Flush') || d.type.includes('straight'))
 
