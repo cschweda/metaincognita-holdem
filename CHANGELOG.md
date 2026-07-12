@@ -8,10 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **One betting engine** (`app/utils/bettingEngine.ts`) — minimum-raise enforcement, the half-raise/reopen rule, and skip-guard termination now live in a single framework-free module consumed by the live game, the browser simulator, the CLI simulator, and the exploit probe. Before this, only the live engine enforced min-raises: the sims accepted illegal raise sizes and two of them still used the `count*4` lap cap the live engine had already replaced — so persona validation and the CI difficulty gate were measuring bots under different rules than the game you actually play. Contract tests in `tests/betting-engine.test.ts` (a 20-raise war terminates only when action closes; short all-ins don't reopen; sub-min raises clamp up).
+- **Seedable RNG** (`app/utils/rng.ts`, mulberry32) — threaded through dealing, all 63 randomness sites in bot decisions, tilt, the Monte Carlo analysis loops, and both simulators. `yarn probe all 6000 <seed>` and `simulate.ts --seed=N` reproduce byte-identically; the CI exploit-probe gate is seeded per strategy (it was a statistical pass/fail over unseeded randomness — flaky by construction, and failures could never be reproduced locally).
+- **Typecheck** — root `tsconfig.json` + `yarn typecheck` (vue-tsc). The codebase had no tsconfig, so nothing had ever type-checked; 471 initial errors triaged (index-access strictness deferred via `noUncheckedIndexedAccess: false`, all 23 genuine errors fixed — including a dead river branch in the OOP donk logic and a tilt-config tuple mismatch).
+- **Typed personas** — `Persona` interface exported from `botDecision.ts`; the config personas array is annotated (`satisfies Persona[] as Persona[]`), killing every `(p as any)` persona read across the sims, probe, and setup UI. Field-name typos in `holdem.config.ts` now fail typecheck instead of silently reading as `undefined`.
+- **`config.strategy` block** — the position-shift table, jam-defense factors, 3-bet size-penalty exponents, postflop strength cutoffs, and c-bet/turn-barrel base rates lifted verbatim from `botDecision.ts` branch logic into `holdem.config.ts`. This is the prerequisite for the roadmap difficulty slider. Seeded probe battery byte-identical before/after the move.
+- **MC benchmark** (`scripts/bench-mc.ts`) — before/after harness for the analysis hot loops.
 - **CI engine-leak gate** (`tests/exploit-probe.test.ts` + `.github/workflows/ci.yml`) — the exploit probe now runs as a regression test on every push/PR: each degenerate hero strategy must stay below +10 bb/100. The gate immediately caught a real leak the old probe's noise had hidden (see Fixed).
 - **Bitmask hand evaluator** (`handAnalysis.ts`) — `eval7`/`rank7`/`handCategory7` compute hand category and tiebreaks from rank/suit bitmasks with no 21-combo enumeration; equity estimation, hand-probability simulation, and side-pot resolution use them in hot loops. The brute-force evaluator survives as `bestHandOracle`, with an equivalence suite (`tests/bitmask-evaluator.test.ts`) proving identical rank/score/name/ordering over 100k+ random hands.
 
 ### Fixed
+- **Browser-sim clairvoyance** (`simulateBrowser.ts`) — `/analysis` bots received the full 5-card runout in their flop/turn decision contexts (the CLI sim and probe correctly sliced by street), so browser-sim stats were computed from bots that could see the future. Community cards are now street-sliced identically in all paths.
+- **Split-pot odd chip** (`sidePots.ts`) — remainders always went to the lowest player id, deterministically favoring low seats over a session; now awarded to the first tied player clockwise from the button (standard rule). All five callers pass their dealer seat.
+- **PokerStars export dropped fractional amounts** (`pokerStarsExport.ts`) — the action regexes were integer-only, so `raises to $12.5` at Micro/Low/High stakes silently vanished from exported histories while the parser accepted decimals. Amounts now format PokerStars-style (whole bare, cents two-decimal).
+- **Sort-by-3-bet NaN** (`bots.vue`) — sorting personas by `threeBetFreq` compared `undefined` for personas without the field, producing NaN comparisons and unstable order.
 - **Nit-value leak: reraise-jam defense floor now decays with jam size** (`botDecision.ts`) — the v0.18.1 floor that keeps the table wide vs any-two reraise-jam-spam was flat (0.85), so bots called even 100bb 3-bet jams with top ~3.4% hands (TT/AQs) — paying off a hero who jams only QQ+/AK. The floor now gets full weight vs jams ≤40bb and decays as `sqrt(40/jamBB)`: ~top 2% (QQ+/AK) vs a 100bb reraise-jam, ~KK+ at several hundred bb. Probe: nit-value **+64 → −14 bb/100** while 3bet-jam any-two stays ruinous (−314 bb/100).
 - **Exploit-probe harness: stacks pin to exactly 100bb every hand** (`scripts/exploit-probe.ts`) — the old refill-only-below-40bb rule let winners' stacks balloon past 1,000bb, so a few monster coolers dominated the metric (±100 bb/100 swings run-to-run, the "±38 noise" was really much worse). Constant depth makes every hand an i.i.d. sample and the CI gate stable (~±3 bb/100 at 10k hands).
 - **`yarn probe` silently did nothing** — the CLI guard checked `process.argv[1]` for the script name, which vite-node consumes; keyed off `process.env.VITEST` instead.
@@ -21,7 +31,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Betting-round orbit guard** — the round now ends only when a full lap finds nobody able to act, replacing a fixed iteration cap that could truncate a legitimate multi-raise multiway pot mid-action (engine + probe harness).
 - **Unbiased lineup shuffle** — bot lineup selection used `sort(() => Math.random() - 0.5)`; replaced with a Fisher-Yates util (`shuffle.ts`). Card decks were already correct.
 
+### Changed
+- **Table-flow gate unified** — one `getTableDynamics` (config-driven `minHands`) replaces three drifted copies (live 10, browser sim 5, CLI config); the browser sim now waits the same 10 hands before heater/cold adjustments as the live game.
+- **Escalation counting unified to live semantics** — the sims/probe now bump the preflop raise level on any applied raise (as the live engine always has), instead of gating on `raiseTotal > currentBet`.
+- **analyzeHand runs one Monte Carlo pass** — equity and hand-improvement probabilities come from the same 1,000 seeded runouts (was two independent 1,000 + 800-iteration simulations); improvement probabilities now sample 1,000 runouts postflop.
+
+### Performance
+- **`analyzeHand` ~1.7x faster** (32ms → ~19ms per 20 flop calls) from the merged runout pass; the shared loop builds the deck once, partial-shuffles only the drawn prefix, and reuses one 7-card buffer into `rank7`. `estimateEquity` alone gains only ~10% — the loop is eval-bound (~0.25µs per `rank7`), so further gains require a faster evaluator, not loop surgery.
+- **O(1) preflop hand index** — `handRankIndex` uses a precomputed Map instead of an O(169) `indexOf` that ran several times per preflop decision; the full test suite dropped from ~114s to ~80s, dominated by the N=500k escalation sims.
+- **One draw scan per postflop decision** — `decidePostflopAction` shares its `detectDraws` result with `postflopHandStrength` (the same 7 cards were scanned twice).
+
+### Security
+- **Red/blue audit — Round 5 (Engine integrity).** Full findings in the README Security audit log: the rules-divergence, clairvoyance, and probe-flakiness fixes above, plus the post-unification probe battery (all six degenerate strategies lose; nit-value remains the knife-edge in the noise band around zero, −18.0 / +2.4 bb/100 across two seeds).
+
 ### Documentation
+- README: test counts refreshed (836 tests / 27 files), Security audit log Round 5 added.
 - README: exploit-probe section rewritten — corrected run command (`yarn probe all 10000`), fresh fixed-depth results for all six strategies, and a post-mortem of the nit-value leak replacing the old "+64 bb/100 is fine, as in real life" rationalization.
 
 ## [0.19.0] - 2026-06-24

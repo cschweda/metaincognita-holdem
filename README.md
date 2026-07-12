@@ -92,7 +92,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
   - [Prerequisites](#prerequisites) · [Running in Development](#running-in-development) · [Building a Release Locally](#building-a-release-locally) · [CI Release Pipeline](#ci-release-pipeline)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 796 tests across 19 files
+- [Test Suites](#test-suites) -- 836 tests across 27 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log (web + desktop)
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Desktop Hardening](#desktop-hardening-tauri) · [Accepted Risks](#accepted-risks)
@@ -854,7 +854,7 @@ Four levels of verification, each more realistic than the last:
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
 | Desktop | Tauri 2 (Rust core + OS WebView) -- macOS / Windows / Linux |
-| Testing | Vitest (796 tests across 19 files) |
+| Testing | Vitest (836 tests across 27 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1108,7 +1108,7 @@ holdem-simulator/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 19 Vitest test suites (796 tests)
+├── tests/                         # 27 Vitest test suites (836 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1139,7 +1139,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (796 tests, 19 files, ~20 seconds)
+Run all tests: `yarn test` (836 tests, 27 files, ~80 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
