@@ -22,6 +22,8 @@ import { useCommentary } from '~/composables/useCommentary'
 import type { PlayerState } from '~/composables/useGameState'
 import { useHeroProfileStore } from '~/stores/heroProfile'
 import { useCareerStore } from '~/stores/career'
+import { useNemesisStore } from '~/stores/nemesis'
+import { blendProfiles } from '~/utils/heroModel'
 import { shuffle } from '~/utils/shuffle'
 import { isPro as isProBot } from '~/utils/botDescriptions'
 
@@ -30,6 +32,10 @@ const { session, initSession, recordHand, resetSession, downloadJSON, downloadCS
 const settings = ref<GameSettings | null>(null)
 const heroProfileStore = useHeroProfileStore()
 const careerStore = useCareerStore()
+const nemesisStore = useNemesisStore()
+// Mirror of the session store's pending sizing list — the book classifies
+// showdown sizings itself rather than reaching into another store's internals
+let heroPendingSizings: number[] = []
 const careerMode = ref(false)
 
 // Career sessions arrive with a pendingSession set by /career's Play button.
@@ -66,6 +72,7 @@ function startCareerSession() {
     botConfigs,
     guestMode: false,
     commentaryMode: 'hero',
+    nemesisEnabled: true, // career sessions always face the book
   })
 }
 
@@ -239,7 +246,7 @@ const engine = useGameEngine({
     const personaConfig = config.personas.find(per => per.name === botConfig.name)
     const consistency = personaConfig?.consistency ?? 0.95
 
-    const heroProfile: HeroProfile | undefined = heroProfileStore.handsTracked >= config.sessionMemory.windowSize
+    const sessionProfile: HeroProfile | undefined = heroProfileStore.handsTracked >= config.sessionMemory.windowSize
       ? {
           vpip: heroProfileStore.heroVpip,
           foldTo3Bet: heroProfileStore.heroFoldTo3Bet,
@@ -249,6 +256,16 @@ const engine = useGameEngine({
           betSizingTell: heroProfileStore.betSizingTell,
         }
       : undefined
+
+    // Nemesis: blend the live session read with the persistent book, then
+    // scale this bot's exploitation by its own familiarity with the hero
+    let heroProfile: HeroProfile | undefined = sessionProfile
+    if (settings.value?.nemesisEnabled) {
+      const blended = blendProfiles(sessionProfile, nemesisStore.bookProfile, config.nemesis)
+      heroProfile = blended
+        ? { ...blended, readStrength: nemesisStore.familiarityFor(botConfig.name) }
+        : undefined
+    }
 
     return decideBotAction(
       profile,
@@ -357,6 +374,7 @@ function handleStart(gameSettings: GameSettings) {
 function heroRaise(amount: number) {
   if (gs.street.value !== 'preflop' && gs.pot.value > 0) {
     heroProfileStore.recordHeroBetSizing(amount / gs.pot.value)
+    heroPendingSizings.push(amount / gs.pot.value)
   }
   engine.handleRaise(amount)
 }
@@ -551,7 +569,7 @@ function endHand() {
     const foldedToCbet = facedCbet
       && flopLog.some((a, i) => i > flopLeadIdx && a.includes(heroName) && a.includes('folds'))
 
-    heroProfileStore.recordHeroAction({
+    const heroRecord = {
       enteredPot: !heroState.folded || gs.heroTotalWagered.value > bb.value,
       faced3Bet,
       foldedTo3Bet,
@@ -560,7 +578,13 @@ function endHand() {
       raiseCount: log.filter(a => a.includes(heroName) && isRaiseLine(a)).length,
       callCount: log.filter(a => a.includes(heroName) && a.includes('calls')).length,
       checkCount: log.filter(a => a.includes(heroName) && a.includes('checks')).length,
-    })
+    }
+    heroProfileStore.recordHeroAction(heroRecord)
+    // The book learns in every mode (exploitation is gated separately)
+    nemesisStore.record(
+      heroRecord,
+      settings.value?.botConfigs.slice(0, (settings.value?.playerCount ?? 1) - 1).map(b => b.name) ?? [],
+    )
 
     // Bet-sizing tell: classify hero's hand at multi-player showdowns
     const othersAtShowdown = gs.playerStates.value.filter(p => !p.isHero && !p.folded && !p.eliminated).length
@@ -571,6 +595,11 @@ function endHand() {
       heroStrong = !!heroResult && heroResult.rank >= 2 // two pair or better
     }
     heroProfileStore.finalizeHandSizing(heroAtShowdown ? { shown: true, strong: heroStrong } : null)
+    if (heroAtShowdown && heroPendingSizings.length > 0) {
+      const avg = heroPendingSizings.reduce((sum, x) => sum + x, 0) / heroPendingSizings.length
+      nemesisStore.recordSizing(avg, heroStrong)
+    }
+    heroPendingSizings = []
   }
 
   // Record hand for session stats

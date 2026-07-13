@@ -21,6 +21,7 @@ export interface GameSettings {
   botConfigs: BotConfig[]
   guestMode: boolean
   commentaryMode: 'off' | 'hero' | 'tv'
+  nemesisEnabled: boolean
 }
 
 export interface BotConfig {
@@ -52,6 +53,10 @@ const showAdvanced = ref(false)
 // The composable reads this via syncFromStorage() when the game starts.
 type CommentaryChoice = 'off' | 'hero' | 'tv'
 const commentaryChoice = ref<CommentaryChoice>('hero')
+
+// Nemesis — bots exploit their persistent book on you. Off by default in
+// quick-play (practice stays neutral); career sessions are always on.
+const nemesisEnabled = ref(false)
 
 const proBots = config.personas.filter(p => !FICTIONAL_NAMES.includes(p.name))
 const fictionalBots = config.personas.filter(p => FICTIONAL_NAMES.includes(p.name))
@@ -173,6 +178,7 @@ function handleStart() {
     botConfigs: activeBots.value,
     guestMode: false,
     commentaryMode: commentaryChoice.value,
+    nemesisEnabled: nemesisEnabled.value,
   })
 }
 </script>
@@ -465,6 +471,34 @@ function handleStart() {
         <template v-if="commentaryChoice === 'off'">No commentary panel. Standard poker trainer experience.</template>
         <template v-else-if="commentaryChoice === 'hero'">Real-time text play-by-play from your perspective. Only your cards are visible — opponents face-down.</template>
         <template v-else>WSOP-style TV broadcast with Chorman Nad &amp; Mon LeEachern (our homage to Norman Chad &amp; Lon McEachern). All cards shown face-up — like watching poker on TV. You still make all decisions.</template>
+      </div>
+    </div>
+
+    <!-- Nemesis Mode -->
+    <div class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-300 font-medium">Bots Remember You</span>
+        <span class="text-[0.55rem] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 uppercase">Optional</span>
+      </div>
+      <div class="flex rounded-lg overflow-hidden border border-gray-700/50">
+        <button
+          v-for="opt in ([
+            { value: false, label: 'Off' },
+            { value: true, label: 'On' },
+          ] as const)"
+          :key="String(opt.value)"
+          class="flex-1 py-2 text-xs font-semibold transition-colors"
+          :class="nemesisEnabled === opt.value
+            ? 'bg-gray-700 text-white'
+            : 'text-gray-500 hover:text-gray-300'"
+          @click="nemesisEnabled = opt.value"
+        >
+          {{ opt.label }}
+        </button>
+      </div>
+      <div class="text-xs text-gray-500">
+        <template v-if="nemesisEnabled">Opponents use their persistent book on your leaks — each bot exploits you as hard as its own history with you allows. Check any bot's profile for the scouting report.</template>
+        <template v-else>Opponents adapt only within this session. They still learn your game for later (career sessions always use the book).</template>
       </div>
     </div>
 
