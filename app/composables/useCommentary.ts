@@ -712,7 +712,7 @@ export function useCommentary(gs: GS) {
 
         // Quick equity
         if (numOpp >= 1) {
-          const eq = estimateEquity(h.holeCards, community, numOpp, 200)
+          const eq = Math.round(estimateEquity(h.holeCards, community, numOpp, 200) * 10) / 10
           addHero(`Equity vs ${numOpp} opponent${numOpp > 1 ? 's' : ''}: ~${eq}%.`, 'aside')
         }
 
@@ -853,7 +853,7 @@ export function useCommentary(gs: GS) {
         }
 
         if (numOpp >= 1) {
-          const eq = estimateEquity(h.holeCards, turnComm, numOpp, 200)
+          const eq = Math.round(estimateEquity(h.holeCards, turnComm, numOpp, 200) * 10) / 10
           addHero(`Equity vs ${numOpp}: ~${eq}%.`, 'aside')
         }
 
@@ -949,7 +949,7 @@ export function useCommentary(gs: GS) {
         }
 
         if (numOpp >= 1) {
-          const eq = estimateEquity(h.holeCards, community, numOpp, 200)
+          const eq = Math.round(estimateEquity(h.holeCards, community, numOpp, 200) * 10) / 10
           addHero(`Final equity: ~${eq}%.`, 'aside')
         }
 

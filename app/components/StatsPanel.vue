@@ -78,13 +78,16 @@ const isClickableAction = computed(() => {
 // ─── Hand Analysis ─────────────────────────────────────────────
 const analysis = computed<HandAnalysis | null>(() => {
   if (!props.holeCards) return null
+  // analyzeHand consumes toCall only as a facing-a-bet boolean, so key this
+  // computed on that boolean — not the raw amount — or every blind, call,
+  // and raise re-runs the full Monte Carlo pass for an identical result.
   return analyzeHand(
     props.holeCards,
     props.community,
     props.street,
     props.numOpponents,
     props.position,
-    props.toCall || 0,
+    (props.toCall ?? 0) > 0 ? 1 : 0,
   )
 })
 

@@ -324,8 +324,11 @@ describe('Preflop scenarios — realistic action sequences', () => {
 
     // Twan should 4-bet ~4% (live full-ring realism; was ~9%)
     expect(raises / n).toBeGreaterThan(0.025)
-    // Should not fold more than 85%
-    expect(folds / n).toBeLessThan(0.85)
+    // Should not fold too often. True rate measured at 0.8466 ± 0.0006
+    // (200k hands × 5 seeds); the old < 0.85 band left only 0.34pp of
+    // margin against a 0.36pp sampling σ at n=10k — it failed on any +1σ
+    // draw, which was THE recurring CI flake before the suite was seeded.
+    expect(folds / n).toBeLessThan(0.87)
   })
 
   it('passive bot mostly folds to escalation', () => {
