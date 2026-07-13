@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import config from '@config'
 import { describeBotStyle } from '~/utils/botDescriptions'
+import { useNemesisStore } from '~/stores/nemesis'
 import type { BotConfig } from '~/components/SetupScreen.vue'
 
 const props = defineProps<{
@@ -21,6 +22,24 @@ const statDefs = [
 ]
 
 const styleDesc = computed(() => describeBotStyle(props.botConfig))
+
+// ─── Nemesis scouting report ──────────────────────────────────
+const nemesis = useNemesisStore()
+const showResetConfirm = ref(false)
+const minReads = config.nemesis.minHandsForReads
+const familiarity = computed(() => nemesis.familiarityFor(props.botConfig.name))
+const famTier = computed(() => {
+  const f = familiarity.value
+  if (f >= 0.8) return { label: 'Nemesis', tone: 'text-red-400' }
+  if (f >= 0.4) return { label: 'Regular', tone: 'text-orange-400' }
+  if (f >= 0.1) return { label: 'Noticing you', tone: 'text-yellow-400' }
+  return { label: 'Stranger', tone: 'text-gray-500' }
+})
+const handsFaced = computed(() => Math.round(nemesis.model.familiarity[props.botConfig.name] ?? 0))
+function confirmReset() {
+  nemesis.reset()
+  showResetConfirm.value = false
+}
 </script>
 
 <template>
@@ -71,6 +90,27 @@ const styleDesc = computed(() => describeBotStyle(props.botConfig))
 
         <div class="flex items-center justify-between text-xs text-gray-500 pt-2">
           <span>Tilt: <span class="text-white font-mono">{{ botConfig.tiltMultiplier?.toFixed(1) ?? '1.0' }}x</span></span>
+        </div>
+
+        <!-- Nemesis scouting report -->
+        <div class="border-t border-gray-800 pt-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">What they know about you</h4>
+            <span class="text-xs font-semibold" :class="famTier.tone">{{ famTier.label }} · {{ handsFaced }} hands</span>
+          </div>
+          <template v-if="nemesis.reads.length">
+            <ul class="space-y-1">
+              <li v-for="(read, i) in nemesis.reads" :key="i" class="text-xs text-gray-300">• {{ read }}</li>
+            </ul>
+            <p class="text-[0.65rem] text-gray-600">Reads are the table's shared book on you — this player acts on it to the degree they know your game.</p>
+          </template>
+          <p v-else class="text-xs text-gray-600">No book on you yet — fewer than {{ minReads }} hands observed.</p>
+          <UButton size="xs" variant="ghost" color="error" @click="() => { showResetConfirm = true }">Reset what bots know</UButton>
+          <div v-if="showResetConfirm" class="flex items-center gap-2 text-xs">
+            <span class="text-gray-400">Wipe the book and all familiarity?</span>
+            <UButton size="xs" color="error" @click="confirmReset">Wipe</UButton>
+            <UButton size="xs" variant="ghost" color="neutral" @click="() => { showResetConfirm = false }">Cancel</UButton>
+          </div>
         </div>
       </div>
     </template>
