@@ -59,6 +59,7 @@ export interface HeroProfile {
   foldToCbet: number     // how often hero folds to c-bets (0–1)
   aggression: number     // hero's observed aggression factor
   handsTracked: number   // total hands in the tracking window
+  readStrength?: number  // 0..1 — how much of the adaptation this bot has earned (nemesis familiarity); absent = 1
   betSizingTell?: {      // detected bet-sizing pattern (after 8+ showdown hands)
     hasTell: boolean
     bigWithValue: boolean  // true = hero bets big with strong, small with bluffs
@@ -288,8 +289,11 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
   }
 
   // ─── Apply hero adaptation if enough data ─────
-  let adaptedProfile = heroProfile && heroProfile.handsTracked >= 10
-    ? applyHeroAdaptation(profile, heroProfile)
+  // readStrength (nemesis familiarity) scales the adaptation delta:
+  // a stranger plays the hero straight, a regular plays the full exploit.
+  const readStrength = heroProfile?.readStrength ?? 1
+  let adaptedProfile = heroProfile && heroProfile.handsTracked >= 10 && readStrength > 0
+    ? lerpProfiles(profile, applyHeroAdaptation(profile, heroProfile), readStrength)
     : profile
 
   // ─── Table Flow: adjust for table dynamics ─────
@@ -310,6 +314,21 @@ export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consi
  * Adjust bot profile based on observed hero tendencies.
  * Returns a modified copy — original is not mutated.
  */
+/** Lerp every numeric field from base toward full by t (nemesis familiarity). */
+function lerpProfiles(base: BotProfile, full: BotProfile, t: number): BotProfile {
+  if (t >= 1) return full
+  if (t <= 0) return base
+  const out: BotProfile = { ...full }
+  for (const k of Object.keys(full) as (keyof BotProfile)[]) {
+    const b = base[k]
+    const f = full[k]
+    if (typeof b === 'number' && typeof f === 'number') {
+      ;(out as unknown as Record<string, unknown>)[k as string] = b + (f - b) * t
+    }
+  }
+  return out
+}
+
 function applyHeroAdaptation(base: BotProfile, hero: HeroProfile): BotProfile {
   const adapted = { ...base }
 
@@ -1245,7 +1264,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // Carl (agg 0.60): boost 1.24x — calls down more. Twan (agg 1.50): boost 0.80x — folds or raises.
   // Hero bet-sizing exploitation: if hero has a sizing tell, adjust call/raise willingness
   let sizingExploit = 1.0
-  if (heroProfile?.betSizingTell?.hasTell) {
+  if (heroProfile?.betSizingTell?.hasTell && (heroProfile.readStrength ?? 1) >= 0.4) {
     const currentSizing = toCall / Math.max(pot, 1)
     const tell = heroProfile.betSizingTell
     if (tell.bigWithValue) {
