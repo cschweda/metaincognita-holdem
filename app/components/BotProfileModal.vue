@@ -96,7 +96,7 @@ function confirmReset() {
         <div class="border-t border-gray-800 pt-3 space-y-2">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">What they know about you</h4>
-            <span class="text-xs font-semibold" :class="famTier.tone">{{ famTier.label }} · {{ handsFaced }} hands</span>
+            <span class="text-xs font-semibold" :class="famTier.tone">{{ famTier.label }} · {{ handsFaced }} {{ handsFaced === 1 ? 'hand' : 'hands' }}</span>
           </div>
           <template v-if="nemesis.reads.length">
             <ul class="space-y-1">

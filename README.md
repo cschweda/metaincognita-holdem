@@ -72,6 +72,12 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Run history** -- busted and retired careers archive to a hall of fame (peak bankroll, peak tier, hands)
 - All pacing numbers in `holdem.config.ts` → `career`
 
+### Nemesis Bots
+- **Bots keep a book on you** -- one persistent, decay-weighted model of your leaks (500-hand half-life; old reads fade as you improve)
+- **Familiarity matters** -- each persona exploits you only as hard as its own history with you: a stranger plays you straight, a 300-hand regular plays the full exploit
+- **Scouting report** -- every bot's profile modal shows what they know ("Folds to 3-bets 68% → 3-betting you wider") and their familiarity tier, up to Nemesis
+- **Always learning, opt-in exploitation** -- career sessions always face the book; quick-play has a "Bots Remember You" toggle (default off). One-click reset.
+
 ### Tools & Export
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
 - **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
