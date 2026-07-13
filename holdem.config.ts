@@ -193,6 +193,19 @@ export default {
     } as Record<number, string[]>,
   },
 
+  // ─── Nemesis (cross-session opponent modeling) ───────────────
+  // One persistent decay-weighted "book" on the hero; each persona's
+  // exploitation strength scales with its own familiarity (hands faced).
+  // Learning is always on; exploitation is career-always / quick-play toggle.
+  nemesis: {
+    halfLifeHands: 500,    // old reads fade with a 500-hand half-life
+    minHandsForReads: 30,  // book silent below this effective sample
+    famDivisor: 30,        // familiarity curve: ln(1 + h/div) / ln(1 + full/div)
+    famFull: 300,          // hands to reach full-strength exploitation
+    blendDiv: 10,          // book blend weight = min(effHands/div, cap)
+    blendCap: 20,
+  },
+
   tilt: {
     // Trigger conditions (either can fire)
     bigLossThreshold: 0.30,              // single loss > 30% of stack triggers tilt
