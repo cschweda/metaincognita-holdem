@@ -814,8 +814,10 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
 
       <!-- Main layout -->
       <div class="flex flex-col xl:flex-row gap-4 max-w-[110rem] mx-auto items-start">
-        <!-- Commentary column (left) -->
-        <div class="hidden xl:block w-80 shrink-0 xl:sticky xl:top-4">
+        <!-- Commentary column (left). Sticks below the app bar (h-9 = 2.25rem)
+             plus the original 1rem gap, so it doesn't slide under the hub exit
+             while you scroll a long hand. -->
+        <div class="hidden xl:block w-80 shrink-0 xl:sticky xl:top-13">
           <CommentaryPanel
             :lines="commentary.lines.value"
             :enabled="commentary.enabled.value"

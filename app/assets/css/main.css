@@ -71,3 +71,22 @@
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/*
+ * App shell — reclaim the height of the top bar.
+ *
+ * Every page predates the bar and is authored as a standalone full-viewport
+ * screen: `min-h-screen` on the page root, and again on the inner panes that
+ * center "Session Paused" / "Busted" / the replay loading + error states.
+ * Stacked under a 36px bar, those 100vh boxes overflow the viewport — every
+ * route would pick up a permanent ~36px scrollbar and the centered panes would
+ * sit ~18px low.
+ *
+ * So rebase "one screen" onto the space below the bar, rather than rewriting a
+ * dozen `min-h-screen` sites across seven pages. Unlayered on purpose: plain
+ * CSS outranks Tailwind's layered utilities, which is what lets this win over
+ * `min-h-screen` without !important.
+ */
+.app-main .min-h-screen {
+  min-height: calc(100vh - 2.25rem); /* 2.25rem = h-9, the bar */
+}
