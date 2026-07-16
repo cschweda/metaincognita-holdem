@@ -55,7 +55,7 @@ const seats = computed(() => {
 
       <!-- Community cards area -->
       <div class="absolute inset-0 flex items-center justify-center">
-        <div class="flex gap-2">
+        <div class="flex gap-1 sm:gap-2">
           <slot name="community" />
         </div>
       </div>
@@ -72,7 +72,9 @@ const seats = computed(() => {
       :key="seat.index"
       class="absolute -translate-x-1/2 -translate-y-1/2 z-10"
       :style="{
-        left: `${seat.coords.x}%`,
+        /* clamp keeps edge seats on-screen when the table is narrower than
+           ~2 seat-widths per side (phones); no-op at desktop widths */
+        left: `clamp(3.75rem, ${seat.coords.x}%, calc(100% - 3.75rem))`,
         top: `${seat.coords.y}%`,
       }"
     >

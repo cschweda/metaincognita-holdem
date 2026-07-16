@@ -129,7 +129,9 @@ const engine = useGameEngine({
       raiseLevel,
       position: positions.value[p.id] || '',
       holeCards: p.holeCards ?? undefined,
-      community: gs.allCommunity.value.length > 0 ? gs.allCommunity.value : undefined,
+      // Street-sliced board only — decideBotAction re-slices defensively,
+      // but never hand the full runout to a decision in the first place.
+      community: gs.visibleCommunity.value.length > 0 ? gs.visibleCommunity.value : undefined,
       wasPreflopRaiser: streetContext?.wasPreflopRaiser,
       preflopCallers: streetContext?.preflopCallers,
       streetHistory: streetContext?.streetHistory as any,
@@ -179,6 +181,7 @@ function findDealerSeat(): number {
 function startReplay() {
   if (!originalHand.value) return
 
+  engine.cleanup() // restarting mid-replay: invalidate the previous run's timers
   replayPhase.value = 'playing'
   replayResult.value = null
   gs.dealerSeat.value = findDealerSeat()
@@ -228,8 +231,12 @@ function startReplay() {
   gs.resetGameState()
   gs.handActionLog.value = [`--- PREFLOP: ${positions.value[0] || ''} ---`]
 
-  setTimeout(() => engine.postBlindsAndStartBetting(), 400)
+  engine.schedule(() => engine.postBlindsAndStartBetting(), 400)
 }
+
+// This page is not kept alive — leaving mid-replay must stop the bot loop
+// instead of letting it run against an unmounted component.
+onUnmounted(() => engine.cleanup())
 
 function endHand() {
   gs.activeSeat.value = -1

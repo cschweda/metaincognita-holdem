@@ -37,17 +37,22 @@ export function useStatsData() {
     try {
       const saved = localStorage.getItem('holdem-session-stats')
       if (saved) localSession.value = JSON.parse(saved)
+      // Inside the try on purpose: a valid-JSON payload with a broken shape
+      // (hands not an array / null entries) must not escape the guard — an
+      // uncaught throw here leaves the stats page on its spinner forever.
+      mapLocalSessionToHands()
     } catch (e) {
       console.warn('Failed to parse session stats from localStorage:', e instanceof Error ? e.message : e)
       localStorage.removeItem('holdem-session-stats')
+      localSession.value = null
+      hands.value = []
     }
 
-    mapLocalSessionToHands()
     loading.value = false
   }
 
   function mapLocalSessionToHands() {
-    if (localSession.value?.hands) {
+    if (Array.isArray(localSession.value?.hands)) {
       hands.value = localSession.value.hands.map((h: HandRecord, i: number) => ({
         id: `local-${i}`, session_id: localSession.value!.id,
         hand_number: h.handNumber, hole_cards: h.holeCards, board: h.board,

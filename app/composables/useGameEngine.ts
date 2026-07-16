@@ -36,8 +36,11 @@ export function useGameEngine(options: GameEngineOptions) {
   const botDelay = options.botDelay ?? { min: 800, max: 2000, heroFoldedMin: 150, heroFoldedMax: 350 }
   const paused = ref(false)
 
-  // Timeout tracking for cleanup on unmount
+  // Timeout tracking for cleanup on unmount / game teardown. The epoch
+  // invalidates async betting loops that are parked on an awaited sleep when
+  // cleanup fires — clearing timers alone can't stop a loop already past one.
   const pendingTimeouts: ReturnType<typeof setTimeout>[] = []
+  let epoch = 0
   function scheduleTimeout(fn: () => void, ms: number) {
     const id = setTimeout(() => {
       const idx = pendingTimeouts.indexOf(id)
@@ -48,8 +51,25 @@ export function useGameEngine(options: GameEngineOptions) {
     return id
   }
   function cleanup() {
+    epoch++
     for (const id of pendingTimeouts) clearTimeout(id)
     pendingTimeouts.length = 0
+  }
+
+  // Tracked, pausable sleep: the timer is cancellable by cleanup(), and when
+  // pauseRef is set the promise holds until unpaused (used for TV-mode pause
+  // and for freezing bots while the page is deactivated).
+  function sleep(ms: number, pauseRef?: Ref<boolean>): Promise<void> {
+    return new Promise(resolve => {
+      scheduleTimeout(async () => {
+        if (pauseRef?.value) {
+          await new Promise<void>(unpause => {
+            const stop = watch(pauseRef, (v) => { if (!v) { stop(); unpause() } })
+          })
+        }
+        resolve()
+      }, ms)
+    })
   }
 
   // Track preflop raise level for escalation
@@ -215,6 +235,7 @@ export function useGameEngine(options: GameEngineOptions) {
   }
 
   async function runBettingRound(startSeat: number, resume: boolean = false) {
+    const gen = epoch // cleanup() during an awaited sleep invalidates this loop
     const count = gs.playerStates.value.length
 
     // All-in check: if fewer than 2 players have chips, skip betting entirely
@@ -269,6 +290,7 @@ export function useGameEngine(options: GameEngineOptions) {
         gs.botThinkingInsight.value = buildThinkingInsight(p, gs)
       }
       await sleep(delay, paused)
+      if (gen !== epoch) return // game was torn down while this bot "thought"
       gs.botThinkingInsight.value = null
 
       const currentRaiseLevel = gs.street.value === 'preflop' ? preflopRaiseLevel : 0
@@ -433,23 +455,10 @@ export function useGameEngine(options: GameEngineOptions) {
     handleRaise,
     resumeBettingAfterHero,
     recordHandWinner,
+    schedule: scheduleTimeout,
     cleanup,
     paused,
   }
-}
-
-function sleep(ms: number, pauseRef?: Ref<boolean>): Promise<void> {
-  return new Promise(resolve => {
-    setTimeout(async () => {
-      // If paused, wait until unpaused
-      if (pauseRef?.value) {
-        await new Promise<void>(unpause => {
-          const stop = watch(pauseRef, (v) => { if (!v) { stop(); unpause() } })
-        })
-      }
-      resolve()
-    }, ms)
-  })
 }
 
 /**

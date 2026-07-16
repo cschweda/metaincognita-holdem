@@ -89,7 +89,7 @@ const actionBadge = computed(() => {
     <!-- Hole cards (hidden once folded) -->
     <div
       v-if="!folded"
-      class="flex gap-2"
+      class="flex gap-1 sm:gap-2"
       :class="{ 'cursor-pointer': peekable && !isHero && holeCards }"
       @click="togglePeek"
     >
@@ -106,13 +106,13 @@ const actionBadge = computed(() => {
         />
       </template>
       <template v-else>
-        <div class="w-16 h-[5.5rem] rounded-lg border border-dashed border-gray-600/30" />
-        <div class="w-16 h-[5.5rem] rounded-lg border border-dashed border-gray-600/30" />
+        <div class="w-10 h-14 sm:w-16 sm:h-[5.5rem] rounded-lg border border-dashed border-gray-600/30" />
+        <div class="w-10 h-14 sm:w-16 sm:h-[5.5rem] rounded-lg border border-dashed border-gray-600/30" />
       </template>
     </div>
 
     <!-- Folded indicator (replaces cards) -->
-    <div v-if="folded" class="h-[5.5rem] flex items-center">
+    <div v-if="folded" class="h-14 sm:h-[5.5rem] flex items-center">
       <span class="text-xs text-red-400/60 uppercase tracking-wide font-semibold">Folded</span>
     </div>
 
@@ -127,7 +127,7 @@ const actionBadge = computed(() => {
 
     <!-- Nameplate -->
     <div
-      class="rounded-lg px-3 py-1.5 text-center min-w-24 border shadow-lg transition-all duration-300"
+      class="rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center min-w-0 sm:min-w-24 border shadow-lg transition-all duration-300"
       :class="[
         isHero
           ? 'bg-amber-900/80 border-amber-600/50 text-amber-50'

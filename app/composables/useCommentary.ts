@@ -104,21 +104,17 @@ export function useCommentary(gs: GS) {
   const enabled = ref(true)
   const mode = ref<CommentaryMode>('hero')
 
-  const normanSilence = ref(
-    typeof localStorage !== 'undefined'
-      ? parseInt(localStorage.getItem('holdem-norman-silence') || '40', 10)
-      : 40,
-  )
-  const lonAnalysis = ref(
-    typeof localStorage !== 'undefined'
-      ? parseInt(localStorage.getItem('holdem-lon-analysis') || '60', 10)
-      : 60,
-  )
-  const normanSerious = ref(
-    typeof localStorage !== 'undefined'
-      ? parseInt(localStorage.getItem('holdem-norman-serious') || '30', 10)
-      : 30,
-  )
+  // Sliders are 0-100 percentages; storage is user-editable, so a non-numeric
+  // value must fall back (NaN would silently disable both commentators and
+  // then get persisted back as the string "NaN").
+  function loadSlider(key: string, fallback: number): number {
+    if (typeof localStorage === 'undefined') return fallback
+    const v = parseInt(localStorage.getItem(key) || String(fallback), 10)
+    return Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : fallback
+  }
+  const normanSilence = ref(loadSlider('holdem-norman-silence', 40))
+  const lonAnalysis = ref(loadSlider('holdem-lon-analysis', 60))
+  const normanSerious = ref(loadSlider('holdem-norman-serious', 30))
 
   // No localStorage for enabled/mode — set directly by handleStart() from setup screen choice
   let prevSilence = -1

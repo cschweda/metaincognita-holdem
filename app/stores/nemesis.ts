@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import config from '@config'
 import {
   emptyModel, decayAndRecord, recordSizing as ruleRecordSizing,
-  modelToHeroProfile, familiarityOf, describeReads,
+  modelToHeroProfile, familiarityOf, describeReads, sanitizeHeroModel,
 } from '~/utils/heroModel'
 import type { PersistentHeroModel } from '~/utils/heroModel'
 import type { HeroHandRecord } from '~/stores/heroProfile'
@@ -27,9 +27,11 @@ export const useNemesisStore = defineStore('nemesis', () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
-      const parsed = JSON.parse(raw) as PersistentHeroModel
-      if (parsed?.version !== 1) return
-      model.value = parsed
+      // localStorage is user-editable: shape-validate, don't just version-check.
+      // Runs inside live bot decisions — a tampered field must never throw there.
+      const sane = sanitizeHeroModel(JSON.parse(raw))
+      if (!sane) return
+      model.value = sane
     } catch {
       // corrupted/unavailable storage → fresh book
     }

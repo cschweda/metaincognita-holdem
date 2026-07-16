@@ -44,6 +44,45 @@ export function emptyModel(): PersistentHeroModel {
 
 const rate = (r: DecayedRate, fallback = 0) => (r.den > 0 ? r.num / r.den : fallback)
 
+/**
+ * Validate a persisted (user-editable) payload into a usable model.
+ * Rebuilds every field with finite-number fallbacks so a tampered value can
+ * never throw inside bot decisions or the scouting report; returns null only
+ * when the payload isn't a version-1 object at all (caller starts a fresh book).
+ */
+export function sanitizeHeroModel(raw: unknown): PersistentHeroModel | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  if (r.version !== 1) return null
+
+  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0)
+  const rateOf = (v: unknown): DecayedRate => {
+    const o = (typeof v === 'object' && v !== null ? v : {}) as Record<string, unknown>
+    return { num: num(o.num), den: num(o.den) }
+  }
+  const agg = (typeof r.aggression === 'object' && r.aggression !== null ? r.aggression : {}) as Record<string, unknown>
+  const siz = (typeof r.sizing === 'object' && r.sizing !== null ? r.sizing : {}) as Record<string, unknown>
+
+  const familiarity: Record<string, number> = {}
+  if (typeof r.familiarity === 'object' && r.familiarity !== null) {
+    for (const [k, v] of Object.entries(r.familiarity)) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue
+      if (typeof v === 'number' && Number.isFinite(v) && v > 0) familiarity[k] = v
+    }
+  }
+
+  return {
+    version: 1,
+    effectiveHands: num(r.effectiveHands),
+    vpip: rateOf(r.vpip),
+    foldTo3Bet: rateOf(r.foldTo3Bet),
+    foldToCbet: rateOf(r.foldToCbet),
+    aggression: { raises: num(agg.raises), calls: num(agg.calls) },
+    sizing: { strongSum: num(siz.strongSum), strongN: num(siz.strongN), weakSum: num(siz.weakSum), weakN: num(siz.weakN) },
+    familiarity,
+  }
+}
+
 /** Fold one hand into the book: decay everything, then add the observation. */
 export function decayAndRecord(
   model: PersistentHeroModel,

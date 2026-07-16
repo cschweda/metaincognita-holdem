@@ -17,11 +17,13 @@ const props = withDefaults(defineProps<{
   size: 'md',
 })
 
+// Each size shrinks below the `sm` breakpoint (640px) so the table fits phone
+// viewports without per-usage overrides.
 const sizeClasses = computed(() => {
   switch (props.size) {
-    case 'sm': return { card: 'w-16 h-[5.5rem]', rank: 'text-base', suit: 'text-2xl', corner: 'text-xs' }
-    case 'lg': return { card: 'w-28 h-[10rem]', rank: 'text-3xl', suit: 'text-5xl', corner: 'text-base' }
-    default: return { card: 'w-20 h-[7rem]', rank: 'text-xl', suit: 'text-3xl', corner: 'text-sm' }
+    case 'sm': return { card: 'w-10 h-14 sm:w-16 sm:h-[5.5rem]', rank: 'text-sm sm:text-base', suit: 'text-lg sm:text-2xl', corner: 'text-[0.6rem] sm:text-xs' }
+    case 'lg': return { card: 'w-20 h-[7.25rem] sm:w-28 sm:h-[10rem]', rank: 'text-xl sm:text-3xl', suit: 'text-3xl sm:text-5xl', corner: 'text-sm sm:text-base' }
+    default: return { card: 'w-14 h-20 sm:w-20 sm:h-[7rem]', rank: 'text-base sm:text-xl', suit: 'text-xl sm:text-3xl', corner: 'text-xs sm:text-sm' }
   }
 })
 

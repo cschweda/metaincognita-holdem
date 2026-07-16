@@ -1278,7 +1278,29 @@ There is no server-side code anywhere — no database, no serverless functions, 
 
 ### Audit Log
 
-#### Round 5 — Engine integrity: unified betting rules + deterministic probe (July 2026) — current
+#### Round 6 — Live-path integrity: clairvoyance, keep-alive lifecycle, persistence guards (July 2026) — current
+
+Scope: whole-app red/blue sweep across three lanes (hidden-information fairness, injection/persistence, resource lifecycle), focused on the code added since Round 5 (career mode, Nemesis, hub exit) plus re-verification of every standing claim. Fixes were applied in-round; two findings remain open by design decision.
+
+| # | Severity | Finding | Status |
+|---|----------|---------|--------|
+| 1 | High | **Live-game bots were clairvoyant** — Round 5 street-sliced the simulators but not the live table: `index.vue` (and `replay.vue`) passed the full 5-card runout into every bot decision context, so on the flop a bot evaluated its final 7-card hand and the turn/river-card branches ran on future cards. The CI difficulty gate was calibrated on fair bots while the shipped game played cheating ones. | **Fixed** — street-slice at the single `decideBotAction` entry point (no caller can hand a bot future cards) plus `visibleCommunity` at both call sites; contract pinned by `tests/information-hygiene.test.ts`; seeded probe battery byte-identical on both recorded seeds (the probe path was already fair — the live table now matches its calibration). |
+| 2 | High | **The game kept playing itself after you left** — `engine.cleanup()` existed but had no callers, bot "thinking" sleeps were untracked, and the keep-alive game page kept acting and recording hands while you browsed `/stats` or `/career`; a stale timer could act into a freshly dealt hand, and `backToSetup()` mid-hand left the loop dereferencing emptied state. | **Fixed** — epoch guard invalidates in-flight betting loops, sleeps are tracked/cancellable, every teardown path (setup, rebuy, timeout, career leave, replay restart/unmount) calls cleanup, and route deactivation pauses bots / activation resumes them. Browser-verified: at most one in-flight action completes while away; clean resume on return. |
+| 3 | High | **Career sessions failed to start from a cached table page** — `pendingSession` was consumed only in `onMounted`, but the game page is kept alive: the 2nd+ "Play" from `/career` debited the buy-in and left you on the old table with no locked session. | **Fixed** — consumed in `onActivated` with an active-session guard; browser-verified across consecutive Play/leave cycles. |
+| 4 | Medium | **Persistence guards checked `version` but not shape** — a valid-JSON tampered/corrupt payload could brick `/career` in a render-throw loop (no in-app reset exists), throw inside live bot decisions (nemesis book), strand `/stats` on its spinner (mapping ran outside the guard), or crash `recordHand` mid-game; session-stats `localStorage.setItem` was uncaught, so quota exhaustion aborted the tail of `endHand`. | **Fixed** — `sanitizeCareerState` / `sanitizeHeroModel` validate-and-repair on load (fresh-default fallback, malformed history entries filtered, proto keys dropped); stats mapping moved inside its guard with shape checks; all session-stats writes go through a warn-once quota-guarded writer; commentary sliders NaN-clamp. 14 new tests including hostile-storage store loads. |
+| 5 | Medium | **`/replay-hand?hand=%` crashed the page** — unguarded `decodeURIComponent` in `onMounted` threw `URIError` on malformed shared links and aborted the mount. | **Fixed** — guarded; malformed URLs get a parse error and the paste box. |
+| 6 | Medium | **Bot "thinking insight" reveals the acting bot's hidden hand to the hero mid-hand** — the pill under the table prints Chen scores, made-hand class ("Made hand: Flush"), and draw outs computed from the bot's own hole cards, and only renders while the hero is still in the hand. | **Open** — design decision: gate behind a study-mode toggle or render only after the hero folds. Until then, Hero-POV session stats overstate the hero. |
+| 7 | Medium | **`public/analysis.html` loads `cdn.tailwindcss.com`** — blocked by the site's own CSP (`script-src` has no such origin), so the page renders unstyled in production; it is also a stale hardcoded snapshot duplicating `/analysis` and the app's only external runtime fetch. | **Open** — recommend deleting the static page (or inlining its styles if it must stay). |
+| 8 | Low | **Hotkeys stayed live on other routes** — the cached game page's `keydown` listener kept intercepting keys everywhere; pressing `f` on `/stats` folded the hero in the background game. | **Fixed** — listener bound on activation, removed on deactivation; browser-verified inert. |
+| 9 | Low | **Reload mid-career-session refunds the full buy-in** — a free undo of any losing locked session (`refundAbandoned` on store load). | **Accepted** — documented refresh-to-undo tradeoff: table state isn't persisted mid-hand, and punishing every crash/accidental reload as a loss is worse for a training tool. Revisit if career results ever become comparable/shared. |
+| 10 | Info | **Peek-to-reveal bot cards is ungated in Hero POV**, face-down card values sit in the DOM (CSS-flipped), and hand histories/exports include unshown bot hole cards. | **Accepted** — single-player local trainer: the full deck lives in client memory regardless, so the DOM is not a security boundary; peeking only cheats yourself. Noted for a future "strict training" toggle. |
+
+Re-verified clean (standing claims still hold): no `v-html` / `innerHTML` / `eval` / `document.write` anywhere; Nemesis learning is fair — betting behavior only, sizing tell gated on real showdowns, never mucked cards; hero-POV equity is vs. ranges, never actual bot hands; prototype pollution not exploitable (persistence replaces, never merges); the PokerStars parser is total (never throws on any paste); Netlify headers and SPA redirects intact; Fisher-Yates deck shuffle unbiased.
+
+Post-fix probe battery (6,000 hands per strategy, seeds 20260712 / 999): byte-identical to Round 5's recorded numbers, nit-value −18.0 / +2.4 bb/100 unchanged — expected, since the probe path was already street-sliced; the fix aligns the live table with the gate's calibration. Test suite grew 879 → 896.
+
+<details>
+<summary><strong>Round 5 — Engine integrity: unified betting rules + deterministic probe (July 2026)</strong></summary>
 
 Scope: the betting-rules engine across all four execution paths (live game, browser sim, CLI sim, exploit probe), RNG injectability, and the CI difficulty gate.
 
@@ -1291,6 +1313,8 @@ Scope: the betting-rules engine across all four execution paths (live game, brow
 | 5 | Low | **PokerStars export silently dropped fractional amounts** (`raises to $12.5` at Micro/Low/High stakes) — integer-only regexes, while the parser accepted decimals. | **Fixed** — decimal-safe matching, PokerStars-style formatting. |
 
 Post-unification probe battery (6,000 hands per strategy, 100bb resets): every degenerate strategy loses under the real rules — open-jam −253.5 / −323.1 bb/100 (seeds 20260712 / 999), 3bet-jam −293.7 / −349.1, overbet-spam −1009.6 / −1166.3, minraise-spam −943.7 / −845.8, station −1085.3 / −1078.3, nit-value −18.0 / +2.4. Nit-value remains the knife-edge — its mean sits in the noise band around zero (a real leak historically shows +15 to +50), so the +10 bb/100 CI bound stands unchanged.
+
+</details>
 
 <details>
 <summary><strong>Round 4 — Desktop & CI hardening (June 2026)</strong></summary>

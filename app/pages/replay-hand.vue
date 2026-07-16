@@ -238,8 +238,14 @@ async function loadSample() {
 onMounted(() => {
   const route = useRoute()
   if (route.query.hand) {
-    inputText.value = decodeURIComponent(route.query.hand as string)
-    parseAndLoad()
+    // Hand-crafted/shared URLs can carry malformed escapes ("?hand=%") —
+    // decodeURIComponent throws URIError and would abort the whole mount.
+    try {
+      inputText.value = decodeURIComponent(route.query.hand as string)
+      parseAndLoad()
+    } catch {
+      parseError.value = 'The hand in the URL is malformed — paste the hand history below instead.'
+    }
   }
 })
 

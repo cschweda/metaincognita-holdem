@@ -142,6 +142,66 @@ export function archiveRun(state: CareerState, cfg: CareerConfig, endedBy: 'bust
   return freshCareer(cfg, now, [...state.archivedRuns, run])
 }
 
+/**
+ * Validate a persisted (user-editable) payload into a usable CareerState.
+ * Returns null when the money/tier core is unusable (caller starts fresh);
+ * repairs non-critical fields and filters malformed history entries so a
+ * bad byte in localStorage can never crash-loop a page.
+ */
+export function sanitizeCareerState(raw: unknown, stakes: StakeLevel[], now: string): CareerState | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  if (r.version !== 1) return null
+
+  const nonNeg = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
+  const tierValid = (t: unknown): t is number =>
+    typeof t === 'number' && Number.isFinite(t) && stakes.some(s => s.level === t)
+
+  if (!nonNeg(r.bankroll)) return null
+  if (!tierValid(r.currentTier)) return null
+  const bankroll = r.bankroll
+  const currentTier = r.currentTier
+
+  const SESSION_ENDS: SessionEnd[] = ['leave', 'felted', 'timeout', 'abandoned']
+  const sessions = (Array.isArray(r.sessions) ? r.sessions : []).filter((s): s is CareerSessionRecord => {
+    if (typeof s !== 'object' || s === null) return false
+    const e = s as Record<string, unknown>
+    return typeof e.tier === 'number' && Number.isFinite(e.tier)
+      && nonNeg(e.buyIn) && nonNeg(e.cashOut) && nonNeg(e.hands)
+      && SESSION_ENDS.includes(e.endedBy as SessionEnd)
+      && typeof e.at === 'string'
+  })
+
+  const archivedRuns = (Array.isArray(r.archivedRuns) ? r.archivedRuns : []).filter((a): a is ArchivedRun => {
+    if (typeof a !== 'object' || a === null) return false
+    const e = a as Record<string, unknown>
+    return typeof e.startedAt === 'string' && typeof e.endedAt === 'string'
+      && nonNeg(e.peakBankroll) && typeof e.peakTier === 'number' && Number.isFinite(e.peakTier)
+      && nonNeg(e.totalHands) && nonNeg(e.sessionCount)
+      && (e.endedBy === 'bust' || e.endedBy === 'retired')
+  })
+
+  const p = r.pendingSession as Record<string, unknown> | null | undefined
+  const pendingSession = (typeof p === 'object' && p !== null
+    && tierValid(p.tier) && nonNeg(p.buyIn) && p.buyIn > 0 && typeof p.startedAt === 'string')
+    ? { tier: p.tier, buyIn: p.buyIn, startedAt: p.startedAt }
+    : null
+
+  return {
+    version: 1,
+    bankroll,
+    currentTier,
+    handsAtTier: nonNeg(r.handsAtTier) ? r.handsAtTier : 0,
+    totalHands: nonNeg(r.totalHands) ? r.totalHands : 0,
+    peakBankroll: nonNeg(r.peakBankroll) ? Math.max(r.peakBankroll, bankroll) : bankroll,
+    peakTier: tierValid(r.peakTier) ? Math.max(r.peakTier, currentTier) : currentTier,
+    runStartedAt: typeof r.runStartedAt === 'string' ? r.runStartedAt : now,
+    sessions,
+    archivedRuns,
+    pendingSession,
+  }
+}
+
 export function refundAbandoned(state: CareerState, now: string): CareerState {
   const pending = state.pendingSession
   if (!pending) return state

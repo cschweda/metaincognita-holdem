@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import config from '@config'
 import {
   freshCareer, startSession as ruleStart, settleSession, evaluateMovement,
-  isBust, archiveRun, refundAbandoned, buyInFor,
+  isBust, archiveRun, refundAbandoned, buyInFor, sanitizeCareerState,
 } from '~/utils/careerRules'
 import type { CareerState, SessionEnd } from '~/utils/careerRules'
 
@@ -35,9 +35,11 @@ export const useCareerStore = defineStore('career', () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
-      const parsed = JSON.parse(raw) as CareerState
-      if (parsed?.version !== 1) return
-      state.value = parsed
+      // localStorage is user-editable: shape-validate, don't just version-check.
+      // An unusable payload keeps the fresh default instead of bricking pages.
+      const sane = sanitizeCareerState(JSON.parse(raw), stakes, nowIso())
+      if (!sane) return
+      state.value = sane
       // Refresh mid-session: table state is gone — refund the buy-in
       // (accepted refresh-to-undo tradeoff, see the spec's edge cases)
       if (state.value.pendingSession) {

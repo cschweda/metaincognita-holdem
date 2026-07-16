@@ -40,8 +40,13 @@ const careerMode = ref(false)
 
 // Career sessions arrive with a pendingSession set by /career's Play button.
 // Lock the table to the tier: stake, 6-max roster sample, 100bb buy-in.
-onMounted(() => {
-  if (careerStore.state.pendingSession) startCareerSession()
+// Consumed in onActivated, not onMounted: this page is kept alive, so a
+// 2nd+ arrival from /career reactivates the cached instance (the buy-in is
+// already debited — onMounted would never fire and the session never start).
+// careerMode guards re-activation DURING a running session, when
+// pendingSession is still set (it clears on settle).
+onActivated(() => {
+  if (careerStore.state.pendingSession && !careerMode.value) startCareerSession()
 })
 
 function startCareerSession() {
@@ -77,18 +82,31 @@ function startCareerSession() {
 }
 
 function endCareerSession(endedBy: 'leave' | 'felted' | 'timeout') {
+  engine.cleanup() // leaving mid-hand: kill pending bot actions/street advances
   const cashOut = endedBy === 'felted' ? 0 : (gs.hero.value?.chips ?? 0)
   careerStore.settle(cashOut, session.value.handsPlayed, endedBy)
   careerMode.value = false
   navigateTo('/career')
 }
 
-// ─── KeepAlive: pause/resume timeout when navigating to/from stats ──
+// ─── KeepAlive: freeze the game while another route is shown ──
+// Deactivation pauses the engine (bots hold at their next "thinking" sleep)
+// instead of letting the hand play itself in the background; activation
+// resumes it — unless the user had paused TV-mode themselves.
+let pausedByNav = false
 onActivated(() => {
   if (phase.value === 'table') resetTimeout()
+  if (pausedByNav) {
+    engine.paused.value = false
+    pausedByNav = false
+  }
 })
 onDeactivated(() => {
   if (timeoutTimer) clearTimeout(timeoutTimer)
+  if (phase.value === 'table' && !engine.paused.value) {
+    engine.paused.value = true
+    pausedByNav = true
+  }
 })
 
 // ─── Hero Timeout ──────────────────────────────────────────────
@@ -104,6 +122,7 @@ function resetTimeout() {
 
 function handleTimeout() {
   if (phase.value !== 'table') return
+  engine.cleanup() // the abandoned hand must not keep advancing behind the pane
   const heroState = gs.playerStates.value[0]
   if (heroState && !heroState.folded && gs.waitingForHero.value) {
     heroState.folded = true
@@ -281,7 +300,9 @@ const engine = useGameEngine({
         raiseLevel,
         position: positions.value[p.id] || '',
         holeCards: p.holeCards ?? undefined,
-        community: gs.allCommunity.value.length > 0 ? gs.allCommunity.value : undefined,
+        // Street-sliced board only — decideBotAction re-slices defensively,
+        // but never hand the full runout to a decision in the first place.
+        community: gs.visibleCommunity.value.length > 0 ? gs.visibleCommunity.value : undefined,
         wasPreflopRaiser: streetContext?.wasPreflopRaiser,
         preflopCallers: streetContext?.preflopCallers,
         streetHistory: streetContext?.streetHistory as any,
@@ -352,11 +373,19 @@ function onGameKeydown(e: KeyboardEvent) {
   }
   else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); heroRaise(Math.round(gs.pot.value * 0.5)) }
 }
+// Keep-alive: bind on activation, unbind on deactivation — with only the
+// mounted/unmounted pair, the cached page keeps intercepting f/c/r on every
+// other route (and phase stays 'table', so the guard doesn't help).
+// onActivated also fires on initial mount; duplicate addEventListener with
+// the same function reference is a no-op.
 onMounted(() => window.addEventListener('keydown', onGameKeydown))
+onActivated(() => window.addEventListener('keydown', onGameKeydown))
+onDeactivated(() => window.removeEventListener('keydown', onGameKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onGameKeydown))
 
 // ─── Game Flow ─────────────────────────────────────────────────
 function handleStart(gameSettings: GameSettings) {
+  engine.cleanup() // invalidate any pending timers/loops from a prior game
   settings.value = gameSettings
   gs.dealerSeat.value = Math.floor(Math.random() * gameSettings.playerCount)
   phase.value = 'table'
@@ -366,8 +395,9 @@ function handleStart(gameSettings: GameSettings) {
   commentary.enabled.value = gameSettings.commentaryMode !== 'off'
   commentary.mode.value = gameSettings.commentaryMode === 'tv' ? 'tv' : 'hero'
   engine.paused.value = false
+  pausedByNav = false
   resetTimeout()
-  setTimeout(dealNewHand, 300)
+  engine.schedule(dealNewHand, 300)
 }
 
 // Hero raise wrapper — records postflop bet sizing for the bots' tell detection
@@ -456,7 +486,7 @@ function dealNewHand() {
   ]
 
   gs.dealerSeat.value = (gs.dealerSeat.value + 1) % count
-  setTimeout(() => engine.postBlindsAndStartBetting(), 400)
+  engine.schedule(() => engine.postBlindsAndStartBetting(), 400)
 }
 
 function endHand() {
@@ -641,14 +671,16 @@ function endHand() {
 }
 
 function handleRebuy() {
+  engine.cleanup()
   initSession(settings.value!.stakeLevel, settings.value!.playerCount, startingStack.value)
   gs.playerStates.value = []
   phase.value = 'table'
   resetTimeout()
-  setTimeout(dealNewHand, 300)
+  engine.schedule(dealNewHand, 300)
 }
 
 function backToSetup() {
+  engine.cleanup() // mid-hand exit: stop pending bot actions/street advances
   if (timeoutTimer) clearTimeout(timeoutTimer)
   phase.value = 'setup'
   settings.value = null
@@ -762,7 +794,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
     <!-- Game Table -->
     <div v-else-if="phase === 'table'" class="p-4">
       <!-- Top bar -->
-      <div class="flex items-center justify-between mb-4 max-w-7xl mx-auto">
+      <div class="flex flex-wrap items-center justify-between gap-y-2 mb-4 max-w-7xl mx-auto">
         <UButton
           variant="ghost"
           color="neutral"
@@ -773,7 +805,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           {{ careerMode ? 'Leave table' : 'Setup' }}
         </UButton>
 
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-4">
           <span class="text-xs text-gray-600 font-mono">Hand #{{ session.handsPlayed + (gs.dealt.value ? 1 : 0) }}</span>
           <span class="text-sm text-gray-400">
             {{ stake?.name }} — ${{ stake?.sb }}/${{ stake?.bb }}
@@ -835,7 +867,9 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             @update:paused="engine.paused.value = $event"
           />
         </div>
-        <div class="flex-1 min-w-0 space-y-4">
+        <!-- w-full: the parent is items-start, so without an explicit width this
+             column shrink-wraps below xl and the table collapses to ~315px. -->
+        <div class="w-full flex-1 min-w-0 space-y-4">
           <PokerTable :player-count="settings?.playerCount || 6">
             <template #community>
               <PlayingCard
@@ -848,7 +882,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
               <div
                 v-for="i in (5 - gs.visibleCommunity.value.length)"
                 :key="'empty-' + i"
-                class="w-20 h-[7rem] rounded-lg border border-dashed border-green-800/40"
+                class="w-14 h-20 sm:w-20 sm:h-[7rem] rounded-lg border border-dashed border-green-800/40"
               />
             </template>
 

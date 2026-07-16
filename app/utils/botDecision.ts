@@ -272,6 +272,16 @@ export interface BotAction {
  * up to 8-10% for loose cannons.
  */
 export function decideBotAction(profile: BotProfile, ctx: DecisionContext, consistency?: number, heroProfile?: HeroProfile): BotAction {
+  // Information hygiene: callers may hold the full runout (dealt up-front),
+  // but a bot may only see the board its street allows. Slice here, at the
+  // single entry point, so no caller can leak future cards.
+  if (ctx.community && ctx.community.length > 0) {
+    const visible = ctx.street === 'flop' ? 3 : ctx.street === 'turn' ? 4 : ctx.street === 'river' ? 5 : 0
+    if (ctx.community.length > visible) {
+      ctx = { ...ctx, community: visible > 0 ? ctx.community.slice(0, visible) : undefined }
+    }
+  }
+
   const rng = ctx.rng ?? Math.random
   const { street } = ctx
 

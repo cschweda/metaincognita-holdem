@@ -9,7 +9,9 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      '~': resolve(__dirname, '.'),
+      // Nuxt 4 srcDir semantics: `~` is app/, matching runtime resolution so
+      // stores/utils with `~/...` imports are testable.
+      '~': resolve(__dirname, 'app'),
       '@config': resolve(__dirname, 'holdem.config.ts'),
     },
   },

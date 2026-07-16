@@ -58,7 +58,14 @@ export function useSessionStats() {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        session.value = JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        // Shape check the fields recordHand mutates — a tampered payload
+        // (hands not an array) would otherwise throw mid-game on every hand.
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.hands)) {
+          session.value = parsed
+        } else {
+          throw new Error('unexpected session shape')
+        }
       } catch (e) {
         console.warn('Failed to parse session data from localStorage — starting fresh:', e instanceof Error ? e.message : e)
         localStorage.removeItem(STORAGE_KEY)
@@ -67,18 +74,32 @@ export function useSessionStats() {
 
     // Save on tab close
     beforeUnloadHandler = () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
+      trySave()
     }
     window.addEventListener('beforeunload', beforeUnloadHandler)
   })
 
+  // All persistence goes through one guarded writer: localStorage.setItem
+  // throws QuotaExceededError once a long session outgrows the ~5MB budget,
+  // and recordHand runs at the tail of endHand — an uncaught throw there
+  // would abort elimination bookkeeping and destabilize every later hand.
+  let quotaWarned = false
+  function trySave() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
+    } catch (e) {
+      if (!quotaWarned) {
+        quotaWarned = true
+        console.warn('Session stats no longer fit in localStorage — the game continues, but stats will not survive a reload:', e instanceof Error ? e.message : e)
+      }
+    }
+  }
+
   // Auto-save to localStorage on changes (debounced to avoid serializing on every mutation)
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  watch(session, (val) => {
+  watch(session, () => {
     if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
-    }, 1000)
+    saveTimer = setTimeout(trySave, 1000)
   }, { deep: true })
 
   function createSession(): SessionData {
@@ -121,7 +142,7 @@ export function useSessionStats() {
     session.value.peakStack = Math.max(session.value.peakStack, newStack)
 
     // Save to localStorage immediately (don't wait for debounced watch)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
+    trySave()
   }
 
   function resetSession() {
