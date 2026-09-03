@@ -92,8 +92,10 @@ tableReads: {
 
 - New strategy `fit-or-fold`: calls any single raise preflop, then continues
   only with a pair or better (bets ½ pot when checked to, calls up to a
-  pot-sized bet), folds everything else. It sees flops and gives up, which
-  drives showdown-per-flop down and fires the weak-tight read.
+  pot-sized bet), folds everything else. It sees flops and gives up; in
+  measurement this lowers showdown-per-flop only slightly and never makes
+  the table passive, so it does not fire the weak-tight read (see the
+  Implementation note below).
 - `station` already fires the calling-station read.
 - Gate: all nine strategies × {100bb, 25bb} must stay below +10 bb/100.
 - `runStrategy` also returns `tableReadWindows: { total, passive,
