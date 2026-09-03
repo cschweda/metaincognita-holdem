@@ -104,7 +104,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 978 tests across 42 files
+- [Test Suites](#test-suites) -- 983 tests across 43 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -882,7 +882,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (978 tests across 42 files) |
+| Testing | Vitest (983 tests across 43 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1066,7 +1066,7 @@ holdem-simulator/
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 42 Vitest test suites (978 tests)
+├── tests/                         # 43 Vitest test suites (983 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1097,7 +1097,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (978 tests, 42 files, ~100 seconds)
+Run all tests: `yarn test` (983 tests, 43 files, ~100 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
