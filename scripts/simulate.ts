@@ -389,7 +389,7 @@ function simulateHand(
   let winnerName = ''
 
   const remaining = activePlayers()
-  finishTableHand(tableReadState, { sawFlop: actions.some(a => a.includes('FLOP')), showdown: remaining.length > 1 }, config.strategy.tableReads.windowHands)
+  finishTableHand(tableReadState, { sawFlop: actions.some(a => a.includes('--- FLOP')), showdown: remaining.length > 1 }, config.strategy.tableReads.windowHands)
   if (remaining.length === 1) {
     winnerId = remaining[0].id
     winnerName = remaining[0].name
@@ -448,7 +448,7 @@ function simulateHand(
   }
 
   // Build board string (only streets that were reached)
-  const reachedFlop = actions.some(a => a.includes('FLOP'))
+  const reachedFlop = actions.some(a => a.includes('--- FLOP'))
   const reachedTurn = actions.some(a => a.includes('TURN'))
   const reachedRiver = actions.some(a => a.includes('RIVER'))
   let boardStr = ''
