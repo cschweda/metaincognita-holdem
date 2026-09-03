@@ -158,3 +158,16 @@ unit-tested (`tests/table-reads-effects.test.ts`) and calibrated (the
 fold-everything-hero test, under 5% of windows), but it is not measured end
 to end by any probe strategy; `fit-or-fold` stays in the gate as its own
 degenerate line regardless.
+
+**Multi-seat follow-up (same day).** The probe gained a `heroSeats` argument
+so several copies of a strategy can sit at once (bb/100 reported per seat).
+Four `station` seats fire the station read in most windows and lose
+−669 bb/100 per seat — the calling-station branch is now measured end to
+end and gated in CI. The weak-tight read, however, never fires in any
+composition tried: `fit-or-fold` seats fold or go to showdown, so the table
+reads showdown-*heavy* at five-plus seats, and even six check-fold seats
+leave passivity at 13% of windows because the remaining pros' bets
+dominate the bet/check count. Under its definition (`passive &&
+showdownLight`) the branch is unreachable at any realistic table. Its
+code stays unit-tested and bounded; whether to keep it latent or remove
+it is an open decision recorded in the README.
