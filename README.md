@@ -103,7 +103,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 939 tests across 36 files
+- [Test Suites](#test-suites) -- 950 tests across 36 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -771,19 +771,24 @@ Street pressure increases from flop (1.0x) to turn (0.75x) to river (0.55x). Pas
 `scripts/exploit-probe.ts` plays a scripted hero with one degenerate strategy per run against a fixed pro lineup and reports hero EV in bb/100. Stacks reset to exactly 100bb every hand so each hand is an i.i.d. sample at the depth the bots are calibrated for. If the bots are sound, every degenerate strategy loses:
 
 ```bash
-yarn probe all 10000
+yarn probe all 10000              # 100bb, unseeded
+yarn probe all 10000 20260712 25  # seeded, short stacks
 ```
 
-| Probe strategy | What it tests | Result (10,000 hands) |
-|---|---|---|
-| open-jam (any two, 100bb) | jam-call discipline | **-306 bb/100** |
-| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **-314 bb/100** |
-| overbet-spam (1.5x pot every street) | fold discipline | **-1,274 bb/100** |
-| minraise-spam | over-folding to min bets | **-858 bb/100** |
-| station (call everything) | thin value betting | **-1,115 bb/100** |
-| nit-value (jam only QQ+/AK) | paying off too light | **-14 bb/100** |
+| Probe strategy | What it tests | 100bb | 25bb |
+|---|---|---|---|
+| open-jam (any two) | jam-call discipline | **−319 bb/100** | **−389** |
+| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **−252** | **−274** |
+| overbet-spam (1.5x pot every street) | fold discipline | **−1,190** | **−428** |
+| minraise-spam | over-folding to min bets | **−1,052** | **−449** |
+| station (call everything) | thin value betting | **−1,080** | **−552** |
+| nit-value (jam only QQ+/AK) | paying off too light | **−19** | **+2** |
+| steal-fold (open CO/BTN any two, fold to 3-bets, one c-bet) | blind defense, c-bet folding | **−20** | **−20** |
+| donk-33 (call opens, bet ⅓ pot whenever checked to) | small-bet fold discipline | **−28** | **−131** |
 
-The suite runs in CI as a regression gate (`tests/exploit-probe.test.ts`): every strategy must stay below +10 bb/100. An earlier version of this table waved off nit-value at +64 bb/100 as "mildly +EV, as in real life" — the gate proved that wrong. Root cause was twofold: the reraise-jam defense floor ignored jam size (bots called 100bb 3-bet jams with top ~3.4% hands — TT/AQ — paying off premium-only jammers), and the old refill-when-felted harness let stacks balloon past 1,000bb, so a handful of monster coolers dominated the metric (±100 bb/100 run-to-run noise). The floor now decays with jam size (full defense vs ≤40bb jams, ~QQ+/AK vs 100bb, ~KK+ at several hundred bb) and the harness pins stacks at 100bb.
+Numbers: 10,000 hands per cell, seed 20260712, `$1/$2`. Stacks reset to the column's depth every hand.
+
+The suite runs in CI as a regression gate (`tests/exploit-probe.test.ts`): every strategy must stay below +10 bb/100 at both 100bb and 25bb (short stacks change the jam/call maths, and nit-value sits at the +2 knife-edge there by design). An earlier version of this table waved off nit-value at +64 bb/100 as "mildly +EV, as in real life" — the gate proved that wrong. Root cause was twofold: the reraise-jam defense floor ignored jam size (bots called 100bb 3-bet jams with top ~3.4% hands — TT/AQ — paying off premium-only jammers), and the old refill-when-felted harness let stacks balloon past 1,000bb, so a handful of monster coolers dominated the metric (±100 bb/100 run-to-run noise). The floor now decays with jam size (full defense vs ≤40bb jams, ~QQ+/AK vs 100bb, ~KK+ at several hundred bb) and the harness pins stacks at 100bb.
 
 ### Exploitable Leak Audit (historical — pre-v0.18 configs)
 
@@ -864,7 +869,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (939 tests across 36 files) |
+| Testing | Vitest (950 tests across 36 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1052,7 +1057,7 @@ holdem-simulator/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 36 Vitest test suites (939 tests)
+├── tests/                         # 36 Vitest test suites (950 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1083,7 +1088,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (939 tests, 36 files, ~95 seconds)
+Run all tests: `yarn test` (950 tests, 36 files, ~100 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1231,7 +1236,7 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 | 6 | Low | **The action recommendation ignored the price** — `recommend()` received only a facing-a-bet boolean, so "CALL — 36% equity" was advised whether the bet was a third of the pot or three times it, while the panel's separate pot-odds verdict could say the opposite; `potOddsNeeded` was a `0` placeholder. | **Fixed** — `analyzeHand` takes the pot and call amounts, computes the equity the call needs, and `recommend()` folds when equity is short of it (a strong draw gets a few points of implied-odds slack); the reasoning names both numbers. Pinned by `tests/recommendation-price.test.ts`. |
 | 7 | Low | **"Opponent reads" was dead code** — the engine's `handsForMemory`, `recentShowdowns` and `recentShowdownBluffs` counters (`useGameEngine.ts`) were declared but never incremented, so `opponentReads` was always `undefined` and bots ran on the constant defaults in `botDecision.ts`; no simulator passed it either. | **Fixed** — the field, the counters and the never-taken branches are removed (seeded probe battery byte-identical before and after, so nothing the bots do changed). A real table-read adaptation is on the roadmap, to be built with probe coverage. |
 | 8 | Low | **CSP keeps `'unsafe-eval'` the production build doesn't need** — the built `_nuxt/*.js` contains no `eval(` / `new Function(`; `connect-src https://api.iconify.design` is also unused (icons are bundled). Missing hardening: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `Strict-Transport-Security`. | **Open** — tighten `netlify.toml`; keep `'unsafe-inline'` (Vue). |
-| 9 | Info | **No strategic leak found.** Twelve new degenerate hero strategies (steal-and-fold, limp-reraise, min-3-bet, 4-bet bluff, donk ⅓ pot, river overbet, float-then-overbet, any-pair value, polarized river jam, in-position barrel, flop check-raise, passive trap) × two seeds × 10,000 hands all lose at 100bb; the whole battery also loses at 25bb and 250bb (the CI gate only runs 100bb). Closest to break-even: steal-and-fold −19.9 / −19.5 bb/100, donk-33 −21.7 / −47.3, short-stack nit-value −2.1 (the designed knife-edge). The probe hides the board and position from the scripted hero and never applies hero adaptation, so it measures un-adapted bots (conservative). | **Confirmed** — consider adding steal-and-fold and donk-33 to the CI probe and a 25bb variant. |
+| 9 | Info | **No strategic leak found.** Twelve new degenerate hero strategies (steal-and-fold, limp-reraise, min-3-bet, 4-bet bluff, donk ⅓ pot, river overbet, float-then-overbet, any-pair value, polarized river jam, in-position barrel, flop check-raise, passive trap) × two seeds × 10,000 hands all lose at 100bb; the whole battery also loses at 25bb and 250bb (the CI gate only runs 100bb). Closest to break-even: steal-and-fold −19.9 / −19.5 bb/100, donk-33 −21.7 / −47.3, short-stack nit-value −2.1 (the designed knife-edge). The probe hides the board and position from the scripted hero and never applies hero adaptation, so it measures un-adapted bots (conservative). | **Confirmed** — and now guarded: steal-and-fold and donk-33 joined the CI probe, and the whole battery also runs at 25bb (short-stack nit-value sits at +2.1 bb/100 on the gate seed, the designed knife-edge, under the +10 bound). |
 | 10 | Info | **Bots see no hidden information** (re-verified) — the decision context holds only the bot's own cards, the street-sliced board and public state; hero modeling records behavior only and the sizing tell keys on real showdowns; the live deck is a fresh Fisher-Yates shuffle from `Math.random` each hand, unseeded and unexposed; bot thinking time is uniform random, uncorrelated with hand strength; both simulators and the probe street-slice. | **Confirmed** |
 | 11 | Info | **Hot paths are cheap** — 1,000-runout equity vs 3 opponents 1.1 ms, full flop analysis 1 ms, analysis keyed on the facing-bet boolean; session records ≈ 1.5 KB/hand (quota ≈ 3,400 hands, then warn-once), 2,000 hands serialize in 3.6 ms; the PokerStars parser is linear (130 MB in 1.1 s) and never throws. Shipped: 942 KB JS (308 KB gzip) + 228 KB CSS (31 KB gzip). Worth doing: lazy-load the 1,284-line quip table with commentary, drop the second per-hand write (immediate save + 1 s deep watcher), and upgrade `nuxt`/`vitest` (the audit's 4 critical / 78 high advisories are all build-toolchain packages that never ship). | **Confirmed** |
 | 12 | Info | **Security re-verified clean** — no `v-html` / `innerHTML` / `eval` / `document.write`; the only external link carries `rel="noopener"`; query params guarded; player names like `__proto__` parse without polluting prototypes; every setup input is a config-bounded slider; the betting engine terminates on NaN or negative stacks; git history holds only placeholder Supabase credentials; no `.env`, no tracked build output; every storage read is shape-guarded. | **Confirmed** |
