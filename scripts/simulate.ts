@@ -389,7 +389,10 @@ function simulateHand(
   let winnerName = ''
 
   const remaining = activePlayers()
-  finishTableHand(tableReadState, { sawFlop: actions.some(a => a.includes('--- FLOP')), showdown: remaining.length > 1 }, config.strategy.tableReads.windowHands)
+  // Computed once and reused below (board-string construction) instead of
+  // re-scanning `actions` a second time for the same substring.
+  const reachedFlop = actions.some(a => a.includes('--- FLOP'))
+  finishTableHand(tableReadState, { sawFlop: reachedFlop, showdown: remaining.length > 1 }, config.strategy.tableReads.windowHands)
   if (remaining.length === 1) {
     winnerId = remaining[0].id
     winnerName = remaining[0].name
@@ -447,8 +450,8 @@ function simulateHand(
     }
   }
 
-  // Build board string (only streets that were reached)
-  const reachedFlop = actions.some(a => a.includes('--- FLOP'))
+  // Build board string (only streets that were reached) — reachedFlop is
+  // computed once above, before the table-read hand close.
   const reachedTurn = actions.some(a => a.includes('TURN'))
   const reachedRiver = actions.some(a => a.includes('RIVER'))
   let boardStr = ''
@@ -534,7 +537,11 @@ const stats = {
 const TABLE_FLOW_WINDOW = config.tableFlow?.windowSize ?? 20
 const recentWinners: number[] = [] // circular buffer of winner IDs
 
-// Table reads — public table-wide signals over a rolling window (see app/utils/tableReads.ts)
+// Table reads — public table-wide signals over a rolling window (see app/utils/tableReads.ts).
+// Module-scope state: this script assumes one run per process (a fresh `tsx`
+// invocation each time) — it is never reset, so importing and re-running
+// simulateHand repeatedly within one long-lived process would carry a stale
+// window across "runs".
 const tableReadState = createTableReadState()
 
 function getTableDynamics(playerId: number) {

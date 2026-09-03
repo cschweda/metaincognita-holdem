@@ -59,6 +59,10 @@ export function useGameEngine(options: GameEngineOptions) {
     epoch++
     for (const id of pendingTimeouts) clearTimeout(id)
     pendingTimeouts.length = 0
+    // Every caller abandons the in-flight hand, so its partial bet/check
+    // tally must not leak into the next hand's sample (resetTableReads()
+    // still replaces the whole window, not just the current hand).
+    tableReadState.current = { bets: 0, checks: 0 }
   }
 
   // Tracked, pausable sleep: the timer is cancellable by cleanup(), and when

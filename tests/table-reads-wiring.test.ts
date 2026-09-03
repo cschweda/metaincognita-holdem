@@ -21,6 +21,8 @@ describe('table reads are wired into the live game', () => {
     expect(src('app/pages/replay.vue')).toMatch(/tableReads: streetContext\?\.tableReads/)
   })
   it('a new game resets the window', () => {
-    expect(src('app/pages/index.vue')).toMatch(/engine\.resetTableReads\(\)/)
+    // Start and rebuy must both reset the tracker (spec: "setup, rebuy,
+    // career session start"), not just one of them.
+    expect((src('app/pages/index.vue').match(/engine\.resetTableReads\(\)/g) ?? []).length).toBeGreaterThanOrEqual(2)
   })
 })

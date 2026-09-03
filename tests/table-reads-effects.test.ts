@@ -14,11 +14,15 @@ import config from '../holdem.config'
 const cfg = config.strategy.tableReads
 const N = 6000
 const profile: BotProfile = { vpip: 0.25, pfr: 0.2, aggression: 1.2, bluffFreq: 0.18, creativeFreq: 0.08 }
+// Aggressive persona: at this aggression, maybeThinValueRiver's uncapped base
+// frequency alone already sits at/above the 0.6 cap, so it's the sharpest
+// regression check for the tableMult-outside-the-cap fix (item 1).
+const profileAggro: BotProfile = { ...profile, aggression: 1.5 }
 const c = (rank: number, suit: Card['suit']): Card => ({ rank, suit })
 
-function rate(make: (rng: () => number) => DecisionContext, pick: (a: { type: string }) => boolean, seedBase: number): number {
+function rate(make: (rng: () => number) => DecisionContext, pick: (a: { type: string }) => boolean, seedBase: number, p: BotProfile = profile): number {
   let hits = 0
-  for (let i = 0; i < N; i++) if (pick(decideBotAction(profile, make(mulberry32(seedBase + i)), 1))) hits++
+  for (let i = 0; i < N; i++) if (pick(decideBotAction(p, make(mulberry32(seedBase + i)), 1))) hits++
   return hits / N
 }
 const isRaise = (a: { type: string }) => a.type === 'raise'
@@ -57,6 +61,19 @@ const probeCtx = (rng: () => number, tableReads?: DecisionContext['tableReads'])
   wasPreflopRaiser: false, preflopCallers: 1, rng, tableReads,
 })
 
+// River, checked to us, air, not the preflop raiser: same hand/board as
+// bluffRaiseCtx (confirmed "nothing" — no pair, no draw) but toCall 0, so
+// this reaches the river non-raiser air bluff-bet (decidePostflopAction's
+// `ctx.street === 'river'` block), the only place probeMult can reach the
+// river (item 2). Five-card dry(-ish) board: no pair, no realistic draw.
+const riverProbeCtx = (rng: () => number, tableReads?: DecisionContext['tableReads']): DecisionContext => ({
+  street: 'river', toCall: 0, pot: 50, currentBet: 0, playerBet: 0, chips: 200, bb: 2,
+  numActivePlayers: 2, raiseLevel: 0, position: 'BTN',
+  holeCards: [c(8, 'spades'), c(6, 'diamonds')],
+  community: [c(13, 'hearts'), c(11, 'clubs'), c(4, 'diamonds'), c(2, 'spades'), c(10, 'clubs')],
+  wasPreflopRaiser: false, preflopCallers: 1, rng, tableReads,
+})
+
 describe('table reads move exactly the configured knobs', () => {
   it('no read and all-false reads are byte-identical to an absent field', () => {
     for (let i = 0; i < 300; i++) {
@@ -77,6 +94,18 @@ describe('table reads move exactly the configured knobs', () => {
     expect(boosted / base).toBeLessThan(cfg.thinValueBoost * 1.25)
   })
 
+  it('station table: river thin value still rises by ~thinValueBoost at higher aggression (1.5)', () => {
+    // Regression for item 1: at aggression 1.5 the uncapped base frequency
+    // (0.35 * 1.15 * 1.5 = 0.604) already sits at the 0.6 cap on its own, so
+    // pre-fix (tableMult inside Math.min) both the base and boosted rates
+    // collapse to the same 0.6 ceiling — ratio ≈ 1.00, not ≈ 1.4.
+    const base = rate(r => thinValueCtx(r), isRaise, 70_000, profileAggro)
+    const boosted = rate(r => thinValueCtx(r, STATION), isRaise, 70_000, profileAggro)
+    expect(base).toBeGreaterThan(0.05)
+    expect(boosted / base).toBeGreaterThan(cfg.thinValueBoost * 0.75)
+    expect(boosted / base).toBeLessThan(cfg.thinValueBoost * 1.25)
+  })
+
   it('station table: river bluff-raises fall to riverBluffPenalty', () => {
     const base = rate(r => bluffRaiseCtx(r), isRaise, 20_000)
     const cut = rate(r => bluffRaiseCtx(r, STATION), isRaise, 20_000)
@@ -89,6 +118,16 @@ describe('table reads move exactly the configured knobs', () => {
     const base = rate(r => probeCtx(r), isRaise, 30_000)
     const boosted = rate(r => probeCtx(r, WEAK_TIGHT), isRaise, 30_000)
     expect(base).toBeGreaterThan(0.03)
+    expect(boosted / base).toBeGreaterThan(cfg.probeBoost * 0.85)
+    expect(boosted / base).toBeLessThan(cfg.probeBoost * 1.15)
+  })
+
+  it('weak-tight table: river air bets rise by probeBoost', () => {
+    // Regression for item 2: pre-fix, the river non-raiser air bluff-bet
+    // never multiplied by probeMult, so this ratio measured ≈ 1.0.
+    const base = rate(r => riverProbeCtx(r), isRaise, 80_000)
+    const boosted = rate(r => riverProbeCtx(r, WEAK_TIGHT), isRaise, 80_000)
+    expect(base).toBeGreaterThan(0.02)
     expect(boosted / base).toBeGreaterThan(cfg.probeBoost * 0.85)
     expect(boosted / base).toBeLessThan(cfg.probeBoost * 1.15)
   })

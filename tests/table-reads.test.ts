@@ -34,10 +34,7 @@ describe('tableReads tracker', () => {
   })
 
   it('a normal pro table produces no read', () => {
-    const s = createTableReadState()
-    play(s, 30, { bets: 5, checks: 5, sawFlop: true, showdown: true })   // passivity 0.50
-    play(s, 0, { bets: 0, checks: 0, sawFlop: false, showdown: false })
-    // showdown-per-flop 1.0 above would trip showdownHeavy; mix in flops without showdown
+    // showdown-per-flop 1.0 would trip showdownHeavy; mix in flops without showdown
     const t = createTableReadState()
     for (let i = 0; i < 30; i++) {
       noteTableAction(t, 'bet'); noteTableAction(t, 'check')
@@ -65,6 +62,18 @@ describe('tableReads tracker', () => {
     const s = createTableReadState()
     play(s, 20, { bets: 2, checks: 8, sawFlop: true, showdown: false })   // 0.0 showdown-per-flop, passive
     expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: false, showdownLight: true })
+  })
+
+  it('showdown reads stay off until minFlops flops are in the window', () => {
+    const s = createTableReadState()
+    // 8 no-flop hands (preflop fold-outs) pad past minHands and keep
+    // passivity high without touching the flop count.
+    play(s, 8, { bets: 2, checks: 8, sawFlop: false, showdown: false })
+    // 3 flops, every one reaching showdown — the raw ratio would trip
+    // showdownHeavy, but 3 < minFlops (5).
+    play(s, 3, { bets: 0, checks: 0, sawFlop: true, showdown: true })
+    expect(tableReadStats(s).showdownPerFlop).toBe(1) // sanity: the raw ratio would fire
+    expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: false, showdownLight: false })
   })
 
   it('config thresholds sit outside the normal-table range', () => {

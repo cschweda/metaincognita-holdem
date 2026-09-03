@@ -708,14 +708,14 @@ The adjustments are bounded and gentle -- a bot's fundamental personality doesn'
 
 ### Table Reads
 
-Bots read the *table*, not you — that is Nemesis's job. A rolling 30-hand window counts public signals only: bets and raises, checks, flops seen, showdowns reached. Two reads come out of it, each with thresholds set outside a normal pro table's range (passivity 0.41–0.56 and showdown-per-flop 0.42–0.71 over 30-hand windows; a calling station drives 0.64+ and 1.00):
+Bots read the *table*, not you — that is Nemesis's job. A rolling 30-hand window counts public signals only: bets and raises, checks, flops seen, showdowns reached. Two reads come out of it, each with thresholds set outside a normal pro table's range (passivity 0.41–0.56 and showdown-per-flop 0.42–0.71 over 30-hand windows; a calling station drives 0.64+ and 1.00); the showdown reads also stay off until the window holds at least 5 flops (`minFlops`) — too few flops make the ratio noise, and passivity is unaffected:
 
 | Table | Read | What the bots do |
 |---|---|---|
 | Calling stations (check-heavy, everything goes to showdown) | `passive && showdownHeavy` | River thin value ×1.4, river bluff-raises ×0.3 |
 | Weak-tight (check-heavy, folds before showdown) | `passive && showdownLight` | Probe and stab bets ×1.25 |
 
-Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker: `station` exercises the calling-station read end to end in CI, and the bots value-bet it thinner for it — −1,080 → −1,082 bb/100 at 100bb, −552 → −572 at 25bb. The weak-tight read is unit-tested (each multiplier moves exactly its knob) and calibrated (a fold-everything hero at the pro table produces a read in under 5% of windows), but no single probe strategy plays more than one hero at the table, and one hero folding can't make an eight-handed table check-heavy enough to trigger it — so it isn't measured end to end. `fit-or-fold` stays in the gate as its own degenerate line regardless.
+Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker: `station` exercises the calling-station read end to end in CI, and the bots value-bet it thinner for it — −1,080 → −1,142 bb/100 at 100bb, −552 → −565 at 25bb. The weak-tight read is unit-tested (each multiplier moves exactly its knob) and calibrated (a fold-everything hero at the pro table produces a read in under 5% of windows), but no single probe strategy plays more than one hero at the table, and one hero folding can't make an eight-handed table check-heavy enough to trigger it — so it isn't measured end to end. `fit-or-fold` stays in the gate as its own degenerate line regardless.
 
 ### Hero Adaptation
 
@@ -793,11 +793,11 @@ yarn probe all 10000 20260712 25  # seeded, short stacks
 | 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **−252** | **−274** |
 | overbet-spam (1.5x pot every street) | fold discipline | **−1,190** | **−428** |
 | minraise-spam | over-folding to min bets | **−1,052** | **−449** |
-| station (call everything) | thin value betting | **−1,082** | **−572** |
+| station (call everything) | thin value betting | **−1,142** | **−565** |
 | nit-value (jam only QQ+/AK) | paying off too light | **−19** | **+2** |
 | steal-fold (open CO/BTN any two, fold to 3-bets, one c-bet) | blind defense, c-bet folding | **−20** | **−20** |
 | donk-33 (call opens, bet ⅓ pot whenever checked to) | small-bet fold discipline | **−28** | **−131** |
-| fit-or-fold (call opens, continue only with a pair) | weak-tight postflop folding | **−321** | **−123** |
+| fit-or-fold (call opens, continue only with any pair, including a board pair) | weak-tight postflop folding | **−321** | **−123** |
 
 Numbers: 10,000 hands per cell, seed 20260712, `$1/$2`. Stacks reset to the column's depth every hand.
 

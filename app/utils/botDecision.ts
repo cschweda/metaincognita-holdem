@@ -606,14 +606,15 @@ function maybeThinValueRiver(
   rng: Rng = Math.random,
 ): number | null {
   if (strength < 0.42 || strength >= 0.55) return null
-  const freq = Math.min(
+  // The table-read boost applies OUTSIDE the frequency cap — otherwise an
+  // aggressive persona (whose uncapped base is already near/at 0.6) gets its
+  // boost clipped away almost entirely (Fix wave 2026-09-03, item 1).
+  const base =
     0.35
       * (isMultiway ? 0.5 : 1.0)   // multiway, someone has us beat more often
       * (isInPosition ? 1.15 : 0.9)
       * profile.aggression
-      * tableMult,
-    0.6,
-  )
+  const freq = Math.min(base, 0.6) * tableMult
   if (rng() >= freq) return null
   return sizedBet(pot, 0.30 + rng() * 0.12, profile, bb)
 }
@@ -1171,7 +1172,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
-      if (hasNothing && rng() < profile.bluffFreq * 0.35 * profile.aggression) {
+      // Weak-tight table: this air bluff-bet is the river leg of the probe/stab
+      // boost (the two `ctx.street === 'river'` blocks above and here both
+      // return before the IP/OOP probe section, so this is the only place a
+      // river probeMult can apply — Fix wave 2026-09-03, item 2).
+      if (hasNothing && rng() < profile.bluffFreq * 0.35 * profile.aggression * probeMult) {
         const bluffSize = maybeOverbet(pot, profile, bb, rng)
           ?? sizedBet(pot, 0.55 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
@@ -1197,7 +1202,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         * (board?.isDry ? 1.20 : 1.0)     // dry boards = more fold equity
         * (board?.isAceHigh ? 1.15 : 1.0) // represent the ace
         * (board?.isWet ? 0.85 : 1.0)     // wet = opponent has more draws
-      if (rng() < probeBase * probeTexture * probeMult) {
+      // Weak-tight boost is for air/weak-made probes only — a monster or a
+      // strong hand isn't "probing," it's value betting, so it shouldn't be
+      // scaled by a read meant to push more bluffs (Fix wave 2026-09-03, item 5).
+      const probeScale = (hasMonster || hasStrongHand) ? 1.0 : probeMult
+      if (rng() < probeBase * probeTexture * probeScale) {
         const sizeMult = board?.isWet ? 0.55 : board?.isDry ? 0.35 : 0.45
         const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + rng() * 0.12, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
@@ -1240,7 +1249,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         const bluffSize = sizedBet(pot, 0.33 + rng() * 0.22, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
-      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && rng() < probeRate * 0.8) {
+      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && rng() < probeRate * probeMult * 0.8) {
         const betSize = sizedBet(pot, 0.30 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }

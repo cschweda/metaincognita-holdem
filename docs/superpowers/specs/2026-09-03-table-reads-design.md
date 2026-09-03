@@ -44,6 +44,9 @@ State is a plain object: `{ current: { bets, checks }, hands: HandSample[] }`.
   - `passive = passivity >= passiveAt` (0.62)
   - `showdownHeavy = showdownPerFlop >= showdownHeavyAt` (0.85)
   - `showdownLight = showdownPerFlop <= showdownLightAt` (0.30)
+  - `showdownHeavy` and `showdownLight` are additionally forced `false` below
+    `minFlops` (5) flops in the window — too few flops make the showdown
+    ratio noise; `passive` is unaffected
 
 Calibration (6,000 hands, pro lineup, 30-hand windows, seed 20260712):
 passivity p10/p50/p90 = 0.41/0.48/0.56 and showdown-per-flop 0.42/0.58/0.71

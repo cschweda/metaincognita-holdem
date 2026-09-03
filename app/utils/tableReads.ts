@@ -9,6 +9,7 @@
 export interface TableReadConfig {
   windowHands: number
   minHands: number
+  minFlops: number          // showdownHeavy/showdownLight need at least this many flops in the window (passivity is unaffected)
   passiveAt: number         // passivity = checks / (checks + bets)
   showdownHeavyAt: number   // showdowns / flops seen
   showdownLightAt: number
@@ -47,7 +48,7 @@ export function finishTableHand(state: TableReadState, hand: { sawFlop: boolean;
   state.current = { bets: 0, checks: 0 }
 }
 
-export function tableReadStats(state: TableReadState): { hands: number; passivity: number; showdownPerFlop: number } {
+export function tableReadStats(state: TableReadState): { hands: number; passivity: number; showdownPerFlop: number; flops: number } {
   let bets = 0, checks = 0, flops = 0, showdowns = 0
   for (const h of state.hands) {
     bets += h.bets; checks += h.checks
@@ -57,6 +58,7 @@ export function tableReadStats(state: TableReadState): { hands: number; passivit
     hands: state.hands.length,
     passivity: bets + checks > 0 ? checks / (bets + checks) : 0,
     showdownPerFlop: flops > 0 ? showdowns / flops : 0,
+    flops,
   }
 }
 
@@ -64,9 +66,13 @@ export function tableReadStats(state: TableReadState): { hands: number; passivit
 export function readTable(state: TableReadState, cfg: TableReadConfig): TableReads | undefined {
   if (state.hands.length < cfg.minHands) return undefined
   const s = tableReadStats(state)
+  // Below minFlops the showdown ratio is too noisy to read (a handful of
+  // flops can sit at 0% or 100% by chance) — only passivity, which accrues
+  // every hand rather than just flopped ones, is exempt from this guard.
+  const enoughFlops = s.flops >= cfg.minFlops
   return {
     passive: s.passivity >= cfg.passiveAt,
-    showdownHeavy: s.showdownPerFlop >= cfg.showdownHeavyAt,
-    showdownLight: s.showdownPerFlop <= cfg.showdownLightAt,
+    showdownHeavy: enoughFlops && s.showdownPerFlop >= cfg.showdownHeavyAt,
+    showdownLight: enoughFlops && s.showdownPerFlop <= cfg.showdownLightAt,
   }
 }
