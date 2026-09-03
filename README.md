@@ -96,7 +96,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
   - [No AI, No Cloud, No Network](#no-ai-no-cloud-no-network) · [Where the Pro Stats Come From](#where-the-pro-stats-come-from) · [How a Stat Becomes a Decision](#how-a-stat-becomes-a-decision) · [Why Do It This Way?](#why-do-it-this-way)
 - [How Bot Behavior Works](#how-bot-behavior-works) -- the full technical pipeline
   - [Poker Realism (audits)](#poker-realism-v0132--two-professional-audits) · [How This Compares to Pro Tools](#how-this-compares-to-pro-level-simulators) · [Persona Config Fields](#persona-config-fields)
-  - [Chen Score](#chen-score--classic-preflop-hand-strength) · [Chen+](#chen--this-apps-position--and-style-adjusted-extension) · [Board Texture](#board-texture-analysis) · [Table Flow](#table-flow) · [Hero Adaptation](#hero-adaptation)
+  - [Chen Score](#chen-score--classic-preflop-hand-strength) · [Chen+](#chen--this-apps-position--and-style-adjusted-extension) · [Board Texture](#board-texture-analysis) · [Table Flow](#table-flow) · [Table Reads](#table-reads) · [Hero Adaptation](#hero-adaptation)
   - [Preflop Decision Flow](#preflop-decision-flow) · [Postflop Decision Flow](#postflop-decision-flow) · [Exploit Probe](#exploit-probe-adversarial-validation) · [Testing Approach](#testing-approach)
 - [Tech Stack](#tech-stack)
 - [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation
@@ -104,7 +104,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 959 tests across 39 files
+- [Test Suites](#test-suites) -- 978 tests across 42 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -706,6 +706,17 @@ Real players adjust when someone is on a hot streak or when the table dynamic sh
 
 The adjustments are bounded and gentle -- a bot's fundamental personality doesn't change, but it adapts around the edges, just like a real player would.
 
+### Table Reads
+
+Bots read the *table*, not you — that is Nemesis's job. A rolling 30-hand window counts public signals only: bets and raises, checks, flops seen, showdowns reached. Two reads come out of it, each with thresholds set outside a normal pro table's range (passivity 0.41–0.56 and showdown-per-flop 0.42–0.71 over 30-hand windows; a calling station drives 0.64+ and 1.00):
+
+| Table | Read | What the bots do |
+|---|---|---|
+| Calling stations (check-heavy, everything goes to showdown) | `passive && showdownHeavy` | River thin value ×1.4, river bluff-raises ×0.3 |
+| Weak-tight (check-heavy, folds before showdown) | `passive && showdownLight` | Probe and stab bets ×1.25 |
+
+Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker: `station` exercises the calling-station read end to end in CI, and the bots value-bet it thinner for it — −1,080 → −1,082 bb/100 at 100bb, −552 → −572 at 25bb. The weak-tight read is unit-tested (each multiplier moves exactly its knob) and calibrated (a fold-everything hero at the pro table produces a read in under 5% of windows), but no single probe strategy plays more than one hero at the table, and one hero folding can't make an eight-handed table check-heavy enough to trigger it — so it isn't measured end to end. `fit-or-fold` stays in the gate as its own degenerate line regardless.
+
 ### Hero Adaptation
 
 After tracking 10+ hands of the hero's play (via `useHeroProfileStore`), bots begin exploiting observed tendencies:
@@ -782,10 +793,11 @@ yarn probe all 10000 20260712 25  # seeded, short stacks
 | 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **−252** | **−274** |
 | overbet-spam (1.5x pot every street) | fold discipline | **−1,190** | **−428** |
 | minraise-spam | over-folding to min bets | **−1,052** | **−449** |
-| station (call everything) | thin value betting | **−1,080** | **−552** |
+| station (call everything) | thin value betting | **−1,082** | **−572** |
 | nit-value (jam only QQ+/AK) | paying off too light | **−19** | **+2** |
 | steal-fold (open CO/BTN any two, fold to 3-bets, one c-bet) | blind defense, c-bet folding | **−20** | **−20** |
 | donk-33 (call opens, bet ⅓ pot whenever checked to) | small-bet fold discipline | **−28** | **−131** |
+| fit-or-fold (call opens, continue only with a pair) | weak-tight postflop folding | **−321** | **−123** |
 
 Numbers: 10,000 hands per cell, seed 20260712, `$1/$2`. Stacks reset to the column's depth every hand.
 
@@ -870,7 +882,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (959 tests across 39 files) |
+| Testing | Vitest (978 tests across 42 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1054,7 +1066,7 @@ holdem-simulator/
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 39 Vitest test suites (959 tests)
+├── tests/                         # 42 Vitest test suites (978 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1085,7 +1097,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (959 tests, 39 files, ~100 seconds)
+Run all tests: `yarn test` (978 tests, 42 files, ~100 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1234,7 +1246,7 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 | 4 | Medium | **The opponent HUD was not observed play** — `opponentStats` (`index.vue`) mapped each bot's configured persona VPIP/PFR/AF and hardcoded `handsPlayed: 25` and `wtsd: vpip > 0.25 ? 35 : 22`; the "Went to Showdown" number was invented and the reads ("Nit — 3-bet liberally") printed from hand one. | **Fixed** — `observedStats.ts` parses per-bot VPIP / PFR / AF / WTSD from the session's recorded action logs (standard denominators: hands dealt, hands dealt, calls, flops seen); the panel's existing 10-hand minimum now actually gates the reads. Pinned by `tests/observed-stats.test.ts`. |
 | 5 | Medium | **Stats page mislabeled uncontested wins as showdown wins** — `result: 'won'` includes pots where everyone folded, so "Showdown Rate" = (won+lost)/hands and "Won at Showdown" = won/(won+lost) (`useStatsData.ts`) both inflated. | **Fixed** — both stats now count only hands that reached showdown (five-card board and two or more unfolded players, `wentToShowdown`). |
 | 6 | Low | **The action recommendation ignored the price** — `recommend()` received only a facing-a-bet boolean, so "CALL — 36% equity" was advised whether the bet was a third of the pot or three times it, while the panel's separate pot-odds verdict could say the opposite; `potOddsNeeded` was a `0` placeholder. | **Fixed** — `analyzeHand` takes the pot and call amounts, computes the equity the call needs, and `recommend()` folds when equity is short of it (a strong draw gets a few points of implied-odds slack); the reasoning names both numbers. Pinned by `tests/recommendation-price.test.ts`. |
-| 7 | Low | **"Opponent reads" was dead code** — the engine's `handsForMemory`, `recentShowdowns` and `recentShowdownBluffs` counters (`useGameEngine.ts`) were declared but never incremented, so `opponentReads` was always `undefined` and bots ran on the constant defaults in `botDecision.ts`; no simulator passed it either. | **Fixed** — the field, the counters and the never-taken branches are removed (seeded probe battery byte-identical before and after, so nothing the bots do changed). A real table-read adaptation is on the roadmap, to be built with probe coverage. |
+| 7 | Low | **"Opponent reads" was dead code** — the engine's `handsForMemory`, `recentShowdowns` and `recentShowdownBluffs` counters (`useGameEngine.ts`) were declared but never incremented, so `opponentReads` was always `undefined` and bots ran on the constant defaults in `botDecision.ts`; no simulator passed it either. | **Fixed** — the field, the counters and the never-taken branches are removed (seeded probe battery byte-identical before and after, so nothing the bots do changed). A real table-read adaptation is on the roadmap, to be built with probe coverage. Replaced by real, calibrated table reads (see [Table Reads](#table-reads)). |
 | 8 | Low | **CSP kept `'unsafe-eval'` the production build doesn't need** — the built `_nuxt/*.js` contains no `eval(` / `new Function(`. Missing hardening: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `Strict-Transport-Security`. | **Fixed** — `'unsafe-eval'` dropped, the three directives and a one-year HSTS header added to `netlify.toml` (`'unsafe-inline'` stays for Vue). The `api.iconify.design` origin is deliberately kept as a fallback: the client icon bundle is built from a source scan, and a dynamically named icon the scan misses would otherwise render blank. |
 | 9 | Info | **No strategic leak found.** Twelve new degenerate hero strategies (steal-and-fold, limp-reraise, min-3-bet, 4-bet bluff, donk ⅓ pot, river overbet, float-then-overbet, any-pair value, polarized river jam, in-position barrel, flop check-raise, passive trap) × two seeds × 10,000 hands all lose at 100bb; the whole battery also loses at 25bb and 250bb (the CI gate only runs 100bb). Closest to break-even: steal-and-fold −19.9 / −19.5 bb/100, donk-33 −21.7 / −47.3, short-stack nit-value −2.1 (the designed knife-edge). The probe hides the board and position from the scripted hero and never applies hero adaptation, so it measures un-adapted bots (conservative). | **Confirmed** — and now guarded: steal-and-fold and donk-33 joined the CI probe, and the whole battery also runs at 25bb (short-stack nit-value sits at +2.1 bb/100 on the gate seed, the designed knife-edge, under the +10 bound). |
 | 10 | Info | **Bots see no hidden information** (re-verified) — the decision context holds only the bot's own cards, the street-sliced board and public state; hero modeling records behavior only and the sizing tell keys on real showdowns; the live deck is a fresh Fisher-Yates shuffle from `Math.random` each hand, unseeded and unexposed; bot thinking time is uniform random, uncorrelated with hand strength; both simulators and the probe street-slice. | **Confirmed** |
@@ -1368,7 +1380,6 @@ Deployed via `netlify.toml`:
 - **Bot difficulty slider**: Scale all bots between Beginner and Shark
 - **Multiplayer**: WebSocket-based real players (would require a server)
 - **Advanced board texture reasoning**: Blocker analysis, range narrowing by street, turn/river card categorization (scare cards, blanks)
-- **Table reads**: Bots that notice a check-heavy or showdown-light table and adjust thin value and river bluffs — built against a probe strategy that measures it, unlike the dead plumbing removed in Round 7
 
 ## Influences
 

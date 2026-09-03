@@ -58,6 +58,7 @@ function confirmReset() {
             </span>
           </div>
           <p v-if="botConfig.leak" class="text-xs text-gray-500 mt-0.5 italic line-clamp-2">{{ botConfig.leak }}</p>
+          <p class="text-[0.65rem] text-gray-600 mt-1">Reads the table: value-bets thinner into calling stations, probes weak-tight tables.</p>
         </div>
       </div>
     </template>

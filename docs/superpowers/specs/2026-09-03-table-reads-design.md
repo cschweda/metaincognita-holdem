@@ -138,3 +138,18 @@ tableReads: {
 - Calibration test: < 5% of windows carry any read at the normal table.
 - Full suite and typecheck green; README bot-behavior docs and the Round 7
   roadmap line updated.
+
+## Implementation note (2026-09-03)
+
+A 4,000-hand-per-strategy measurement against the shipped tracker: the
+calling-station read (`passive && showdownHeavy`) fires in 98% of windows
+against `station`, exactly as designed. Against `fit-or-fold`, though, the
+weak-tight read (`passive && showdownLight`) fires in 0% of windows
+(showdown-light alone reaches 7%) — a single hero folding postflop can't
+push an eight-handed table's aggregate passivity and showdown-per-flop past
+the calibrated thresholds, so the "fires the weak-tight read" expectation
+in Probe coverage above does not hold. The weak-tight read is still
+unit-tested (`tests/table-reads-effects.test.ts`) and calibrated (the
+fold-everything-hero test, under 5% of windows), but it is not measured end
+to end by any probe strategy; `fit-or-fold` stays in the gate as its own
+degenerate line regardless.
