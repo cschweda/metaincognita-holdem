@@ -166,6 +166,16 @@ export default {
     barrel: {
       turnMonster: 0.90, turnStrong: 0.70, turnDrawBase: 0.45, turnDefault: 0.25,
     },
+    // Table reads — public table-wide signals over a rolling window.
+    // Thresholds sit outside a normal pro table's range (passivity
+    // 0.41–0.56, showdown-per-flop 0.42–0.71 over 30-hand windows, seed
+    // 20260712); a calling station drives 0.64+/1.00. Effects are bounded
+    // multipliers on existing knobs; no read → decisions byte-identical.
+    tableReads: {
+      windowHands: 30, minHands: 10,
+      passiveAt: 0.62, showdownHeavyAt: 0.85, showdownLightAt: 0.30,
+      thinValueBoost: 1.4, riverBluffPenalty: 0.3, probeBoost: 1.25,
+    },
   },
 
   // ─── Career Mode ─────────────────────────────────────────────
