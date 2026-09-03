@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-03
+
 ### Added
 - **Multi-seat exploit probe** — `runStrategy(..., heroSeats)` and a sixth CLI argument seat several copies of a strategy (the pro lineup fills the rest; bb/100 is per seat), because one hero cannot make an eight-handed table abnormal. Two new gate cells at 100bb: four calling stations (the station read fires in most windows; −669 bb/100 per seat) and four fit-or-fold seats (−563). The sweep is also what retired the weak-tight read.
 - **Table reads** — bots notice a calling-station table (check-heavy, everything reaches showdown) and value-bet the river thinner (×1.4) and bluff-raise it less (×0.3). Public signals only, over a rolling 30-hand window (`app/utils/tableReads.ts`); thresholds calibrated outside a normal pro table's range and gated behind `minFlops`; bounded multipliers in `config.strategy.tableReads`. The live engine, both simulators and the exploit probe feed the same tracker, so the read is measured end to end in CI (`station` −1,080 → −1,142 bb/100 at 100bb). A second "weak-tight" read (probe bets ×1.25) was built and removed the same day after multi-seat probe runs showed it can never fire at a realistic table. Replaces the dead "opponent reads" plumbing removed earlier in Round 7.
@@ -1108,6 +1110,8 @@ Initial release -- Phase 1 visual foundation with simulated betting, real-time h
 - Comprehensive README with feature list, tech stack, project structure, test suite details, and roadmap
 - Full 6-phase design document in `docs/holdem-simulator-design.md`
 
+[Unreleased]: https://github.com/cschweda/holdem-simulator/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/cschweda/holdem-simulator/compare/v0.19.0...v0.20.0
 [0.10.2]: https://github.com/cschweda/holdem-simulator/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/cschweda/holdem-simulator/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/cschweda/holdem-simulator/compare/v0.9.2...v0.10.0
