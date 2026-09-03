@@ -23,7 +23,6 @@ export interface GameEngineOptions {
     preflopCallers: number
     checkedThisStreet?: boolean
     streetHistory?: { flop?: string; turn?: string }
-    opponentReads?: { avgAggression: number; recentBluffRate: number; tableIsPassive: boolean }
     tableDynamics?: { dominantPlayerId?: number; dominantWinRate: number; myRecentWinRate: number; avgStackDepth: number; handsInWindow: number }
   }) => { type: string; amount?: number }
   onEndHand: () => void
@@ -83,13 +82,6 @@ export function useGameEngine(options: GameEngineOptions) {
     turn?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
     river?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
   }>()
-
-  // Bot memory — track table-level tendencies across hands
-  let recentTableBets = 0
-  let recentTableChecks = 0
-  let recentShowdownBluffs = 0
-  let recentShowdowns = 0
-  let handsForMemory = 0
 
   // Table Flow — rolling window of recent hand winners
   const TABLE_FLOW_WINDOW = 20
@@ -225,10 +217,6 @@ export function useGameEngine(options: GameEngineOptions) {
         existing[streetKey] = action.type as any
       }
       playerStreetActions.set(p.id, existing)
-
-      // Table memory tracking
-      if (action.type === 'raise') recentTableBets++
-      if (action.type === 'check') recentTableChecks++
     }
 
     return result.reopened
@@ -302,11 +290,6 @@ export function useGameEngine(options: GameEngineOptions) {
         preflopCallers: preflopCallerCount,
         checkedThisStreet,
         streetHistory: playerStreetActions.get(p.id),
-        opponentReads: handsForMemory >= 5 ? {
-          avgAggression: recentTableBets / Math.max(recentTableBets + recentTableChecks, 1) * 2,
-          recentBluffRate: recentShowdowns > 0 ? recentShowdownBluffs / recentShowdowns : 0.15,
-          tableIsPassive: recentTableChecks > recentTableBets * 2,
-        } : undefined,
         tableDynamics: getTableDynamics(p.id),
       })
       // applyAction delegates to the shared engine, which owns all

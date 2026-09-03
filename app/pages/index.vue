@@ -304,7 +304,6 @@ const engine = useGameEngine({
         wasPreflopRaiser: streetContext?.wasPreflopRaiser,
         preflopCallers: streetContext?.preflopCallers,
         streetHistory: streetContext?.streetHistory as any,
-        opponentReads: streetContext?.opponentReads,
         tableDynamics: streetContext?.tableDynamics,
       },
       consistency,

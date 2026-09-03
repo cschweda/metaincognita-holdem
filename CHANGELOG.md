@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **analyzeHand runs one Monte Carlo pass** — equity and hand-improvement probabilities come from the same 1,000 seeded runouts (was two independent 1,000 + 800-iteration simulations); improvement probabilities now sample 1,000 runouts postflop.
 
 ### Removed
+- **Dead "opponent reads" plumbing** (Round 7 #7) — `DecisionContext.opponentReads`, the engine's never-incremented table-memory counters, and the bot-brain branches keyed on them (thin-value boost, probe-bet boost, river-bluff penalty vs a passive table) are gone. None of it ever ran: the counters that gated it were never advanced and no simulator passed the field. The seeded probe battery is byte-identical before and after. A real table-read adaptation is on the roadmap, to be built with probe coverage.
 - **Tauri desktop target** — `src-tauri/`, the `desktop-build.yml` release workflow, the `yarn tauri` script, and the `@tauri-apps/cli` dev dependency are gone; the simulator is web-only (static SPA on Netlify). The desktop build was an experiment that never became a priority, and carrying a second distribution target meant a second CSP, a Rust toolchain in CI, and a multi-gigabyte local build directory for no user-facing benefit. Round 4's desktop findings stay in the README audit log as history.
 
 ### Performance

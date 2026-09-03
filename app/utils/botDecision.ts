@@ -243,12 +243,6 @@ export interface DecisionContext {
     flop?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
     turn?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
   }
-  // Bot memory — observed opponent tendencies
-  opponentReads?: {
-    avgAggression: number   // how aggressive opponents at this table have been (0-2)
-    recentBluffRate: number // how often opponents showed down weak hands (0-1)
-    tableIsPassive: boolean // true if table has been check-heavy
-  }
   // Table Flow — dynamic adjustments based on recent results
   tableDynamics?: {
     dominantPlayerId?: number   // who is on a heater (most wins in window)
@@ -603,7 +597,6 @@ function maybeThinValueRiver(
   profile: BotProfile,
   bb: number,
   strength: number,
-  oppPassive: boolean,
   isMultiway: boolean,
   isInPosition: boolean,
   rng: Rng = Math.random,
@@ -611,7 +604,6 @@ function maybeThinValueRiver(
   if (strength < 0.42 || strength >= 0.55) return null
   const freq = Math.min(
     0.35
-      * (oppPassive ? 1.4 : 1.0)   // stations pay off light — bet thinner
       * (isMultiway ? 0.5 : 1.0)   // multiway, someone has us beat more often
       * (isInPosition ? 1.15 : 0.9)
       * profile.aggression,
@@ -1041,9 +1033,6 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const betOnTurn = ctx.streetHistory?.turn === 'bet' || ctx.streetHistory?.turn === 'raise'
 
   // Opponent reads — if opponents are passive, bluff more; if aggressive, tighten up
-  const oppPassive = ctx.opponentReads?.tableIsPassive ?? false
-  const oppAggression = ctx.opponentReads?.avgAggression ?? 1.0
-  const oppBluffRate = ctx.opponentReads?.recentBluffRate ?? 0.15
 
   if (toCall === 0) {
     // ─── Not facing a bet ──────────────────────────────
@@ -1157,7 +1146,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           ?? sizedBet(pot, 0.55 + profile.aggression * 0.15 + rng() * 0.15, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }
-      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition, rng)
+      const thin = maybeThinValueRiver(pot, profile, bb, strength, isMultiway, isInPosition, rng)
       if (thin !== null) return { type: 'raise', amount: thin + playerBet }
       return { type: 'check' }
     }
@@ -1174,7 +1163,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           ?? sizedBet(pot, 0.55 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
-      const thin = maybeThinValueRiver(pot, profile, bb, strength, oppPassive, isMultiway, isInPosition, rng)
+      const thin = maybeThinValueRiver(pot, profile, bb, strength, isMultiway, isInPosition, rng)
       if (thin !== null) return { type: 'raise', amount: thin + playerBet }
       return { type: 'check' } // medium hands check the river
     }
@@ -1195,7 +1184,6 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
         * (board?.isDry ? 1.20 : 1.0)     // dry boards = more fold equity
         * (board?.isAceHigh ? 1.15 : 1.0) // represent the ace
         * (board?.isWet ? 0.85 : 1.0)     // wet = opponent has more draws
-        * (oppPassive ? 1.25 : 1.0)       // passive opponents fold more
       if (rng() < probeBase * probeTexture) {
         const sizeMult = board?.isWet ? 0.55 : board?.isDry ? 0.35 : 0.45
         const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + rng() * 0.12, profile, bb)
@@ -1235,7 +1223,6 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board?.isAceHigh ? 1.5 : 1.0)
           * (board?.isDry ? 1.4 : 1.0)
           * (board?.isLow ? 1.2 : 1.0)
-          * (oppPassive ? 1.3 : 1.0) // rivers never reach here — handled by the polarization block above
       if (hasNothing && rng() < probeRate) {
         const bluffSize = sizedBet(pot, 0.33 + rng() * 0.22, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
@@ -1393,9 +1380,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
 
   // Nothing — mostly fold. Rare bluff raise, very rare float.
   // IP bluff-raises are more credible (acting last). OOP bluff-raises are rare.
-  // River bluff fix: DON'T bluff into passive opponents on the river — their river bets are real
-  const riverBluffPenalty = (ctx.street === 'river' && oppPassive) ? 0.3 : 1.0
-  if (rng() < profile.bluffFreq * (isInPosition ? 0.25 : 0.12) * profile.aggression * riverBluffPenalty && chips > currentBet * 2) {
+  if (rng() < profile.bluffFreq * (isInPosition ? 0.25 : 0.12) * profile.aggression && chips > currentBet * 2) {
     const raiseSize = Math.round(currentBet * (2.5 + rng()))
     return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
   }
