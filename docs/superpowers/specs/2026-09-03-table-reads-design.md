@@ -94,7 +94,7 @@ tableReads: {
 ## Probe coverage (`scripts/exploit-probe.ts`, `tests/exploit-probe.test.ts`)
 
 - New strategy `fit-or-fold`: calls any single raise preflop, then continues
-  only with a pair or better (bets ½ pot when checked to, calls up to a
+  only with any pair, including a board pair (bets ½ pot when checked to, calls up to a
   pot-sized bet), folds everything else. It sees flops and gives up; in
   measurement this lowers showdown-per-flop only slightly and never makes
   the table passive, so it does not fire the weak-tight read (see the

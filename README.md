@@ -1171,6 +1171,9 @@ Run all tests: `yarn test` (978 tests, 42 files, ~100 seconds)
 ### Analysis Ground Truth (`analysis-ground-truth.test.ts`)
 Outs are distinct improving cards (pocket pair over the board = 2, flush + open-ender = 15, two pair with a pocket pair = 4, set = 7); A-high and wheel straight draws are gutshots; a made straight is not a draw; preflop equity matches published values (AKs 67%, 98s 51%, AA 85% heads-up / 49% six-way).
 
+### Browser Simulator (`simulate-browser.test.ts`)
+The `/analysis` simulator runs end to end under the test runner (it used to rely on a Nuxt auto-import and could not load outside the app) and is byte-identical for the same seed — the last of the four table-read consumers to get automated coverage.
+
 ### Session Stats Writes (`session-stats-writes.test.ts`)
 Recording a hand serializes the session to localStorage exactly once; starting a session persists it immediately.
 
