@@ -1,8 +1,10 @@
 /**
- * Session stats tracking — persists to localStorage with reactive watch.
+ * Session stats tracking — persists to localStorage on every recorded hand.
  * Tracks hands played, wins/losses/folds, bankroll, per-hand records, and
  * provides JSON/CSV export downloads.
  */
+import { ref, readonly, onMounted, onBeforeUnmount } from 'vue'
+
 export interface PlayerHand {
   name: string
   position: string
@@ -95,12 +97,11 @@ export function useSessionStats() {
     }
   }
 
-  // Auto-save to localStorage on changes (debounced to avoid serializing on every mutation)
-  let saveTimer: ReturnType<typeof setTimeout> | null = null
-  watch(session, () => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(trySave, 1000)
-  }, { deep: true })
+  // Persistence is explicit: initSession and recordHand save, and the
+  // beforeunload handler catches a tab close. The session is exposed
+  // readonly, so those are the only mutation points — a deep watcher here
+  // would walk the whole hand history on every change and serialize it a
+  // second time after each save.
 
   function createSession(): SessionData {
     return {
@@ -127,6 +128,7 @@ export function useSessionStats() {
     session.value.startingStack = startingStack
     session.value.currentStack = startingStack
     session.value.peakStack = startingStack
+    trySave()
   }
 
   function recordHand(record: HandRecord, newStack: number) {

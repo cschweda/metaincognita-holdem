@@ -104,7 +104,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 957 tests across 38 files
+- [Test Suites](#test-suites) -- 959 tests across 39 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -870,7 +870,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (957 tests across 38 files) |
+| Testing | Vitest (959 tests across 39 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1054,7 +1054,7 @@ holdem-simulator/
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 38 Vitest test suites (957 tests)
+├── tests/                         # 39 Vitest test suites (959 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1085,7 +1085,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (957 tests, 38 files, ~100 seconds)
+Run all tests: `yarn test` (959 tests, 39 files, ~100 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1158,6 +1158,9 @@ Run all tests: `yarn test` (957 tests, 38 files, ~100 seconds)
 
 ### Analysis Ground Truth (`analysis-ground-truth.test.ts`)
 Outs are distinct improving cards (pocket pair over the board = 2, flush + open-ender = 15, two pair with a pocket pair = 4, set = 7); A-high and wheel straight draws are gutshots; a made straight is not a draw; preflop equity matches published values (AKs 67%, 98s 51%, AA 85% heads-up / 49% six-way).
+
+### Session Stats Writes (`session-stats-writes.test.ts`)
+Recording a hand serializes the session to localStorage exactly once; starting a session persists it immediately.
 
 ### Recommendation Price (`recommendation-price.test.ts`)
 The same 36% equity is a call against a bet that needs 25% and a fold against one that needs 43%; a strong draw a few points short still calls on implied odds; `analyzeHand` derives the needed equity from pot and call amounts and never recommends CALL below it.
@@ -1235,7 +1238,7 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 | 8 | Low | **CSP kept `'unsafe-eval'` the production build doesn't need** — the built `_nuxt/*.js` contains no `eval(` / `new Function(`. Missing hardening: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `Strict-Transport-Security`. | **Fixed** — `'unsafe-eval'` dropped, the three directives and a one-year HSTS header added to `netlify.toml` (`'unsafe-inline'` stays for Vue). The `api.iconify.design` origin is deliberately kept as a fallback: the client icon bundle is built from a source scan, and a dynamically named icon the scan misses would otherwise render blank. |
 | 9 | Info | **No strategic leak found.** Twelve new degenerate hero strategies (steal-and-fold, limp-reraise, min-3-bet, 4-bet bluff, donk ⅓ pot, river overbet, float-then-overbet, any-pair value, polarized river jam, in-position barrel, flop check-raise, passive trap) × two seeds × 10,000 hands all lose at 100bb; the whole battery also loses at 25bb and 250bb (the CI gate only runs 100bb). Closest to break-even: steal-and-fold −19.9 / −19.5 bb/100, donk-33 −21.7 / −47.3, short-stack nit-value −2.1 (the designed knife-edge). The probe hides the board and position from the scripted hero and never applies hero adaptation, so it measures un-adapted bots (conservative). | **Confirmed** — and now guarded: steal-and-fold and donk-33 joined the CI probe, and the whole battery also runs at 25bb (short-stack nit-value sits at +2.1 bb/100 on the gate seed, the designed knife-edge, under the +10 bound). |
 | 10 | Info | **Bots see no hidden information** (re-verified) — the decision context holds only the bot's own cards, the street-sliced board and public state; hero modeling records behavior only and the sizing tell keys on real showdowns; the live deck is a fresh Fisher-Yates shuffle from `Math.random` each hand, unseeded and unexposed; bot thinking time is uniform random, uncorrelated with hand strength; both simulators and the probe street-slice. | **Confirmed** |
-| 11 | Info | **Hot paths are cheap** — 1,000-runout equity vs 3 opponents 1.1 ms, full flop analysis 1 ms, analysis keyed on the facing-bet boolean; session records ≈ 1.5 KB/hand (quota ≈ 3,400 hands, then warn-once), 2,000 hands serialize in 3.6 ms; the PokerStars parser is linear (130 MB in 1.1 s) and never throws. Shipped: 942 KB JS (308 KB gzip) + 228 KB CSS (31 KB gzip). Worth doing: lazy-load the 1,284-line quip table with commentary and drop the second per-hand write (immediate save + 1 s deep watcher). The toolchain was upgraded within its ranges in-round: `yarn audit` went from 129 advisories (4 critical / 78 high, all build-time packages that never ship) to 1 low. | **Confirmed** |
+| 11 | Info | **Hot paths are cheap** — 1,000-runout equity vs 3 opponents 1.1 ms, full flop analysis 1 ms, analysis keyed on the facing-bet boolean; session records ≈ 1.5 KB/hand (quota ≈ 3,400 hands, then warn-once), 2,000 hands serialize in 3.6 ms; the PokerStars parser is linear (130 MB in 1.1 s) and never throws. Shipped: 942 KB JS (308 KB gzip) + 228 KB CSS (31 KB gzip). Done in-round: the second per-hand write is gone (the deep watcher that re-walked the whole history and re-serialized it a second after every save is removed; saves are explicit on session start, each hand, and tab close). Deliberately not done: lazy-loading the quip table — it is 32 KB gzipped and commentary defaults to on, so nearly every session loads it anyway. The toolchain was upgraded within its ranges in-round: `yarn audit` went from 129 advisories (4 critical / 78 high, all build-time packages that never ship) to 1 low. | **Confirmed** |
 | 12 | Info | **Security re-verified clean** — no `v-html` / `innerHTML` / `eval` / `document.write`; the only external link carries `rel="noopener"`; query params guarded; player names like `__proto__` parse without polluting prototypes; every setup input is a config-bounded slider; the betting engine terminates on NaN or negative stacks; git history holds only placeholder Supabase credentials; no `.env`, no tracked build output; every storage read is shape-guarded. | **Confirmed** |
 
 Round 6 carry-overs closed in this round: the thinking-insight pill (#6) is gated behind a study toggle and the stale `public/analysis.html` (#7) is gone. New suites: analysis ground truth, observed stats, commentary hygiene, recommendation price, thinking-insight gate, static-report retirement; the probe gate gained two strategies and a 25bb run. The seeded probe battery changed only through the draw-classification fix in #1 and stays strongly negative on both recorded seeds.
@@ -1329,7 +1332,7 @@ Deployed via `netlify.toml`:
 | `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing attacks |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referrer leakage to third parties |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disables unnecessary browser APIs |
-| `Strict-Transport-Security` | `max-age=31536000` | Pins browsers to HTTPS for a year (no `includeSubDomains`: sibling hosts aren't ours to pin) |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` | Pins browsers to HTTPS for a year. `netlify.toml` sets `max-age` only; the site's Netlify HSTS setting adds `includeSubDomains` and `preload`, and that merged value is what is served (verified with `curl -I`) |
 | `Content-Security-Policy` | See below | Restricts script/style/connect sources |
 
 **CSP breakdown:**

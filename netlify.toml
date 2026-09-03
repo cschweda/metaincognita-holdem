@@ -22,7 +22,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    # One year; no includeSubDomains/preload on purpose — the hub's other games live on sibling hosts we don't control from here.
+    # One year. The site's Netlify HSTS setting adds includeSubDomains + preload on top of this (verified with curl -I).
     Strict-Transport-Security = "max-age=31536000"
     # 'unsafe-inline' is the Vue runtime's; 'unsafe-eval' was dropped in Round 7 (the production bundle has no eval / new Function).
     # api.iconify.design stays only as a fallback for any icon name the client bundle's scan misses.
