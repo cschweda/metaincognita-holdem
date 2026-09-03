@@ -16,6 +16,7 @@ import type { Rng } from './rng'
 import { toPokerStarsFormat } from './pokerStarsExport'
 import type { Card } from './cards'
 import { shuffle } from './shuffle'
+import { createTableReadState, noteTableAction, finishTableHand, readTable } from './tableReads'
 
 const FICTIONAL = ['Tight Tony', 'Loose Lucy', 'Aggressive Alex', 'Calling Carl', 'Tricky Tina', 'Solid Sam', 'Wild Wendy']
 
@@ -98,6 +99,9 @@ export async function runSimulation(
   let totalPot = 0, preflopFoldOuts = 0, flopsSeen = 0, turnsSeen = 0, riversSeen = 0, showdowns = 0, threeBetPots = 0, allInHands = 0
   let dealerSeat = 0
   const allHands: SimHandRecord[] = []
+
+  // Table reads — public table-wide signals over a rolling window (see utils/tableReads.ts)
+  const tableReadState = createTableReadState()
 
   function getTableDynamics(botId: number) {
     return sharedTableDynamics(
@@ -188,10 +192,13 @@ export async function runSimulation(
           wasPreflopRaiser: p.id === preflopRaiserId, preflopCallers: preflopCallerCount,
           checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
           streetHistory: playerStreetActions.get(p.id) as any, tableDynamics: getTableDynamics(p.id),
+          tableReads: readTable(tableReadState, config.strategy.tableReads),
           rng,
         }, p.consistency) as EngineAction
       }, (ep, _action, result) => {
         const p = ep as SimPlayer
+        if (result.type === 'raise') noteTableAction(tableReadState, 'bet')
+        else if (result.type === 'check') noteTableAction(tableReadState, 'check')
         if (result.type === 'fold') { p.lastAction = 'fold'; actions.push(`${p.name} folds`) }
         else if (result.type === 'check') { p.lastAction = 'check'; actions.push(`${p.name} checks`) }
         else if (result.type === 'call') {
@@ -250,6 +257,7 @@ export async function runSimulation(
     let winnerId = -1, winnerName = ''
     const remaining = active()
     const isShowdown = remaining.length > 1
+    finishTableHand(tableReadState, { sawFlop: reachedFlop, showdown: isShowdown }, config.strategy.tableReads.windowHands)
 
     if (remaining.length === 1) {
       winnerId = remaining[0].id; winnerName = remaining[0].name; remaining[0].chips += pot

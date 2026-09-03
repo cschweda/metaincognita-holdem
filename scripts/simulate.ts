@@ -31,6 +31,7 @@ import { shuffle } from '../app/utils/shuffle'
 import { getTableDynamics as sharedTableDynamics } from '../app/utils/gameSimulation'
 import { startBettingRound, runBettingRound } from '../app/utils/bettingEngine'
 import type { BettingRound, EngineAction } from '../app/utils/bettingEngine'
+import { createTableReadState, noteTableAction, finishTableHand, readTable } from '../app/utils/tableReads'
 
 // ─── Config ───────────────────────────────────────────────────
 
@@ -281,6 +282,7 @@ function simulateHand(
           checkedThisStreet: (playerStreetActions.get(p.id) as any)?.[street] === 'check',
           streetHistory: playerStreetActions.get(p.id) as any,
           tableDynamics: getTableDynamics(p.id),
+          tableReads: readTable(tableReadState, config.strategy.tableReads),
           rng,
         },
         p.consistency,
@@ -293,6 +295,8 @@ function simulateHand(
       return action as EngineAction
     }, (ep, _action, result) => {
       const p = ep as SimPlayer
+      if (result.type === 'raise') noteTableAction(tableReadState, 'bet')
+      else if (result.type === 'check') noteTableAction(tableReadState, 'check')
       if (result.type === 'fold') {
         p.lastAction = 'fold'
         actions.push(`${p.name} folds`)
@@ -385,6 +389,7 @@ function simulateHand(
   let winnerName = ''
 
   const remaining = activePlayers()
+  finishTableHand(tableReadState, { sawFlop: actions.some(a => a.includes('FLOP')), showdown: remaining.length > 1 }, config.strategy.tableReads.windowHands)
   if (remaining.length === 1) {
     winnerId = remaining[0].id
     winnerName = remaining[0].name
@@ -528,6 +533,9 @@ const stats = {
 // Table Flow: rolling window of recent winners
 const TABLE_FLOW_WINDOW = config.tableFlow?.windowSize ?? 20
 const recentWinners: number[] = [] // circular buffer of winner IDs
+
+// Table reads — public table-wide signals over a rolling window (see app/utils/tableReads.ts)
+const tableReadState = createTableReadState()
 
 function getTableDynamics(playerId: number) {
   return sharedTableDynamics(
