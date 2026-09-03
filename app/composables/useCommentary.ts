@@ -6,7 +6,7 @@
  */
 import type { Card } from '~/utils/cards'
 import { displayCard } from '~/utils/cards'
-import { chenScore, bestHand, HAND_RANK_NAMES, HAND_RANKS, detectDraws, estimateEquity, describeHand } from '~/utils/handAnalysis'
+import { chenScore, bestHand, HAND_RANK_NAMES, HAND_RANKS, detectDraws, totalOuts as dedupOuts, estimateEquity, describeHand } from '~/utils/handAnalysis'
 import type { PlayerState } from '~/composables/useGameState'
 import config from '@config'
 import {
@@ -683,7 +683,7 @@ export function useCommentary(gs: GS) {
 
         // Draws
         if (draws.length > 0) {
-          const totalOuts = draws.reduce((sum, d) => sum + d.outs, 0)
+          const totalOuts = dedupOuts(draws)
           const drawNames = draws.map(d => d.type.toLowerCase()).join(' + ')
           addHero(`Draw: ${drawNames} (${totalOuts} outs).`, 'street')
         }
@@ -844,7 +844,7 @@ export function useCommentary(gs: GS) {
         }
 
         if (turnDraws.length > 0) {
-          const totalOuts = turnDraws.reduce((sum, d) => sum + d.outs, 0)
+          const totalOuts = dedupOuts(turnDraws)
           addHero(`${turnDraws.map(d => d.type.toLowerCase()).join(' + ')} — ${totalOuts} outs to improve.`, 'aside')
         }
 

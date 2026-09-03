@@ -44,8 +44,9 @@ export interface HandResult {
 
 export interface DrawInfo {
   type: string
-  outs: number
-  cards: number[] // ranks of the out cards
+  outs: number      // distinct unseen cards that complete this draw
+  cards: number[]   // ranks involved (display)
+  outCards: Card[]  // the physical out cards, so totals can de-duplicate across draws
 }
 
 export interface HandAnalysis {
@@ -469,133 +470,94 @@ export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
   if (community.length === 0) return []
   const all = [...holeCards, ...community]
   const draws: DrawInfo[] = []
-
-  // Flush draw
-  const suitCounts = new Map<Suit, number>()
-  for (const c of all) suitCounts.set(c.suit, (suitCounts.get(c.suit) || 0) + 1)
-  for (const [suit, count] of suitCounts) {
-    if (count === 4) {
-      const held = all.filter(c => c.suit === suit).map(c => c.rank)
-      const outs = 13 - count // 9 outs
-      draws.push({ type: `${SUIT_SYMBOLS[suit]} Flush draw`, outs, cards: held })
-    }
+  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
+  const known = new Set(all.map(c => `${c.rank}-${c.suit}`))
+  /** Unseen cards of a rank (optionally one suit) — the only thing an "out" can be. */
+  const unseen = (rank: number, suit?: Suit): Card[] =>
+    (suit ? [suit] : suits).filter(s => !known.has(`${rank}-${s}`)).map(s => ({ rank, suit: s }))
+  const push = (type: string, outCards: Card[], cards: number[]) => {
+    if (outCards.length > 0) draws.push({ type, outs: outCards.length, cards, outCards })
   }
+  const madeRank = bestHand(holeCards, community)?.rank ?? HAND_RANKS.HIGH_CARD
 
-  // Straight draws
-  const uniqueRanks = [...new Set(all.map(c => c.rank))].sort((a, b) => a - b)
-  // Add low ace for wheel draws
-  if (uniqueRanks.includes(14)) uniqueRanks.unshift(1)
-
-  // Check all possible 5-card straight windows
-  let bestStraightDraw: { type: string; outs: number; cards: number[] } | null = null
-  for (let low = 1; low <= 10; low++) {
-    const window = [low, low + 1, low + 2, low + 3, low + 4]
-    const have = window.filter(r => uniqueRanks.includes(r) || (r === 1 && uniqueRanks.includes(14)))
-    const need = window.filter(r => !uniqueRanks.includes(r) && !(r === 1 && uniqueRanks.includes(14)))
-
-    if (have.length === 4 && need.length === 1) {
-      // Open-ended or gutshot?
-      // Check if the missing card is at the ends
-      const missing = need[0]
-      const isOpenEnded = missing === low || missing === low + 4
-
-      // Count actual outs (4 cards of the missing rank, minus any already out)
-      const outsCount = 4
-      const type = isOpenEnded ? 'Open-ended straight draw' : 'Gutshot straight draw'
-
-      if (!bestStraightDraw || outsCount > bestStraightDraw.outs) {
-        bestStraightDraw = { type, outs: outsCount === 4 && isOpenEnded ? 8 : 4, cards: have }
+  // Flush draw — four to a suit (a made flush is not a draw)
+  if (madeRank < HAND_RANKS.FLUSH) {
+    const suitCounts = new Map<Suit, number>()
+    for (const c of all) suitCounts.set(c.suit, (suitCounts.get(c.suit) || 0) + 1)
+    for (const [suit, count] of suitCounts) {
+      if (count === 4) {
+        const outCards: Card[] = []
+        for (let rank = 2; rank <= 14; rank++) outCards.push(...unseen(rank, suit))
+        push(`${SUIT_SYMBOLS[suit]} Flush draw`, outCards, all.filter(c => c.suit === suit).map(c => c.rank))
       }
     }
   }
 
-  // Also check for double-gutshot / OESD by looking for 4-in-a-row patterns
-  if (!bestStraightDraw) {
-    // Check for 3-card runs that could become straights
-    for (let i = 0; i < uniqueRanks.length - 2; i++) {
-      if (uniqueRanks[i + 2] - uniqueRanks[i] <= 4) {
-        const span = uniqueRanks.filter(r => r >= uniqueRanks[i] && r <= uniqueRanks[i] + 4)
-        if (span.length === 3) {
-          // Backdoor straight draw (only on flop)
-          // Not adding — too speculative for display
-        }
+  // Straight draw — every five-card window missing exactly one rank contributes
+  // that rank's unseen cards; the union decides open-ended (8) vs gutshot (4).
+  // A-K-Q-J and A-2-3-4 each fit only one window, so they are gutshots.
+  if (madeRank < HAND_RANKS.STRAIGHT) {
+    const ranks = new Set(all.map(c => c.rank))
+    const has = (r: number) => ranks.has(r === 1 ? 14 : r)
+    const missing = new Set<number>()
+    const have = new Set<number>()
+    for (let low = 1; low <= 10; low++) {
+      const window = [low, low + 1, low + 2, low + 3, low + 4]
+      const need = window.filter(r => !has(r))
+      if (need.length === 1) {
+        missing.add(need[0] === 1 ? 14 : need[0]!)
+        for (const r of window) if (has(r)) have.add(r === 1 ? 14 : r)
       }
     }
-  }
-
-  if (bestStraightDraw) {
-    draws.push(bestStraightDraw)
-  }
-
-  // Overcards (preflop-like draws on flop)
-  if (community.length >= 3) {
-    const boardMax = Math.max(...community.map(c => c.rank))
-    const overcards = holeCards.filter(c => c.rank > boardMax)
-    if (overcards.length > 0 && all.length <= 6) {
-      // Each overcard has ~3 outs (pair up = 3 remaining cards of that rank)
-      const outs = overcards.length * 3
-      draws.push({
-        type: `${overcards.length} overcard${overcards.length > 1 ? 's' : ''}`,
-        outs,
-        cards: overcards.map(c => c.rank),
-      })
+    if (missing.size > 0) {
+      const outCards = [...missing].flatMap(r => unseen(r))
+      const type = outCards.length >= 8 ? 'Open-ended straight draw' : 'Gutshot straight draw'
+      push(type, outCards, [...have].sort((a, b) => a - b))
     }
   }
 
-  // Set draw (pocket pair to set, or two pair to boat)
   const holeRanks = holeCards.map(c => c.rank)
   const boardRanks = community.map(c => c.rank)
+  const pocketPair = holeRanks.length === 2 && holeRanks[0] === holeRanks[1]
 
-  if (holeRanks[0] === holeRanks[1] && !boardRanks.includes(holeRanks[0])) {
-    // Pocket pair, no set yet — 2 outs to hit set
-    draws.push({ type: 'Set draw (pocket pair)', outs: 2, cards: [holeRanks[0]] })
+  // Overcards — unpaired hole cards above the board on the flop/turn. A pocket
+  // pair's "overcards" are its set outs, counted below, not extra outs.
+  if (community.length >= 3 && all.length <= 6 && !pocketPair) {
+    const boardMax = Math.max(...boardRanks)
+    const overcards = holeCards.filter(c => c.rank > boardMax)
+    if (overcards.length > 0) {
+      push(`${overcards.length} overcard${overcards.length > 1 ? 's' : ''}`,
+        overcards.flatMap(c => unseen(c.rank)), overcards.map(c => c.rank))
+    }
   }
 
-  // Two pair → full house outs
-  // Count ranks that appear exactly twice across hole + board
-  const allRanks = all.map(c => c.rank)
-  const rankCounts = new Map<number, number>()
-  for (const r of allRanks) rankCounts.set(r, (rankCounts.get(r) || 0) + 1)
-  const pairedRanks = [...rankCounts.entries()].filter(([_, count]) => count === 2).map(([rank]) => rank)
-  const tripRanks = [...rankCounts.entries()].filter(([_, count]) => count === 3).map(([rank]) => rank)
+  // Set draw — pocket pair that has not hit (two pair+ is covered by the boat draw)
+  if (pocketPair && madeRank < HAND_RANKS.TWO_PAIR) {
+    push('Set draw (pocket pair)', unseen(holeRanks[0]!), [holeRanks[0]!])
+  }
 
-  // Must use at least one hole card for the pair to count
+  const rankCounts = new Map<number, number>()
+  for (const c of all) rankCounts.set(c.rank, (rankCounts.get(c.rank) || 0) + 1)
+  const pairedRanks = [...rankCounts.entries()].filter(([, n]) => n === 2).map(([r]) => r)
+  const tripRanks = [...rankCounts.entries()].filter(([, n]) => n === 3).map(([r]) => r)
   const heroPairedRanks = pairedRanks.filter(r => holeRanks.includes(r))
 
+  // Two pair (using a hole card) → full house: the remaining cards of each paired rank
   if (heroPairedRanks.length >= 1 && pairedRanks.length >= 2 && tripRanks.length === 0) {
-    // Two pair — each paired rank has 2 remaining cards that make a full house
-    let fullHouseOuts = 0
-    const outCards: number[] = []
-    for (const r of pairedRanks) {
-      const remaining = 4 - (rankCounts.get(r) || 0)
-      fullHouseOuts += remaining
-      outCards.push(r)
-    }
-    if (fullHouseOuts > 0) {
-      draws.push({ type: 'Full house draw', outs: fullHouseOuts, cards: outCards })
-    }
+    push('Full house draw', pairedRanks.flatMap(r => unseen(r)), pairedRanks)
   }
 
-  // Trips → quads or full house
+  // Trips (using a hole card) → quads (the last card) or a full house (board pairs)
   const heroTripRanks = tripRanks.filter(r => holeRanks.includes(r))
   if (heroTripRanks.length > 0) {
-    // 1 out to quads (4th card of trip rank)
-    const quadsOuts = 1
-    // Any board card pairing gives full house
     const nonTripBoardRanks = [...new Set(boardRanks.filter(r => !tripRanks.includes(r)))]
-    const fullHouseOuts = nonTripBoardRanks.length * 3 // ~3 remaining cards per rank
-    if (quadsOuts + fullHouseOuts > 0) {
-      draws.push({ type: 'Quads/full house draw', outs: quadsOuts + Math.min(fullHouseOuts, 6), cards: heroTripRanks })
-    }
+    push('Quads/full house draw',
+      [...heroTripRanks.flatMap(r => unseen(r)), ...nonTripBoardRanks.flatMap(r => unseen(r))], heroTripRanks)
   }
 
-  // One pair (using a hole card) → trips draw
-  if (heroPairedRanks.length === 1 && pairedRanks.length === 1 && tripRanks.length === 0) {
-    const r = heroPairedRanks[0]
-    const remaining = 4 - (rankCounts.get(r) || 0)
-    if (remaining > 0) {
-      draws.push({ type: 'Trips draw', outs: remaining, cards: [r] })
-    }
+  // One pair made with a hole card (not a pocket pair) → trips
+  if (!pocketPair && heroPairedRanks.length === 1 && pairedRanks.length === 1 && tripRanks.length === 0) {
+    push('Trips draw', unseen(heroPairedRanks[0]!), [heroPairedRanks[0]!])
   }
 
   return draws
@@ -603,18 +565,9 @@ export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
 
 // ─── Deduplicated Outs ─────────────────────────────────────────
 export function totalOuts(draws: DrawInfo[]): number {
-  // Simple: sum outs but cap overlap between flush + straight draws
-  const flushDraw = draws.find(d => d.type.includes('Flush'))
-  const straightDraw = draws.find(d => d.type.includes('straight'))
-
-  let total = draws.reduce((sum, d) => sum + d.outs, 0)
-
-  // If both flush and straight draw exist, subtract ~1 for overlap
-  if (flushDraw && straightDraw) {
-    total = Math.max(total - 1, 0)
-  }
-
-  return total
+  const seen = new Set<string>()
+  for (const d of draws) for (const c of d.outCards) seen.add(`${c.rank}-${c.suit}`)
+  return seen.size
 }
 
 // ─── Probability Calculations ──────────────────────────────────
@@ -965,17 +918,13 @@ export function analyzeHand(
   const probNext = probNextCard(outs, remaining)
   const probRiver = community.length === 3 ? probByRiver(outs, remaining) : probNext
 
-  // Equity + improvement probabilities from ONE Monte Carlo pass postflop
-  // (equity and the category histogram walk the same 1,000 runouts).
-  // Preflop keeps the Chen-derived equity; the river is deterministic.
+  // Equity + improvement probabilities from ONE Monte Carlo pass preflop and
+  // postflop (equity and the category histogram walk the same 1,000 runouts);
+  // the river is deterministic.
   const currentRank = madeHand?.rank ?? -1
   let equity: number
   let handProbabilities: HandProbability[]
-  if (streetName === 'preflop') {
-    equity = estimatePreflopEquity(chen, numOpponents)
-    const { categoryCounts } = runoutStats(holeCards, community, 0, 800, rng)
-    handProbabilities = categoryProbabilities(categoryCounts, 800, currentRank)
-  } else if (community.length >= 5) {
+  if (community.length >= 5) {
     equity = estimateEquity(holeCards, community, numOpponents, 1000, rng)
     handProbabilities = simulateHandProbabilities(holeCards, community, 800, rng)
   } else {
@@ -1005,32 +954,3 @@ export function analyzeHand(
   }
 }
 
-/**
- * Preflop equity approximation calibrated against equity calculators.
- * Uses lookup for heads-up, 3-way, and 6-way, with interpolation between.
- * Much more accurate than the old linear formula (e.g., AA 6-way: 49% not 74%).
- */
-function estimatePreflopEquity(chen: number, opponents: number): number {
-  // [heads-up, 3-way, 6-way] — calibrated against pokerstove/equilab
-  let hu: number, three: number, six: number
-  if (chen >= 20)     { hu = 85; three = 73; six = 49 }  // AA
-  else if (chen >= 16) { hu = 82; three = 69; six = 44 } // KK
-  else if (chen >= 14) { hu = 80; three = 66; six = 40 } // QQ, AKs
-  else if (chen >= 12) { hu = 77; three = 60; six = 35 } // JJ, AQs
-  else if (chen >= 10) { hu = 68; three = 50; six = 28 } // TT, AJs+
-  else if (chen >= 8)  { hu = 60; three = 42; six = 22 } // 99, broadways
-  else if (chen >= 7)  { hu = 55; three = 38; six = 20 } // 88, suited conn
-  else if (chen >= 6)  { hu = 52; three = 35; six = 18 } // 77, suited gap
-  else if (chen >= 5)  { hu = 48; three = 32; six = 16 } // small pairs
-  else if (chen >= 4)  { hu = 44; three = 28; six = 14 } // marginal
-  else if (chen >= 3)  { hu = 40; three = 25; six = 13 } // weak
-  else                 { hu = 35; three = 22; six = 12 } // junk
-
-  if (opponents <= 1) return hu
-  if (opponents <= 2) return three
-  if (opponents >= 5) return six
-
-  // Linear interpolation between 3-way and 6-way
-  const t = (opponents - 2) / 3
-  return Math.round((three + (six - three) * t) * 10) / 10
-}

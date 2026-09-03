@@ -5,7 +5,7 @@
  * opponent tracked stats (VPIP/PFR/AF/WTSD), session summary, and
  * provides export (JSON/CSV) and session-reset controls.
  */
-import type { Card, Suit } from '~/utils/cards'
+import type { Card } from '~/utils/cards'
 import { displayCard, RANK_DISPLAY, SUIT_SYMBOLS } from '~/utils/cards'
 import { HAND_RANK_NAMES, type HandAnalysis, analyzeHand } from '~/utils/handAnalysis'
 import { getRelevantRanges, categorizeHands, type RangeInfo } from '~/utils/ranges'
@@ -92,77 +92,13 @@ const analysis = computed<HandAnalysis | null>(() => {
 })
 
 // ─── Out Cards (specific cards that complete each draw) ────────
+// detectDraws already lists the physical out cards per draw; just format them.
 const outCards = computed<Map<number, string[]>>(() => {
   const result = new Map<number, string[]>()
-  if (!analysis.value || !props.holeCards) return result
-
-  const known = new Set<string>()
-  for (const c of props.holeCards) known.add(`${c.rank}-${c.suit}`)
-  for (const c of props.community) known.add(`${c.rank}-${c.suit}`)
-
-  const allCards = [...props.holeCards, ...props.community]
-  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
-
-  for (let i = 0; i < analysis.value.draws.length; i++) {
-    const draw = analysis.value.draws[i]
-    const cards: string[] = []
-
-    if (draw.type.includes('Flush draw')) {
-      // Find the flush suit (the one with 4 cards)
-      const suitCounts = new Map<Suit, number>()
-      for (const c of allCards) suitCounts.set(c.suit, (suitCounts.get(c.suit) || 0) + 1)
-      for (const [suit, count] of suitCounts) {
-        if (count === 4) {
-          for (let rank = 2; rank <= 14; rank++) {
-            if (!known.has(`${rank}-${suit}`)) {
-              cards.push(`${RANK_DISPLAY[rank]}${SUIT_SYMBOLS[suit]}`)
-            }
-          }
-        }
-      }
-    } else if (draw.type.includes('straight')) {
-      // Find ALL missing ranks that complete a straight (OESD has 2 windows)
-      const uniqueRanks = [...new Set(allCards.map(c => c.rank))]
-      const foundRanks = new Set<number>()
-      for (let low = 1; low <= 10; low++) {
-        const window = [low, low + 1, low + 2, low + 3, low + 4]
-        const need = window.filter(r => {
-          const actual = r === 1 ? 14 : r
-          return !uniqueRanks.includes(actual) && !(r === 1 && uniqueRanks.includes(14))
-        })
-        if (need.length === 1) {
-          const missingRank = need[0] === 1 ? 14 : need[0]
-          if (!foundRanks.has(missingRank)) {
-            foundRanks.add(missingRank)
-            for (const suit of suits) {
-              if (!known.has(`${missingRank}-${suit}`)) {
-                cards.push(`${RANK_DISPLAY[missingRank]}${SUIT_SYMBOLS[suit]}`)
-              }
-            }
-          }
-        }
-      }
-    } else if (draw.type.includes('Full house') || draw.type.includes('Trips') || draw.type.includes('Set') || draw.type.includes('Quads')) {
-      // Outs are remaining cards of the paired/trip ranks
-      for (const rank of draw.cards) {
-        for (const suit of suits) {
-          if (!known.has(`${rank}-${suit}`)) {
-            cards.push(`${RANK_DISPLAY[rank]}${SUIT_SYMBOLS[suit]}`)
-          }
-        }
-      }
-    } else if (draw.type.includes('overcard')) {
-      for (const rank of draw.cards) {
-        for (const suit of suits) {
-          if (!known.has(`${rank}-${suit}`)) {
-            cards.push(`${RANK_DISPLAY[rank]}${SUIT_SYMBOLS[suit]}`)
-          }
-        }
-      }
-    }
-
-    result.set(i, cards)
-  }
+  if (!analysis.value) return result
+  analysis.value.draws.forEach((draw, i) => {
+    result.set(i, draw.outCards.map(c => `${RANK_DISPLAY[c.rank]}${SUIT_SYMBOLS[c.suit]}`))
+  })
   return result
 })
 

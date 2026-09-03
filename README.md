@@ -103,7 +103,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 896 tests across 32 files
+- [Test Suites](#test-suites) -- 911 tests across 33 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -124,9 +124,9 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 
 ### Real-Time Hand Analysis
 - **Hand strength**: Chen score + Chen+ (position/style-adjusted), preflop tier (Premium/Strong/Playable/Marginal/Trash), contextual hand descriptions ("Top Pair, Ace-kicker", "Nut Flush Draw")
-- **Equity**: Monte Carlo simulation (1,000 iterations, ±1.5% standard error at 50% equity) against random opponent ranges. Preflop equity uses lookup table calibrated against pokerstove/equilab (AA 6-way: 49%, not the old linear 74%)
+- **Equity**: Monte Carlo simulation (1,000 iterations, ±1.5% standard error at 50% equity) against random opponent hands, preflop and postflop alike (AA heads-up 85%, AKs 67%, AA 6-way 49%); the river is exact
 - **Hand improvement probabilities**: Per-rank % chance of making each hand by the river (e.g., "Flush: 19.2%", "Two Pair: 32.4%")
-- **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river
+- **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river. Outs are counted as distinct cards — a card that completes both a flush and a straight is one out — and each draw lists the exact cards that complete it
 - **Pot odds**: Side-by-side percentage comparison (Your Equity vs Need), with ratio shown as secondary reference, pass/fail verdict
 - **Expected Value (EV)**: `(equity x pot) - call cost` -- green for +EV (profitable call), red for -EV
 - **SPR**: Stack-to-Pot Ratio with strategic guidance (low/medium/high SPR advice)
@@ -864,7 +864,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (896 tests across 32 files) |
+| Testing | Vitest (911 tests across 33 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1052,7 +1052,7 @@ holdem-simulator/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 32 Vitest test suites (896 tests)
+├── tests/                         # 33 Vitest test suites (911 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1083,7 +1083,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (896 tests, 32 files, ~85 seconds)
+Run all tests: `yarn test` (911 tests, 33 files, ~90 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1154,6 +1154,9 @@ Run all tests: `yarn test` (896 tests, 32 files, ~85 seconds)
 ### Phase 5 -- Stats (`phase5-stats.test.ts`)
 - VPIP, PFR, aggression factor, pot odds, outs, probability calculations
 
+### Analysis Ground Truth (`analysis-ground-truth.test.ts`)
+Outs are distinct improving cards (pocket pair over the board = 2, flush + open-ender = 15, two pair with a pocket pair = 4, set = 7); A-high and wheel straight draws are gutshots; a made straight is not a draw; preflop equity matches published values (AKs 67%, 98s 51%, AA 85% heads-up / 49% six-way).
+
 ### Phase 5 -- Session Management (`phase5-session.test.ts`)
 - Timeout, bust-out, re-buy, session recording, data deletion
 
@@ -1211,8 +1214,8 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
-| 1 | High | **Outs are overcounted** — `totalOuts` (`handAnalysis.ts`) sums overlapping draws and the straight-draw classifier treats any window-edge miss as open-ended, so an A-high or wheel draw gets 8 outs instead of 4. Measured: a pocket pair over the board shows 10 outs (true 2) and "38% by the river" (true 8%); flush + open-ender 16 (15); flush + two overcards 15 (13); J♥T♥ on 9♥8♥2♣ 22 (15, "72%" vs 54%); A♥K♥ on Q♥J♥2♣ 22 (12); QQ on 7-7-2-3 12 (4). | **Open** — count outs as the set of distinct unseen cards that improve the hand (enumerate the 45–47 unseen cards with `rank7`; ~50 µs). |
-| 2 | High | **Preflop equity is a Chen-bucket lookup that scores suited broadways and connectors like pairs** — the panel shows AKs 77% heads-up (true 67.0), 98s 60% (51.1), T9s 60% (54.3), KQs 68% (63.4), AKo 68% (65.3), AKs 3-way 60% (49.8). Pairs are right (AA 85, KK 82, QQ 80, JJ 77, 22 48 vs 50.3). Postflop Monte Carlo is accurate (river exact; flop within sampling noise). | **Open** — use `estimateEquity` preflop as well (1,000 runouts ≈ 1 ms) or a 169-hand precomputed table. |
+| 1 | High | **Outs were overcounted** — `totalOuts` (`handAnalysis.ts`) summed overlapping draws, a pocket pair's two "overcards" were counted on top of its set outs, and the straight-draw classifier treated any window-edge miss as open-ended, so an A-high or wheel draw got 8 outs instead of 4. Measured: a pocket pair over the board showed 10 outs and "38% by the river" (true 2 and 8%); QQ on 7-7-2-3 showed 12 (4); A♥K♥ on Q♥J♥2♣ 22 (18); J♥T♥ on 9♥8♥2♣ 22 (21); flush + open-ender 16 (15). | **Fixed** — every draw now lists its physical out cards and the total is the union of distinct cards; A-high/wheel draws are gutshots; a made straight or flush is no longer reported as a draw; pocket pairs get a single set draw. Pinned by `tests/analysis-ground-truth.test.ts`. |
+| 2 | High | **Preflop equity was a Chen-bucket lookup that scored suited broadways and connectors like pairs** — the panel showed AKs 77% heads-up (true 67.0), 98s 60% (51.1), T9s 60% (54.3), KQs 68% (63.4), AKo 68% (65.3), AKs 3-way 60% (49.8). Pairs were right. Postflop Monte Carlo was already accurate (river exact; flop within sampling noise). | **Fixed** — preflop equity now comes from the same 1,000-runout Monte Carlo pass as postflop (every hand above within ±2 points of published values); the bucket table is gone. Pinned by `tests/analysis-ground-truth.test.ts`. |
 | 3 | Medium | **TV-broadcast commentary peeks at the undealt turn and river** — the flop and turn "foreshadow" quips (`useCommentary.ts`, `gs.allCommunity`) fire only when a live player *will* improve to a straight+ (flop) or two pair+ (turn) by the river, so a TV-mode hero can read "I've seen the future…" as a reliable signal about the future board. Hero-POV mode is unaffected. | **Open** — gate foreshadowing to hands where the hero has folded, or drop the runout peek. |
 | 4 | Medium | **The opponent HUD is not observed play** — `opponentStats` (`index.vue`) maps each bot's configured persona VPIP/PFR/AF and hardcodes `handsPlayed: 25` and `wtsd: vpip > 0.25 ? 35 : 22`; the "Went to Showdown" number is invented and the reads ("Nit — 3-bet liberally") are printed from hand one. | **Open** — compute per-bot VPIP/PFR/AF/WTSD from the session hand records, or label the block as the bot's profile. |
 | 5 | Medium | **Stats page mislabels uncontested wins as showdown wins** — `result: 'won'` includes pots where everyone folded, so "Showdown Rate" = (won+lost)/hands and "Won at Showdown" = won/(won+lost) (`useStatsData.ts`) both inflate. | **Open** — derive "went to showdown" from the record (five-card board and two or more unfolded players). |

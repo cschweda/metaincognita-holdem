@@ -4,7 +4,7 @@
  */
 import type { Card } from './cards'
 import { RANK_DISPLAY } from './cards'
-import { bestHand, HAND_RANK_NAMES, HAND_RANKS, detectDraws, estimateEquity } from './handAnalysis'
+import { bestHand, HAND_RANK_NAMES, HAND_RANKS, detectDraws, totalOuts as dedupOuts, estimateEquity } from './handAnalysis'
 import type { PlayerState } from '~/composables/useGameState'
 import { pick } from './commentaryQuips'
 
@@ -19,7 +19,7 @@ export function strategicFlopObs(heroCards: [Card, Card] | null, community: Card
   const obs: string[] = []
 
   if (draws.length > 0) {
-    const totalOuts = draws.reduce((s, d) => s + d.outs, 0)
+    const totalOuts = dedupOuts(draws)
     const hitPct = Math.round(totalOuts * 2)
     obs.push(`${totalOuts} outs — roughly ${hitPct}% to improve on the next card.`)
   }
@@ -70,7 +70,7 @@ export function strategicFlopObs(heroCards: [Card, Card] | null, community: Card
   }
 
   if (draws.length >= 2) {
-    const totalOuts = draws.reduce((s, d) => s + d.outs, 0)
+    const totalOuts = dedupOuts(draws)
     if (totalOuts >= 12) obs.push(`A combo draw with ${totalOuts} outs. This is actually a favorite over most one-pair hands.`)
   }
 
