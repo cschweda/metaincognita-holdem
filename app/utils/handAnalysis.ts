@@ -72,7 +72,7 @@ export interface HandAnalysis {
   // Hand improvement probabilities (% chance of making each hand by river)
   handProbabilities: HandProbability[]
 
-  // Pot odds (placeholder until real betting)
+  // Pot odds — % equity the current call needs (0 when not facing a bet)
   potOddsNeeded: number
 
   // Recommendation
@@ -746,6 +746,7 @@ export function recommend(
   chenScoreVal: number,
   position: string,
   facingBet: boolean = true,
+  potOddsNeeded?: number, // % equity the call needs; undefined = price unknown (legacy thresholds)
 ): { action: HandAnalysis['action']; reasoning: string } {
   // Helper: if not facing a bet, CALL becomes CHECK
   function maybeCheck(result: { action: HandAnalysis['action']; reasoning: string }) {
@@ -785,6 +786,15 @@ export function recommend(
   const isRiver = street === 'river'
   const hasStrongDraw = !isRiver && draws.some(d => d.outs >= 8)
   const totalDrawOuts = isRiver ? 0 : totalOuts(draws)
+  // The price: a call is only a call if equity covers what the pot is laying.
+  // A strong draw gets a few points of slack for implied odds on later streets.
+  const pct = Math.round(equity)
+  const priced = facingBet && potOddsNeeded !== undefined && potOddsNeeded > 0
+  const needed = priced ? Math.round(potOddsNeeded!) : 0
+  const priceOk = !priced || equity >= potOddsNeeded!
+  const impliedOk = priced && !priceOk && hasStrongDraw && equity >= potOddsNeeded! - 6
+  const priceNote = priced ? ` This call needs ${needed}% equity; you have ${pct}%.` : ''
+  const outsNote = totalDrawOuts > 0 ? `${totalDrawOuts} outs to improve. ` : ''
 
   // Very strong hand
   if (equity >= 75) {
@@ -800,32 +810,43 @@ export function recommend(
         ? { action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — raise for value and protection.` }
         : { action: 'RAISE', reasoning: `Strong made hand with ${Math.round(equity)}% equity — bet for value and protection.` }
     }
-    return facingBet
-      ? { action: 'CALL', reasoning: `Decent equity (${Math.round(equity)}%) — call and reevaluate.` }
-      : { action: 'CHECK', reasoning: `Decent equity (${Math.round(equity)}%) — check and see the next card.` }
+    if (!facingBet) return { action: 'CHECK', reasoning: `Decent equity (${pct}%) — check and see the next card.` }
+    return priceOk
+      ? { action: 'CALL', reasoning: `Decent equity (${pct}%) — call and reevaluate.${priceNote}` }
+      : { action: 'FOLD', reasoning: `Decent equity (${pct}%), but the bet is too big.${priceNote}` }
   }
 
   // Drawing hand with good equity
   if (equity >= 35 || hasStrongDraw) {
-    if (totalDrawOuts >= 12) {
+    if (totalDrawOuts >= 12 && (priceOk || impliedOk)) {
       return facingBet
-        ? { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff raise.` }
-        : { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${Math.round(equity)}% equity) — semi-bluff bet.` }
+        ? { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${pct}% equity) — semi-bluff raise.` }
+        : { action: 'RAISE', reasoning: `Monster draw with ${totalDrawOuts} outs (${pct}% equity) — semi-bluff bet.` }
     }
-    if (facingBet) {
-      return { action: 'CALL', reasoning: `${totalDrawOuts > 0 ? `${totalDrawOuts} outs to improve. ` : ''}${Math.round(equity)}% equity — call if pot odds justify.` }
+    if (!facingBet) return { action: 'CHECK', reasoning: `${outsNote}Check to see a free card.` }
+    if (priceOk) {
+      return { action: 'CALL', reasoning: priced
+        ? `${outsNote}${pct}% equity covers the ${needed}% this call needs — call.`
+        : `${outsNote}${pct}% equity — call if pot odds justify.` }
     }
-    return { action: 'CHECK', reasoning: `${totalDrawOuts > 0 ? `${totalDrawOuts} outs to improve. ` : ''}Check to see a free card.` }
+    if (impliedOk) {
+      return { action: 'CALL', reasoning: `${outsNote}${pct}% equity is a little short of the ${needed}% needed, but a strong draw has implied odds — call.` }
+    }
+    return { action: 'FOLD', reasoning: `${outsNote}The price is wrong — fold.${priceNote}` }
   }
 
   // Marginal — depends on whether facing a bet
   if (facingBet) {
-    // Facing a bet with weak equity — usually fold
-    if (equity < 25) {
-      return { action: 'FOLD', reasoning: `Only ${Math.round(equity)}% equity facing a bet${totalDrawOuts > 0 ? ` with ${totalDrawOuts} outs` : ''} — fold.` }
+    if (priced) {
+      return priceOk
+        ? { action: 'CALL', reasoning: `Marginal hand (${pct}% equity), but the bet is small enough.${priceNote}` }
+        : { action: 'FOLD', reasoning: `Only ${pct}% equity facing a bet${totalDrawOuts > 0 ? ` with ${totalDrawOuts} outs` : ''} — fold.${priceNote}` }
     }
-    // Borderline — call only if pot odds are good
-    return { action: 'CALL', reasoning: `Marginal hand (${Math.round(equity)}% equity) — calling is borderline. Consider pot odds.` }
+    // Price unknown: fall back to bare equity thresholds
+    if (equity < 25) {
+      return { action: 'FOLD', reasoning: `Only ${pct}% equity facing a bet${totalDrawOuts > 0 ? ` with ${totalDrawOuts} outs` : ''} — fold.` }
+    }
+    return { action: 'CALL', reasoning: `Marginal hand (${pct}% equity) — calling is borderline. Consider pot odds.` }
   }
 
   // Not facing a bet — check for free
@@ -901,6 +922,7 @@ export function analyzeHand(
   position: string,
   toCall: number = 0,
   rng: Rng = Math.random,
+  pot: number = 0,
 ): HandAnalysis {
   const chen = chenScore(holeCards)
   const chenMax = chenPlusScore(holeCards, position)
@@ -933,7 +955,9 @@ export function analyzeHand(
     handProbabilities = categoryProbabilities(stats.categoryCounts, 1000, currentRank)
   }
 
-  const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0)
+  // Price of the call: the equity needed to break even on a call right now
+  const potOddsNeeded = toCall > 0 && pot >= 0 ? (toCall / (pot + toCall)) * 100 : 0
+  const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0, pot > 0 ? potOddsNeeded : undefined)
 
   return {
     madeHand,
@@ -948,7 +972,7 @@ export function analyzeHand(
     probByRiver: Math.round(probRiver * 10) / 10,
     equity: Math.round(equity * 10) / 10,
     handProbabilities,
-    potOddsNeeded: 0, // placeholder until real betting
+    potOddsNeeded: Math.round(potOddsNeeded * 10) / 10,
     action,
     reasoning,
   }

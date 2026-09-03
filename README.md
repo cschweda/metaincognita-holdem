@@ -103,7 +103,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 930 tests across 35 files
+- [Test Suites](#test-suites) -- 939 tests across 36 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -131,7 +131,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Expected Value (EV)**: `(equity x pot) - call cost` -- green for +EV (profitable call), red for -EV
 - **SPR**: Stack-to-Pot Ratio with strategic guidance (low/medium/high SPR advice)
 - **Rule of 2/4**: Quick mental math approximation alongside exact calculations — multiply outs by 4 on the flop (two cards to come) or by 2 on the turn (one card). A flush draw with 9 outs is ~36% on the flop, ~18% on the turn. Slightly overestimates with many outs.
-- **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street. Color-coded: green (confident), yellow (marginal), red (fold). Pinned at top of stats panel so it's always visible without scrolling.
+- **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street; facing a bet, the call is recommended only when your equity covers the price the pot is laying (strong draws get a little implied-odds slack), and the reasoning names both numbers. Color-coded: green (confident), yellow (marginal), red (fold). Pinned at top of stats panel so it's always visible without scrolling.
 
 ### Hand Ranges
 - Authentic 6-max cash game opening ranges by position (UTG 15% through BTN 42%)
@@ -864,7 +864,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (930 tests across 35 files) |
+| Testing | Vitest (939 tests across 36 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1052,7 +1052,7 @@ holdem-simulator/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 35 Vitest test suites (930 tests)
+├── tests/                         # 36 Vitest test suites (939 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1083,7 +1083,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (930 tests, 35 files, ~90 seconds)
+Run all tests: `yarn test` (939 tests, 36 files, ~95 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1157,6 +1157,9 @@ Run all tests: `yarn test` (930 tests, 35 files, ~90 seconds)
 ### Analysis Ground Truth (`analysis-ground-truth.test.ts`)
 Outs are distinct improving cards (pocket pair over the board = 2, flush + open-ender = 15, two pair with a pocket pair = 4, set = 7); A-high and wheel straight draws are gutshots; a made straight is not a draw; preflop equity matches published values (AKs 67%, 98s 51%, AA 85% heads-up / 49% six-way).
 
+### Recommendation Price (`recommendation-price.test.ts`)
+The same 36% equity is a call against a bet that needs 25% and a fold against one that needs 43%; a strong draw a few points short still calls on implied odds; `analyzeHand` derives the needed equity from pot and call amounts and never recommends CALL below it.
+
 ### Commentary Hygiene (`commentary-hygiene.test.ts`)
 The TV booth's runout tease never fires while the hero is in the hand; after a fold it fires only when a live player will actually improve, and never before the full runout exists.
 
@@ -1225,7 +1228,7 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 | 3 | Medium | **TV-broadcast commentary peeked at the undealt turn and river** — the flop and turn "foreshadow" quips (`useCommentary.ts`, `gs.allCommunity`) fired only when a live player *would* improve to a straight+ (flop) or two pair+ (turn) by the river, so a TV-mode hero could read "I've seen the future…" as a reliable signal about the future board. Hero-POV mode was unaffected. | **Fixed** — both peeks go through `foreshadowAllowed` (`commentaryStrategic.ts`), which returns false while the hero is still in the hand; the booth may tease the runout only after you fold. Pinned by `tests/commentary-hygiene.test.ts`. |
 | 4 | Medium | **The opponent HUD was not observed play** — `opponentStats` (`index.vue`) mapped each bot's configured persona VPIP/PFR/AF and hardcoded `handsPlayed: 25` and `wtsd: vpip > 0.25 ? 35 : 22`; the "Went to Showdown" number was invented and the reads ("Nit — 3-bet liberally") printed from hand one. | **Fixed** — `observedStats.ts` parses per-bot VPIP / PFR / AF / WTSD from the session's recorded action logs (standard denominators: hands dealt, hands dealt, calls, flops seen); the panel's existing 10-hand minimum now actually gates the reads. Pinned by `tests/observed-stats.test.ts`. |
 | 5 | Medium | **Stats page mislabeled uncontested wins as showdown wins** — `result: 'won'` includes pots where everyone folded, so "Showdown Rate" = (won+lost)/hands and "Won at Showdown" = won/(won+lost) (`useStatsData.ts`) both inflated. | **Fixed** — both stats now count only hands that reached showdown (five-card board and two or more unfolded players, `wentToShowdown`). |
-| 6 | Low | **The action recommendation ignores the price** — `recommend()` receives only a facing-a-bet boolean, so "CALL — 36% equity" is advised whether the bet is a third of the pot or three times it, while the panel's separate pot-odds verdict can say the opposite; `potOddsNeeded` is a `0` placeholder. | **Open** — pass pot and call amount and compare equity to the price. |
+| 6 | Low | **The action recommendation ignored the price** — `recommend()` received only a facing-a-bet boolean, so "CALL — 36% equity" was advised whether the bet was a third of the pot or three times it, while the panel's separate pot-odds verdict could say the opposite; `potOddsNeeded` was a `0` placeholder. | **Fixed** — `analyzeHand` takes the pot and call amounts, computes the equity the call needs, and `recommend()` folds when equity is short of it (a strong draw gets a few points of implied-odds slack); the reasoning names both numbers. Pinned by `tests/recommendation-price.test.ts`. |
 | 7 | Low | **"Opponent reads" was dead code** — the engine's `handsForMemory`, `recentShowdowns` and `recentShowdownBluffs` counters (`useGameEngine.ts`) were declared but never incremented, so `opponentReads` was always `undefined` and bots ran on the constant defaults in `botDecision.ts`; no simulator passed it either. | **Fixed** — the field, the counters and the never-taken branches are removed (seeded probe battery byte-identical before and after, so nothing the bots do changed). A real table-read adaptation is on the roadmap, to be built with probe coverage. |
 | 8 | Low | **CSP keeps `'unsafe-eval'` the production build doesn't need** — the built `_nuxt/*.js` contains no `eval(` / `new Function(`; `connect-src https://api.iconify.design` is also unused (icons are bundled). Missing hardening: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `Strict-Transport-Security`. | **Open** — tighten `netlify.toml`; keep `'unsafe-inline'` (Vue). |
 | 9 | Info | **No strategic leak found.** Twelve new degenerate hero strategies (steal-and-fold, limp-reraise, min-3-bet, 4-bet bluff, donk ⅓ pot, river overbet, float-then-overbet, any-pair value, polarized river jam, in-position barrel, flop check-raise, passive trap) × two seeds × 10,000 hands all lose at 100bb; the whole battery also loses at 25bb and 250bb (the CI gate only runs 100bb). Closest to break-even: steal-and-fold −19.9 / −19.5 bb/100, donk-33 −21.7 / −47.3, short-stack nit-value −2.1 (the designed knife-edge). The probe hides the board and position from the scripted hero and never applies hero adaptation, so it measures un-adapted bots (conservative). | **Confirmed** — consider adding steal-and-fold and donk-33 to the CI probe and a 25bb variant. |
