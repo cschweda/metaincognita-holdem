@@ -306,6 +306,7 @@ const engine = useGameEngine({
         preflopCallers: streetContext?.preflopCallers,
         streetHistory: streetContext?.streetHistory as any,
         tableDynamics: streetContext?.tableDynamics,
+        tableReads: streetContext?.tableReads,
       },
       consistency,
       heroProfile,
@@ -385,6 +386,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGameKeydown))
 // ─── Game Flow ─────────────────────────────────────────────────
 function handleStart(gameSettings: GameSettings) {
   engine.cleanup() // invalidate any pending timers/loops from a prior game
+  engine.resetTableReads() // a new table is a new read
   settings.value = gameSettings
   gs.dealerSeat.value = Math.floor(Math.random() * gameSettings.playerCount)
   phase.value = 'table'
@@ -671,6 +673,7 @@ function endHand() {
 
 function handleRebuy() {
   engine.cleanup()
+  engine.resetTableReads() // a new table is a new read
   initSession(settings.value!.stakeLevel, settings.value!.playerCount, startingStack.value)
   gs.playerStates.value = []
   phase.value = 'table'

@@ -11,6 +11,8 @@ import config from '@config'
 import { getTableDynamics as sharedTableDynamics } from '~/utils/gameSimulation'
 import { applyEngineAction, startBettingRound } from '~/utils/bettingEngine'
 import { canRevealBotThinking } from '~/utils/thinkingInsight'
+import { createTableReadState, noteTableAction, finishTableHand, readTable } from '~/utils/tableReads'
+import type { TableReads } from '~/utils/tableReads'
 import type { BettingRound } from '~/utils/bettingEngine'
 import type { useGameState, PlayerState } from '~/composables/useGameState'
 
@@ -25,6 +27,7 @@ export interface GameEngineOptions {
     checkedThisStreet?: boolean
     streetHistory?: { flop?: string; turn?: string }
     tableDynamics?: { dominantPlayerId?: number; dominantWinRate: number; myRecentWinRate: number; avgStackDepth: number; handsInWindow: number }
+    tableReads?: TableReads
   }) => { type: string; amount?: number }
   onEndHand: () => void
   onHeroActivity?: () => void
@@ -89,6 +92,10 @@ export function useGameEngine(options: GameEngineOptions) {
   // Table Flow — rolling window of recent hand winners
   const TABLE_FLOW_WINDOW = 20
   const recentWinnerIds: number[] = []
+
+  // Table reads — public table-wide signals over a rolling window (utils/tableReads.ts)
+  let tableReadState = createTableReadState()
+  function resetTableReads() { tableReadState = createTableReadState() }
 
   function getTableDynamics(botId: number) {
     return sharedTableDynamics(
@@ -222,7 +229,20 @@ export function useGameEngine(options: GameEngineOptions) {
       playerStreetActions.set(p.id, existing)
     }
 
+    // Table reads: bets/raises and checks are public table-wide signals
+    if (result.type === 'raise') noteTableAction(tableReadState, 'bet')
+    else if (result.type === 'check') noteTableAction(tableReadState, 'check')
+
     return result.reopened
+  }
+
+  /** Close the table-read sample for this hand, then hand off to the page. */
+  function endHand() {
+    finishTableHand(tableReadState, {
+      sawFlop: gs.street.value !== 'preflop',
+      showdown: gs.activePlayers.value.length > 1,
+    }, config.strategy.tableReads.windowHands)
+    onEndHand()
   }
 
   async function runBettingRound(startSeat: number, resume: boolean = false) {
@@ -295,6 +315,7 @@ export function useGameEngine(options: GameEngineOptions) {
         checkedThisStreet,
         streetHistory: playerStreetActions.get(p.id),
         tableDynamics: getTableDynamics(p.id),
+        tableReads: readTable(tableReadState, config.strategy.tableReads),
       })
       // applyAction delegates to the shared engine, which owns all
       // needsToAct bookkeeping (actor removal + half-raise-aware reopens)
@@ -311,7 +332,7 @@ export function useGameEngine(options: GameEngineOptions) {
 
     if (gs.activePlayers.value.length <= 1) {
       const delay = gs.playerStates.value[0]?.folded ? 300 : 1000
-      scheduleTimeout(() => onEndHand(), delay)
+      scheduleTimeout(() => endHand(), delay)
       return
     }
 
@@ -350,7 +371,7 @@ export function useGameEngine(options: GameEngineOptions) {
       case 'river':
         gs.streetAtEnd.value = 'river' // save before changing — visibleCommunity depends on this
         gs.street.value = 'showdown'
-        onEndHand()
+        endHand()
         return
     }
 
@@ -411,7 +432,7 @@ export function useGameEngine(options: GameEngineOptions) {
   function resumeBettingAfterHero() {
     if (gs.activePlayers.value.length <= 1) {
       const delay = gs.playerStates.value[0]?.folded ? 300 : 1000
-      scheduleTimeout(() => onEndHand(), delay)
+      scheduleTimeout(() => endHand(), delay)
       return
     }
 
@@ -442,6 +463,7 @@ export function useGameEngine(options: GameEngineOptions) {
     handleRaise,
     resumeBettingAfterHero,
     recordHandWinner,
+    resetTableReads,
     schedule: scheduleTimeout,
     cleanup,
     paused,
