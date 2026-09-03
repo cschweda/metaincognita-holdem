@@ -77,6 +77,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - **Familiarity matters** -- each persona exploits you only as hard as its own history with you: a stranger plays you straight, a 300-hand regular plays the full exploit
 - **Scouting report** -- every bot's profile modal shows what they know ("Folds to 3-bets 68% → 3-betting you wider") and their familiarity tier, up to Nemesis
 - **Always learning, opt-in exploitation** -- career sessions always face the book; quick-play has a "Bots Remember You" toggle (default off). One-click reset.
+- **Fair by default, study on demand** -- the "bot is thinking" pill shows a bot's hand strength and reasoning only after you fold; the setup screen's **Show Bot Thinking: Always** toggle reveals it mid-hand for study (and says so: your stats will flatter you)
 
 ### Tools & Export
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
@@ -103,7 +104,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 950 tests across 36 files
+- [Test Suites](#test-suites) -- 957 tests across 38 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -257,7 +258,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - **Stats navigation preserves game state**: Click Stats mid-hand, view analytics, come back to exact same game state
 
 ### Action Status Indicators
-- **Bot thinking**: Centered pill between table and bet controls with bouncing dots
+- **Bot thinking**: Centered pill between table and bet controls with bouncing dots. The insight lines (Chen score, made hand, draws) appear only after you fold — or all the time with the setup screen's **Show Bot Thinking: Always** study toggle, which knowingly reveals hidden cards
 - **Your Turn**: Amber pill with call amount or "check or bet" hint
 - **Pre-action queue**: Shows queued action with cancel button
 
@@ -869,7 +870,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (950 tests across 36 files) |
+| Testing | Vitest (957 tests across 38 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -878,16 +879,13 @@ The simulator includes a headless bot-vs-bot simulation script (`scripts/simulat
 
 ### Analysis Report
 
-A static HTML analysis report is available at `/analysis.html` showing simulation results with observed vs configured stats, metrics, chip counts, realism assessment, and sample PokerStars hands. A downloadable 1,000-hand simulation file is also available at `/sample-hands.txt` (importable into PokerTracker, Hold'em Manager, Equilab).
-
-To regenerate the report with fresh data:
+The live report lives at `/analysis`: it runs the browser simulator (`app/utils/simulateBrowser.ts`) for 2-, 6- and 8-player tables in your tab and shows observed vs configured stats, metrics and chip counts. A downloadable PokerStars-format sample (`/sample-hands.txt`) ships with the site; to refresh it, run the CLI simulator below and copy its newest output:
 
 ```bash
-npx tsx scripts/generate-analysis.ts        # 1000 hands per table size
-npx tsx scripts/generate-analysis.ts 2000   # custom hand count
+cp "$(ls -t scripts/output/*.txt | head -1)" app/public/sample-hands.txt
 ```
 
-This produces `app/public/analysis.html` and `app/public/sample-hands.txt`.
+(The old static `analysis.html` snapshot and its generator were retired in Round 7 — the page loaded a CDN script the site's own CSP blocks, and the generator would have overwritten the live `/analysis` page.)
 
 ### Usage
 
@@ -1033,7 +1031,7 @@ holdem-simulator/
 │   │   └── stats.vue              # Cross-session analytics, hand analysis, PokerStars export
 │   ├── stores/
 │   │   └── heroProfile.ts         # Pinia store: hero adaptation profile (fold-to-3bet, tells)
-│   ├── public/                    # og-image, screenshots, analysis.html, sample-hands.txt
+│   ├── public/                    # og-image, screenshots, sample-hands.txt
 │   └── utils/
 │       ├── botDecision.ts         # Bot decision engine, board texture, tilt, table flow
 │       ├── botDescriptions.ts     # Bot playstyle descriptions for UI
@@ -1055,9 +1053,8 @@ holdem-simulator/
 │   └── workflows/ci.yml           # CI: test suite + exploit-probe engine-leak gate
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
-│   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 36 Vitest test suites (950 tests)
+├── tests/                         # 38 Vitest test suites (957 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1088,7 +1085,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (950 tests, 36 files, ~100 seconds)
+Run all tests: `yarn test` (957 tests, 38 files, ~100 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1224,7 +1221,7 @@ There is no server-side code anywhere — no database, no serverless functions, 
 
 #### Round 7 — Whole-app analysis: bot leaks, analysis correctness, efficiency, security (September 2026) — current
 
-Scope: the whole app, web-only (the Tauri target was removed in this round), across four lanes — hidden-information and strategic leaks in the bot opponents, correctness of the numbers the analysis panel and stats pages show, runtime/bundle efficiency, and a security re-verification. Findings are logged as open; no engine code was changed in-round.
+Scope: the whole app, web-only (the Tauri target was removed in this round), across four lanes — hidden-information and strategic leaks in the bot opponents, correctness of the numbers the analysis panel and stats pages show, runtime/bundle efficiency, and a security re-verification. Findings were logged as open first, then worked through one by one in the same round: every one below is now Fixed or Confirmed, and both Round 6 carry-overs are closed.
 
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
@@ -1241,7 +1238,7 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 | 11 | Info | **Hot paths are cheap** — 1,000-runout equity vs 3 opponents 1.1 ms, full flop analysis 1 ms, analysis keyed on the facing-bet boolean; session records ≈ 1.5 KB/hand (quota ≈ 3,400 hands, then warn-once), 2,000 hands serialize in 3.6 ms; the PokerStars parser is linear (130 MB in 1.1 s) and never throws. Shipped: 942 KB JS (308 KB gzip) + 228 KB CSS (31 KB gzip). Worth doing: lazy-load the 1,284-line quip table with commentary and drop the second per-hand write (immediate save + 1 s deep watcher). The toolchain was upgraded within its ranges in-round: `yarn audit` went from 129 advisories (4 critical / 78 high, all build-time packages that never ship) to 1 low. | **Confirmed** |
 | 12 | Info | **Security re-verified clean** — no `v-html` / `innerHTML` / `eval` / `document.write`; the only external link carries `rel="noopener"`; query params guarded; player names like `__proto__` parse without polluting prototypes; every setup input is a config-bounded slider; the betting engine terminates on NaN or negative stacks; git history holds only placeholder Supabase credentials; no `.env`, no tracked build output; every storage read is shape-guarded. | **Confirmed** |
 
-Still open from Round 6: the thinking-insight pill (#6) and the stale `public/analysis.html` (#7). Suite: 896 tests / 32 files, unchanged; seeded probe battery byte-identical to Round 6 on both recorded seeds.
+Round 6 carry-overs closed in this round: the thinking-insight pill (#6) is gated behind a study toggle and the stale `public/analysis.html` (#7) is gone. New suites: analysis ground truth, observed stats, commentary hygiene, recommendation price, thinking-insight gate, static-report retirement; the probe gate gained two strategies and a 25bb run. The seeded probe battery changed only through the draw-classification fix in #1 and stays strongly negative on both recorded seeds.
 
 <details>
 <summary><strong>Round 6 — Live-path integrity: clairvoyance, keep-alive lifecycle, persistence guards (July 2026)</strong></summary>
@@ -1255,8 +1252,8 @@ Scope: whole-app red/blue sweep across three lanes (hidden-information fairness,
 | 3 | High | **Career sessions failed to start from a cached table page** — `pendingSession` was consumed only in `onMounted`, but the game page is kept alive: the 2nd+ "Play" from `/career` debited the buy-in and left you on the old table with no locked session. | **Fixed** — consumed in `onActivated` with an active-session guard; browser-verified across consecutive Play/leave cycles. |
 | 4 | Medium | **Persistence guards checked `version` but not shape** — a valid-JSON tampered/corrupt payload could brick `/career` in a render-throw loop (no in-app reset exists), throw inside live bot decisions (nemesis book), strand `/stats` on its spinner (mapping ran outside the guard), or crash `recordHand` mid-game; session-stats `localStorage.setItem` was uncaught, so quota exhaustion aborted the tail of `endHand`. | **Fixed** — `sanitizeCareerState` / `sanitizeHeroModel` validate-and-repair on load (fresh-default fallback, malformed history entries filtered, proto keys dropped); stats mapping moved inside its guard with shape checks; all session-stats writes go through a warn-once quota-guarded writer; commentary sliders NaN-clamp. 14 new tests including hostile-storage store loads. |
 | 5 | Medium | **`/replay-hand?hand=%` crashed the page** — unguarded `decodeURIComponent` in `onMounted` threw `URIError` on malformed shared links and aborted the mount. | **Fixed** — guarded; malformed URLs get a parse error and the paste box. |
-| 6 | Medium | **Bot "thinking insight" reveals the acting bot's hidden hand to the hero mid-hand** — the pill under the table prints Chen scores, made-hand class ("Made hand: Flush"), and draw outs computed from the bot's own hole cards, and only renders while the hero is still in the hand. | **Open** — design decision: gate behind a study-mode toggle or render only after the hero folds. Until then, Hero-POV session stats overstate the hero. |
-| 7 | Medium | **`public/analysis.html` loads `cdn.tailwindcss.com`** — blocked by the site's own CSP (`script-src` has no such origin), so the page renders unstyled in production; it is also a stale hardcoded snapshot duplicating `/analysis` and the app's only external runtime fetch. | **Open** — recommend deleting the static page (or inlining its styles if it must stay). |
+| 6 | Medium | **Bot "thinking insight" reveals the acting bot's hidden hand to the hero mid-hand** — the pill under the table prints Chen scores, made-hand class ("Made hand: Flush"), and draw outs computed from the bot's own hole cards, and only renders while the hero is still in the hand. | **Fixed (Round 7)** — the insight is built only once the hero is out of the hand, or when the setup screen's "Show Bot Thinking: Always" study toggle is on (`canRevealBotThinking`, pinned by `tests/thinking-insight-gate.test.ts`). |
+| 7 | Medium | **`public/analysis.html` loads `cdn.tailwindcss.com`** — blocked by the site's own CSP (`script-src` has no such origin), so the page renders unstyled in production; it is also a stale hardcoded snapshot duplicating `/analysis` and the app's only external runtime fetch. | **Fixed (Round 7)** — the static page, its Netlify redirect and its generator (which would also have overwritten the live `/analysis` page) are deleted; pinned by `tests/static-report-retired.test.ts`. |
 | 8 | Low | **Hotkeys stayed live on other routes** — the cached game page's `keydown` listener kept intercepting keys everywhere; pressing `f` on `/stats` folded the hero in the background game. | **Fixed** — listener bound on activation, removed on deactivation; browser-verified inert. |
 | 9 | Low | **Reload mid-career-session refunds the full buy-in** — a free undo of any losing locked session (`refundAbandoned` on store load). | **Accepted** — documented refresh-to-undo tradeoff: table state isn't persisted mid-hand, and punishing every crash/accidental reload as a loss is worse for a training tool. Revisit if career results ever become comparable/shared. |
 | 10 | Info | **Peek-to-reveal bot cards is ungated in Hero POV**, face-down card values sit in the DOM (CSS-flipped), and hand histories/exports include unshown bot hole cards. | **Accepted** — single-player local trainer: the full deck lives in client memory regardless, so the DOM is not a security boundary; peeking only cheats yourself. Noted for a future "strict training" toggle. |

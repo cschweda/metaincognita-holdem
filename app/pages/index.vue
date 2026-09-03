@@ -78,6 +78,7 @@ function startCareerSession() {
     botConfigs,
     guestMode: false,
     commentaryMode: 'hero',
+    studyMode: false,
     nemesisEnabled: true, // career sessions always face the book
   })
 }
@@ -312,6 +313,7 @@ const engine = useGameEngine({
   },
   onEndHand: () => endHand(),
   onHeroActivity: () => onHeroActivity(),
+  studyMode: () => !!settings.value?.studyMode,
 })
 
 const commentary = useCommentary({ ...gs, positions, bb })

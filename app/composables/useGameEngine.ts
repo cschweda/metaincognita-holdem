@@ -10,6 +10,7 @@ import { chenScore, chenPlusScore, bestHand, detectDraws, HAND_RANK_NAMES } from
 import config from '@config'
 import { getTableDynamics as sharedTableDynamics } from '~/utils/gameSimulation'
 import { applyEngineAction, startBettingRound } from '~/utils/bettingEngine'
+import { canRevealBotThinking } from '~/utils/thinkingInsight'
 import type { BettingRound } from '~/utils/bettingEngine'
 import type { useGameState, PlayerState } from '~/composables/useGameState'
 
@@ -28,6 +29,8 @@ export interface GameEngineOptions {
   onEndHand: () => void
   onHeroActivity?: () => void
   botDelay?: { min: number; max: number; heroFoldedMin: number; heroFoldedMax: number }
+  /** Study mode: show the bot's thinking insight even while the hero is still in the hand (reveals hidden information). */
+  studyMode?: () => boolean
 }
 
 export function useGameEngine(options: GameEngineOptions) {
@@ -273,8 +276,9 @@ export function useGameEngine(options: GameEngineOptions) {
         ? botDelay.heroFoldedMin + Math.random() * (botDelay.heroFoldedMax - botDelay.heroFoldedMin)
         : botDelay.min + Math.random() * (botDelay.max - botDelay.min)
 
-      // Build thinking insight (only when hero can see it)
-      if (!heroOut) {
+      // Thinking insight reveals the bot's hidden hand: only once the hero is
+      // out of the hand, or in study mode (information hygiene, Round 6 #6)
+      if (canRevealBotThinking({ heroFolded: !!heroOut, studyMode: options.studyMode?.() ?? false })) {
         gs.botThinkingInsight.value = buildThinkingInsight(p, gs)
       }
       await sleep(delay, paused)

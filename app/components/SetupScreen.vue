@@ -22,6 +22,7 @@ export interface GameSettings {
   guestMode: boolean
   commentaryMode: 'off' | 'hero' | 'tv'
   nemesisEnabled: boolean
+  studyMode: boolean   // show the bot thinking insight while you are still in the hand
 }
 
 export interface BotConfig {
@@ -57,6 +58,7 @@ const commentaryChoice = ref<CommentaryChoice>('hero')
 // Nemesis — bots exploit their persistent book on you. Off by default in
 // quick-play (practice stays neutral); career sessions are always on.
 const nemesisEnabled = ref(false)
+const studyMode = ref(false)
 
 const proBots = config.personas.filter(p => !FICTIONAL_NAMES.includes(p.name))
 const fictionalBots = config.personas.filter(p => FICTIONAL_NAMES.includes(p.name))
@@ -179,6 +181,7 @@ function handleStart() {
     guestMode: false,
     commentaryMode: commentaryChoice.value,
     nemesisEnabled: nemesisEnabled.value,
+    studyMode: studyMode.value,
   })
 }
 </script>
@@ -499,6 +502,34 @@ function handleStart() {
       <div class="text-xs text-gray-500">
         <template v-if="nemesisEnabled">Opponents use their persistent book on your leaks — each bot exploits you as hard as its own history with you allows. Check any bot's profile for the scouting report.</template>
         <template v-else>Opponents adapt only within this session. They still learn your game for later (career sessions always use the book).</template>
+      </div>
+    </div>
+
+    <!-- Study mode: reveal bot thinking mid-hand -->
+    <div class="bg-gray-800/40 border border-gray-700/30 rounded-lg px-4 py-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-300 font-medium">Show Bot Thinking</span>
+        <span class="text-[0.55rem] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 uppercase">Study</span>
+      </div>
+      <div class="flex rounded-lg overflow-hidden border border-gray-700/50">
+        <button
+          v-for="opt in ([
+            { value: false, label: 'After I fold' },
+            { value: true, label: 'Always' },
+          ] as const)"
+          :key="String(opt.value)"
+          class="flex-1 py-2 text-xs font-semibold transition-colors"
+          :class="studyMode === opt.value
+            ? 'bg-gray-700 text-white'
+            : 'text-gray-500 hover:text-gray-300'"
+          @click="studyMode = opt.value"
+        >
+          {{ opt.label }}
+        </button>
+      </div>
+      <div class="text-xs text-gray-500">
+        <template v-if="studyMode">The thinking pill shows the acting bot's hand strength and reasoning while you're still in the hand. A study aid that reveals hidden cards — your session stats will flatter you.</template>
+        <template v-else>The thinking pill shows what a bot was weighing only once you're out of the hand. Fair play: no hidden information while you still have a decision.</template>
       </div>
     </div>
 
