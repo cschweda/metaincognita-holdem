@@ -101,14 +101,12 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Bot Simulation Script](#bot-simulation-script) -- headless bot-vs-bot simulation
   - [Analysis Report](#analysis-report) · [Usage](#usage) · [What It Tracks](#what-it-tracks) · [Interpreting Results](#interpreting-results) · [Multi-Run Analysis](#multi-run-analysis)
 - [Getting Started](#getting-started)
-- [Desktop App (Tauri)](#desktop-app-tauri) -- what it is, prerequisites, dev, release builds, CI
-  - [Prerequisites](#prerequisites) · [Running in Development](#running-in-development) · [Building a Release Locally](#building-a-release-locally) · [CI Release Pipeline](#ci-release-pipeline)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 836 tests across 27 files
+- [Test Suites](#test-suites) -- 896 tests across 32 files
 - [Poker Glossary](#poker-glossary)
-- [Security](#security) -- red/blue audit log (web + desktop)
-  - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Desktop Hardening](#desktop-hardening-tauri) · [Accepted Risks](#accepted-risks)
+- [Security](#security) -- red/blue audit log
+  - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
 - [Roadmap](#roadmap)
 - [Future Enhancements](#future-enhancements)
 - [Influences](#influences) -- Poker Academy Pro, PokerStars, Full Tilt, 2+2, Sklansky, ESPN WSOP
@@ -866,8 +864,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Desktop | Tauri 2 (Rust core + OS WebView) -- macOS / Windows / Linux |
-| Testing | Vitest (836 tests across 27 files) |
+| Testing | Vitest (896 tests across 32 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -995,66 +992,6 @@ yarn generate
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Desktop App (Tauri)
-
-The simulator also ships as a **native desktop app** built with [Tauri 2](https://tauri.app/) — the same Nuxt SPA, packaged into a small native binary that runs in the operating system's own WebView (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux). There's no bundled Chromium the way Electron does it, so a release build is a few MB rather than a few hundred.
-
-**Why a desktop build?**
-- Runs fully **offline** — icons are bundled into the client JS and the sample hand history is packaged into the app, so there are no runtime network calls.
-- Native window, dock/taskbar presence, and OS integration.
-- Same code, same tests — the desktop target is just a second distribution of the web SPA, not a fork.
-
-### Prerequisites
-
-Tauri needs the **Rust toolchain** plus your platform's WebView/build dependencies (one-time setup):
-
-| Platform | Dependencies |
-|----------|--------------|
-| All | [Rust](https://rustup.rs/) (via `rustup`) |
-| macOS | Xcode Command Line Tools (`xcode-select --install`) |
-| Windows | Microsoft C++ Build Tools + WebView2 (preinstalled on Windows 11) |
-| Linux | `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, `patchelf`, `libayatana-appindicator3-dev` |
-
-See the [Tauri prerequisites guide](https://tauri.app/start/prerequisites/) for the exact, up-to-date list.
-
-### Running in Development
-
-```bash
-# Starts the Nuxt dev server and opens the native window with hot-reload —
-# edits to the Vue app refresh live inside the desktop shell.
-yarn tauri dev
-```
-
-`yarn tauri dev` runs the configured `beforeDevCommand` (`yarn dev`) and points the desktop WebView at `http://localhost:3000`. The first run compiles the Rust core, so it takes a minute; subsequent runs are fast.
-
-### Building a Release Locally
-
-```bash
-# Builds the static SPA (yarn generate) and packages a native installer
-# for the current OS into src-tauri/target/release/bundle/.
-yarn tauri build
-```
-
-This runs `beforeBuildCommand` (`yarn generate`) and produces a `.dmg`/`.app` (macOS), `.msi`/`.exe` (Windows), or `.deb`/`.AppImage` (Linux). Tauri can't cross-compile, so each platform's installer must be built on that platform.
-
-### CI Release Pipeline
-
-`.github/workflows/desktop-build.yml` builds all three platforms — macOS (universal), Windows, and Linux — on their respective runners and attaches the installers to a **draft GitHub Release**. It triggers on:
-
-- **a version tag** like `v0.19.0` (`git tag v0.19.0 && git push --tags`), or
-- a **manual run** from the Actions tab (`workflow_dispatch`).
-
-### Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `src-tauri/tauri.conf.json` | App metadata, window size, bundle targets, and the WebView CSP (see [Security](#security)) |
-| `src-tauri/capabilities/default.json` | Permission set exposed to the frontend (`core:default` only) |
-| `src-tauri/src/lib.rs` & `main.rs` | Rust entry point — intentionally minimal, no custom commands |
-| `src-tauri/Cargo.toml` | Rust dependencies |
-
-The desktop build reads its version from the root `package.json`, so a single version bump covers web, changelog, and desktop.
-
 ## Project Structure
 
 ```
@@ -1109,19 +1046,13 @@ holdem-simulator/
 │       ├── seats.ts               # Position assignment + polar coordinate layout
 │       ├── simulateBrowser.ts     # Browser-side bot-vs-bot simulation engine
 │       └── sidePots.ts            # Side pot calculation and multi-way pot awards
-├── src-tauri/                     # Tauri 2 desktop app
-│   ├── src/                       # Rust entry point (lib.rs / main.rs) — no custom commands
-│   ├── capabilities/default.json  # Frontend permission set (core:default)
-│   ├── icons/                     # Desktop + mobile app icons
-│   ├── tauri.conf.json            # App metadata, window, bundle targets, WebView CSP
-│   └── Cargo.toml                 # Rust dependencies
 ├── .github/
-│   └── workflows/desktop-build.yml  # CI: build desktop installers, attach to draft Release
+│   └── workflows/ci.yml           # CI: test suite + exploit-probe engine-leak gate
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 27 Vitest test suites (836 tests)
+├── tests/                         # 32 Vitest test suites (896 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1152,7 +1083,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (836 tests, 27 files, ~80 seconds)
+Run all tests: `yarn test` (896 tests, 32 files, ~85 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1263,22 +1194,40 @@ The codebase has been through multiple rounds of red/blue team adversarial secur
 
 ### Architecture & Threat Model
 
-The app is a **client-side SPA** (Vue/Nuxt, `ssr: false`) with **two distribution targets**:
-
-- **Web** — static SPA on Netlify, hardened with HTTP security headers (below)
-- **Desktop** — native app via **Tauri 2** (macOS / Windows / Linux): the same frontend loaded in the OS WebView, wrapped by a minimal Rust core
+The app is a **client-side SPA** (Vue/Nuxt, `ssr: false`) deployed as a static site on Netlify, hardened with HTTP security headers (below). It is web-only: the Tauri desktop target that existed from v0.19.0 was removed in September 2026.
 
 There is no server-side code anywhere — no database, no serverless functions, no accounts, no cloud sync. All game logic runs locally; `localStorage` is the only persistence layer. The realistic attack surface:
 
 - **Client-side code** — Vue/Nuxt SPA; all dynamic values render through Vue's auto-escaping (no `v-html` / `innerHTML` / `eval`)
 - **localStorage** — the user's own poker hands (fake money)
 - **Netlify** — static hosting with security headers
-- **Tauri Rust core** — minimal: no custom `#[tauri::command]` handlers, `core:default` capability only, no `fs` / `shell` / `http` plugins, `withGlobalTauri` off
-- **GitHub Actions** — the desktop release pipeline (`.github/workflows/desktop-build.yml`)
+- **GitHub Actions** — the CI workflow (`.github/workflows/ci.yml`): test suite + exploit-probe gate on every push/PR
 
 ### Audit Log
 
-#### Round 6 — Live-path integrity: clairvoyance, keep-alive lifecycle, persistence guards (July 2026) — current
+#### Round 7 — Whole-app analysis: bot leaks, analysis correctness, efficiency, security (September 2026) — current
+
+Scope: the whole app, web-only (the Tauri target was removed in this round), across four lanes — hidden-information and strategic leaks in the bot opponents, correctness of the numbers the analysis panel and stats pages show, runtime/bundle efficiency, and a security re-verification. Findings are logged as open; no engine code was changed in-round.
+
+| # | Severity | Finding | Status |
+|---|----------|---------|--------|
+| 1 | High | **Outs are overcounted** — `totalOuts` (`handAnalysis.ts`) sums overlapping draws and the straight-draw classifier treats any window-edge miss as open-ended, so an A-high or wheel draw gets 8 outs instead of 4. Measured: a pocket pair over the board shows 10 outs (true 2) and "38% by the river" (true 8%); flush + open-ender 16 (15); flush + two overcards 15 (13); J♥T♥ on 9♥8♥2♣ 22 (15, "72%" vs 54%); A♥K♥ on Q♥J♥2♣ 22 (12); QQ on 7-7-2-3 12 (4). | **Open** — count outs as the set of distinct unseen cards that improve the hand (enumerate the 45–47 unseen cards with `rank7`; ~50 µs). |
+| 2 | High | **Preflop equity is a Chen-bucket lookup that scores suited broadways and connectors like pairs** — the panel shows AKs 77% heads-up (true 67.0), 98s 60% (51.1), T9s 60% (54.3), KQs 68% (63.4), AKo 68% (65.3), AKs 3-way 60% (49.8). Pairs are right (AA 85, KK 82, QQ 80, JJ 77, 22 48 vs 50.3). Postflop Monte Carlo is accurate (river exact; flop within sampling noise). | **Open** — use `estimateEquity` preflop as well (1,000 runouts ≈ 1 ms) or a 169-hand precomputed table. |
+| 3 | Medium | **TV-broadcast commentary peeks at the undealt turn and river** — the flop and turn "foreshadow" quips (`useCommentary.ts`, `gs.allCommunity`) fire only when a live player *will* improve to a straight+ (flop) or two pair+ (turn) by the river, so a TV-mode hero can read "I've seen the future…" as a reliable signal about the future board. Hero-POV mode is unaffected. | **Open** — gate foreshadowing to hands where the hero has folded, or drop the runout peek. |
+| 4 | Medium | **The opponent HUD is not observed play** — `opponentStats` (`index.vue`) maps each bot's configured persona VPIP/PFR/AF and hardcodes `handsPlayed: 25` and `wtsd: vpip > 0.25 ? 35 : 22`; the "Went to Showdown" number is invented and the reads ("Nit — 3-bet liberally") are printed from hand one. | **Open** — compute per-bot VPIP/PFR/AF/WTSD from the session hand records, or label the block as the bot's profile. |
+| 5 | Medium | **Stats page mislabels uncontested wins as showdown wins** — `result: 'won'` includes pots where everyone folded, so "Showdown Rate" = (won+lost)/hands and "Won at Showdown" = won/(won+lost) (`useStatsData.ts`) both inflate. | **Open** — derive "went to showdown" from the record (five-card board and two or more unfolded players). |
+| 6 | Low | **The action recommendation ignores the price** — `recommend()` receives only a facing-a-bet boolean, so "CALL — 36% equity" is advised whether the bet is a third of the pot or three times it, while the panel's separate pot-odds verdict can say the opposite; `potOddsNeeded` is a `0` placeholder. | **Open** — pass pot and call amount and compare equity to the price. |
+| 7 | Low | **"Opponent reads" is dead code** — the engine's `handsForMemory`, `recentShowdowns` and `recentShowdownBluffs` counters (`useGameEngine.ts`) are declared but never incremented, so `opponentReads` is always `undefined` and bots run on the constant defaults in `botDecision.ts`; no simulator passes it either. Not a leak, but a documented adaptation that doesn't exist and branches CI never exercises. | **Open** — implement (count showdowns in `endHand`) or delete the field and branches. |
+| 8 | Low | **CSP keeps `'unsafe-eval'` the production build doesn't need** — the built `_nuxt/*.js` contains no `eval(` / `new Function(`; `connect-src https://api.iconify.design` is also unused (icons are bundled). Missing hardening: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `Strict-Transport-Security`. | **Open** — tighten `netlify.toml`; keep `'unsafe-inline'` (Vue). |
+| 9 | Info | **No strategic leak found.** Twelve new degenerate hero strategies (steal-and-fold, limp-reraise, min-3-bet, 4-bet bluff, donk ⅓ pot, river overbet, float-then-overbet, any-pair value, polarized river jam, in-position barrel, flop check-raise, passive trap) × two seeds × 10,000 hands all lose at 100bb; the whole battery also loses at 25bb and 250bb (the CI gate only runs 100bb). Closest to break-even: steal-and-fold −19.9 / −19.5 bb/100, donk-33 −21.7 / −47.3, short-stack nit-value −2.1 (the designed knife-edge). The probe hides the board and position from the scripted hero and never applies hero adaptation, so it measures un-adapted bots (conservative). | **Confirmed** — consider adding steal-and-fold and donk-33 to the CI probe and a 25bb variant. |
+| 10 | Info | **Bots see no hidden information** (re-verified) — the decision context holds only the bot's own cards, the street-sliced board and public state; hero modeling records behavior only and the sizing tell keys on real showdowns; the live deck is a fresh Fisher-Yates shuffle from `Math.random` each hand, unseeded and unexposed; bot thinking time is uniform random, uncorrelated with hand strength; both simulators and the probe street-slice. | **Confirmed** |
+| 11 | Info | **Hot paths are cheap** — 1,000-runout equity vs 3 opponents 1.1 ms, full flop analysis 1 ms, analysis keyed on the facing-bet boolean; session records ≈ 1.5 KB/hand (quota ≈ 3,400 hands, then warn-once), 2,000 hands serialize in 3.6 ms; the PokerStars parser is linear (130 MB in 1.1 s) and never throws. Shipped: 942 KB JS (308 KB gzip) + 228 KB CSS (31 KB gzip). Worth doing: lazy-load the 1,284-line quip table with commentary, drop the second per-hand write (immediate save + 1 s deep watcher), and upgrade `nuxt`/`vitest` (the audit's 4 critical / 78 high advisories are all build-toolchain packages that never ship). | **Confirmed** |
+| 12 | Info | **Security re-verified clean** — no `v-html` / `innerHTML` / `eval` / `document.write`; the only external link carries `rel="noopener"`; query params guarded; player names like `__proto__` parse without polluting prototypes; every setup input is a config-bounded slider; the betting engine terminates on NaN or negative stacks; git history holds only placeholder Supabase credentials; no `.env`, no tracked build output; every storage read is shape-guarded. | **Confirmed** |
+
+Still open from Round 6: the thinking-insight pill (#6) and the stale `public/analysis.html` (#7). Suite: 896 tests / 32 files, unchanged; seeded probe battery byte-identical to Round 6 on both recorded seeds.
+
+<details>
+<summary><strong>Round 6 — Live-path integrity: clairvoyance, keep-alive lifecycle, persistence guards (July 2026)</strong></summary>
 
 Scope: whole-app red/blue sweep across three lanes (hidden-information fairness, injection/persistence, resource lifecycle), focused on the code added since Round 5 (career mode, Nemesis, hub exit) plus re-verification of every standing claim. Fixes were applied in-round; two findings remain open by design decision.
 
@@ -1298,6 +1247,8 @@ Scope: whole-app red/blue sweep across three lanes (hidden-information fairness,
 Re-verified clean (standing claims still hold): no `v-html` / `innerHTML` / `eval` / `document.write` anywhere; Nemesis learning is fair — betting behavior only, sizing tell gated on real showdowns, never mucked cards; hero-POV equity is vs. ranges, never actual bot hands; prototype pollution not exploitable (persistence replaces, never merges); the PokerStars parser is total (never throws on any paste); Netlify headers and SPA redirects intact; Fisher-Yates deck shuffle unbiased.
 
 Post-fix probe battery (6,000 hands per strategy, seeds 20260712 / 999): byte-identical to Round 5's recorded numbers, nit-value −18.0 / +2.4 bb/100 unchanged — expected, since the probe path was already street-sliced; the fix aligns the live table with the gate's calibration. Test suite grew 879 → 896.
+
+</details>
 
 <details>
 <summary><strong>Round 5 — Engine integrity: unified betting rules + deterministic probe (July 2026)</strong></summary>
@@ -1319,7 +1270,7 @@ Post-unification probe battery (6,000 hands per strategy, 100bb resets): every d
 <details>
 <summary><strong>Round 4 — Desktop & CI hardening (June 2026)</strong></summary>
 
-Scope: the new Tauri desktop build, the GitHub Actions release pipeline, and the offline icon-bundling change.
+Scope: the new Tauri desktop build, the GitHub Actions release pipeline, and the offline icon-bundling change. *Historical: the desktop target and its release workflow were removed in September 2026; findings 4 and 5 still apply to the web build and `ci.yml`.*
 
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
@@ -1371,17 +1322,6 @@ Deployed via `netlify.toml`:
 - `script-src 'self' 'unsafe-inline' 'unsafe-eval'` — required by Nuxt/Vue runtime (nonce-based CSP would require SSR)
 - `connect-src 'self' https://api.iconify.design` — `'self'` covers all runtime needs; the iconify origin is now only a fallback, since icons are bundled into the client JS (as of v0.19.0) and the web build no longer fetches them at runtime
 - `frame-ancestors 'none'` — prevents embedding in any frame
-
-### Desktop Hardening (Tauri)
-
-The desktop build is hardened independently of the web headers — Netlify's HTTP headers do not apply to a packaged app, so the equivalent protections live in `tauri.conf.json` and the capability files:
-
-| Control | Setting |
-|---------|---------|
-| Content-Security-Policy | Set in `tauri.conf.json` (Round 4). Tighter than the web policy — `connect-src 'self'` only, since the desktop app ships fully offline (icons bundled, sample hands packaged). |
-| Custom IPC commands | None — the Rust core registers no `#[tauri::command]`, so the frontend cannot invoke native code. |
-| Capabilities | `core:default` only (`src-tauri/capabilities/default.json`) — no `fs`, `shell`, or `http` plugins enabled. |
-| `withGlobalTauri` | Disabled (default) — Tauri APIs are not exposed on `window`. |
 
 ### Accepted Risks
 

@@ -44,12 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Escalation counting unified to live semantics** — the sims/probe now bump the preflop raise level on any applied raise (as the live engine always has), instead of gating on `raiseTotal > currentBet`.
 - **analyzeHand runs one Monte Carlo pass** — equity and hand-improvement probabilities come from the same 1,000 seeded runouts (was two independent 1,000 + 800-iteration simulations); improvement probabilities now sample 1,000 runouts postflop.
 
+### Removed
+- **Tauri desktop target** — `src-tauri/`, the `desktop-build.yml` release workflow, the `yarn tauri` script, and the `@tauri-apps/cli` dev dependency are gone; the simulator is web-only (static SPA on Netlify). The desktop build was an experiment that never became a priority, and carrying a second distribution target meant a second CSP, a Rust toolchain in CI, and a multi-gigabyte local build directory for no user-facing benefit. Round 4's desktop findings stay in the README audit log as history.
+
 ### Performance
 - **`analyzeHand` ~1.7x faster** (32ms → ~19ms per 20 flop calls) from the merged runout pass; the shared loop builds the deck once, partial-shuffles only the drawn prefix, and reuses one 7-card buffer into `rank7`. `estimateEquity` alone gains only ~10% — the loop is eval-bound (~0.25µs per `rank7`), so further gains require a faster evaluator, not loop surgery.
 - **O(1) preflop hand index** — `handRankIndex` uses a precomputed Map instead of an O(169) `indexOf` that ran several times per preflop decision; the full test suite dropped from ~114s to ~80s, dominated by the N=500k escalation sims.
 - **One draw scan per postflop decision** — `decidePostflopAction` shares its `detectDraws` result with `postflopHandStrength` (the same 7 cards were scanned twice).
 
 ### Security
+- **Round 7 audit** — whole-app analysis across four lanes (bot hidden-information and strategic leaks, analysis correctness, efficiency, security), logged as open findings in README → Security → Audit Log. Headline: the analysis panel overcounts outs (a pocket pair over the board shows 10 outs / 38% instead of 2 / 8%) and its preflop equity table scores suited broadways like pairs (AKs 77% vs 67% true); the opponent HUD prints configured persona stats with an invented WTSD; TV-mode commentary foreshadows the undealt runout; the engine's "opponent reads" counters are never incremented. No strategic leak: twelve new degenerate strategies lose on both seeds at 25/100/250bb. Security re-verified clean; CSP can drop `'unsafe-eval'` and the iconify origin.
 - **Red/blue audit — Round 5 (Engine integrity).** Full findings in the README Security audit log: the rules-divergence, clairvoyance, and probe-flakiness fixes above, plus the post-unification probe battery (all six degenerate strategies lose; nit-value remains the knife-edge in the noise band around zero, −18.0 / +2.4 bb/100 across two seeds).
 
 ### Documentation

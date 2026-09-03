@@ -12,8 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "nuxt typecheck",
-    "probe": "vite-node scripts/exploit-probe.ts",
-    "tauri": "tauri"
+    "probe": "vite-node scripts/exploit-probe.ts"
   },
   "dependencies": {
     "@nuxt/ui": "^4.6.0",
@@ -23,7 +22,6 @@
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.114",
-    "@tauri-apps/cli": "^2.11.3",
     "@types/node": "^26.1.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.4.6",
