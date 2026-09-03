@@ -30,7 +30,7 @@ describe('tableReads tracker', () => {
     play(s, cfg.windowHands, { bets: 9, checks: 1, sawFlop: true, showdown: false })   // aggressive early
     play(s, cfg.windowHands, { bets: 1, checks: 9, sawFlop: true, showdown: true })    // then a station table
     expect(s.hands).toHaveLength(cfg.windowHands)
-    expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: true, showdownLight: false })
+    expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: true })
   })
 
   it('a normal pro table produces no read', () => {
@@ -40,7 +40,7 @@ describe('tableReads tracker', () => {
       noteTableAction(t, 'bet'); noteTableAction(t, 'check')
       finishTableHand(t, { sawFlop: true, showdown: i % 2 === 0 }, cfg.windowHands)   // 0.50 showdown-per-flop
     }
-    expect(readTable(t, cfg)).toEqual({ passive: false, showdownHeavy: false, showdownLight: false })
+    expect(readTable(t, cfg)).toEqual({ passive: false, showdownHeavy: false })
   })
 
   it('passivity counts only bets and checks, and flags a check-heavy table', () => {
@@ -58,11 +58,6 @@ describe('tableReads tracker', () => {
     expect(readTable(s, cfg)!.showdownHeavy).toBe(true)
   })
 
-  it('flags a weak-tight table (flops seen, few showdowns)', () => {
-    const s = createTableReadState()
-    play(s, 20, { bets: 2, checks: 8, sawFlop: true, showdown: false })   // 0.0 showdown-per-flop, passive
-    expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: false, showdownLight: true })
-  })
 
   it('showdown reads stay off until minFlops flops are in the window', () => {
     const s = createTableReadState()
@@ -73,12 +68,11 @@ describe('tableReads tracker', () => {
     // showdownHeavy, but 3 < minFlops (5).
     play(s, 3, { bets: 0, checks: 0, sawFlop: true, showdown: true })
     expect(tableReadStats(s).showdownPerFlop).toBe(1) // sanity: the raw ratio would fire
-    expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: false, showdownLight: false })
+    expect(readTable(s, cfg)).toEqual({ passive: true, showdownHeavy: false })
   })
 
   it('config thresholds sit outside the normal-table range', () => {
     expect(cfg.passiveAt).toBeGreaterThan(0.56)
     expect(cfg.showdownHeavyAt).toBeGreaterThan(0.71)
-    expect(cfg.showdownLightAt).toBeLessThan(0.42)
   })
 })

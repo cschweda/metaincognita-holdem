@@ -26,9 +26,8 @@ function rate(make: (rng: () => number) => DecisionContext, pick: (a: { type: st
   return hits / N
 }
 const isRaise = (a: { type: string }) => a.type === 'raise'
-const STATION = { passive: true, showdownHeavy: true, showdownLight: false }
-const WEAK_TIGHT = { passive: true, showdownLight: true, showdownHeavy: false }
-const NONE = { passive: false, showdownHeavy: false, showdownLight: false }
+const STATION = { passive: true, showdownHeavy: true }
+const NONE = { passive: false, showdownHeavy: false }
 
 // River, checked to us, medium-strength made hand: top pair, weak kicker.
 // Reaches maybeThinValueRiver (strength in [0.42, 0.55)) as the non-raiser.
@@ -61,18 +60,6 @@ const probeCtx = (rng: () => number, tableReads?: DecisionContext['tableReads'])
   wasPreflopRaiser: false, preflopCallers: 1, rng, tableReads,
 })
 
-// River, checked to us, air, not the preflop raiser: same hand/board as
-// bluffRaiseCtx (confirmed "nothing" — no pair, no draw) but toCall 0, so
-// this reaches the river non-raiser air bluff-bet (decidePostflopAction's
-// `ctx.street === 'river'` block), the only place probeMult can reach the
-// river (item 2). Five-card dry(-ish) board: no pair, no realistic draw.
-const riverProbeCtx = (rng: () => number, tableReads?: DecisionContext['tableReads']): DecisionContext => ({
-  street: 'river', toCall: 0, pot: 50, currentBet: 0, playerBet: 0, chips: 200, bb: 2,
-  numActivePlayers: 2, raiseLevel: 0, position: 'BTN',
-  holeCards: [c(8, 'spades'), c(6, 'diamonds')],
-  community: [c(13, 'hearts'), c(11, 'clubs'), c(4, 'diamonds'), c(2, 'spades'), c(10, 'clubs')],
-  wasPreflopRaiser: false, preflopCallers: 1, rng, tableReads,
-})
 
 describe('table reads move exactly the configured knobs', () => {
   it('no read and all-false reads are byte-identical to an absent field', () => {
@@ -114,36 +101,14 @@ describe('table reads move exactly the configured knobs', () => {
     expect(cut / base).toBeLessThan(cfg.riverBluffPenalty * 1.4)
   })
 
-  it('weak-tight table: in-position probe bets rise by probeBoost', () => {
-    const base = rate(r => probeCtx(r), isRaise, 30_000)
-    const boosted = rate(r => probeCtx(r, WEAK_TIGHT), isRaise, 30_000)
-    expect(base).toBeGreaterThan(0.03)
-    expect(boosted / base).toBeGreaterThan(cfg.probeBoost * 0.85)
-    expect(boosted / base).toBeLessThan(cfg.probeBoost * 1.15)
-  })
 
-  it('weak-tight table: river air bets rise by probeBoost', () => {
-    // Regression for item 2: pre-fix, the river non-raiser air bluff-bet
-    // never multiplied by probeMult, so this ratio measured ≈ 1.0.
-    const base = rate(r => riverProbeCtx(r), isRaise, 80_000)
-    const boosted = rate(r => riverProbeCtx(r, WEAK_TIGHT), isRaise, 80_000)
-    expect(base).toBeGreaterThan(0.02)
-    expect(boosted / base).toBeGreaterThan(cfg.probeBoost * 0.85)
-    expect(boosted / base).toBeLessThan(cfg.probeBoost * 1.15)
-  })
 
-  it('a station read does not touch probe bets, and a weak-tight read touches neither thin value nor river bluff-raises', () => {
+  it('a station read does not touch probe bets', () => {
     // Identical seeds replay identical rng trajectories whenever the applied
-    // multiplier is exactly 1.0 (as it is here — STATION never sets
-    // weakTightTable, WEAK_TIGHT never sets stationTable — see the ternaries
-    // in decidePostflopAction), so these are exact-equality checks, not
-    // statistical ones: a swapped-gate bug would flip a multiplier away from
-    // 1.0 and desync the two rng trajectories, changing at least one hit.
+    // multiplier is exactly 1.0 (no probe multiplier exists any more), so this
+    // is an exact-equality check, not a statistical one: a station read that
+    // leaked into the probe branch would desync the two trajectories.
     const probeBase = rate(r => probeCtx(r), isRaise, 40_000)
     expect(rate(r => probeCtx(r, STATION), isRaise, 40_000)).toBe(probeBase)
-    const thinBase = rate(r => thinValueCtx(r), isRaise, 50_000)
-    expect(rate(r => thinValueCtx(r, WEAK_TIGHT), isRaise, 50_000)).toBe(thinBase)
-    const bluffBase = rate(r => bluffRaiseCtx(r), isRaise, 60_000)
-    expect(rate(r => bluffRaiseCtx(r, WEAK_TIGHT), isRaise, 60_000)).toBe(bluffBase)
   })
 })

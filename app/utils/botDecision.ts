@@ -978,10 +978,8 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // ─── Table reads (public signals; see utils/tableReads.ts) ─────
   const TR = STRAT.tableReads
   const stationTable = !!(ctx.tableReads?.passive && ctx.tableReads?.showdownHeavy)
-  const weakTightTable = !!(ctx.tableReads?.passive && ctx.tableReads?.showdownLight)
   const thinValueMult = stationTable ? TR.thinValueBoost : 1.0
   const riverBluffMult = stationTable ? TR.riverBluffPenalty : 1.0
-  const probeMult = weakTightTable ? TR.probeBoost : 1.0
 
   // ─── Probabilistic fallback (no cards provided) ─────
   if (!cardAware) {
@@ -1175,8 +1173,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       // Weak-tight table: this air bluff-bet is the river leg of the probe/stab
       // boost (the two `ctx.street === 'river'` blocks above and here both
       // return before the IP/OOP probe section, so this is the only place a
-      // river probeMult can apply — Fix wave 2026-09-03, item 2).
-      if (hasNothing && rng() < profile.bluffFreq * 0.35 * profile.aggression * probeMult) {
+      if (hasNothing && rng() < profile.bluffFreq * 0.35 * profile.aggression) {
         const bluffSize = maybeOverbet(pot, profile, bb, rng)
           ?? sizedBet(pot, 0.55 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
@@ -1205,8 +1202,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       // Weak-tight boost is for air/weak-made probes only — a monster or a
       // strong hand isn't "probing," it's value betting, so it shouldn't be
       // scaled by a read meant to push more bluffs (Fix wave 2026-09-03, item 5).
-      const probeScale = (hasMonster || hasStrongHand) ? 1.0 : probeMult
-      if (rng() < probeBase * probeTexture * probeScale) {
+      if (rng() < probeBase * probeTexture) {
         const sizeMult = board?.isWet ? 0.55 : board?.isDry ? 0.35 : 0.45
         const betSize = sizedBet(pot, sizeMult + profile.aggression * 0.12 + rng() * 0.12, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
@@ -1245,11 +1241,11 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
           * (board?.isAceHigh ? 1.5 : 1.0)
           * (board?.isDry ? 1.4 : 1.0)
           * (board?.isLow ? 1.2 : 1.0)
-      if (hasNothing && rng() < probeRate * probeMult) {
+      if (hasNothing && rng() < probeRate) {
         const bluffSize = sizedBet(pot, 0.33 + rng() * 0.22, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
       }
-      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && rng() < probeRate * probeMult * 0.8) {
+      if (hasWeakMade && (board?.isAceHigh || donkFreq > 0.10) && rng() < probeRate * 0.8) {
         const betSize = sizedBet(pot, 0.30 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: betSize + playerBet }
       }

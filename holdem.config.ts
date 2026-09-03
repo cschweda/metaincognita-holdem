@@ -173,8 +173,8 @@ export default {
     // multipliers on existing knobs; no read → decisions byte-identical.
     tableReads: {
       windowHands: 30, minHands: 10, minFlops: 5,
-      passiveAt: 0.62, showdownHeavyAt: 0.85, showdownLightAt: 0.30,
-      thinValueBoost: 1.4, riverBluffPenalty: 0.3, probeBoost: 1.25,
+      passiveAt: 0.62, showdownHeavyAt: 0.85,
+      thinValueBoost: 1.4, riverBluffPenalty: 0.3,
     },
   },
 

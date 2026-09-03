@@ -171,3 +171,12 @@ dominate the bet/check count. Under its definition (`passive &&
 showdownLight`) the branch is unreachable at any realistic table. Its
 code stays unit-tested and bounded; whether to keep it latent or remove
 it is an open decision recorded in the README.
+
+**Removed (same day).** Decision taken: the weak-tight read (`showdownLight`,
+`probeBoost`, and the probe/stab multiplier sites) is removed. The
+tracker, config and `DecisionContext.tableReads` now carry only `passive`
+and `showdownHeavy`; the calling-station read and its two effects stand as
+specified above and are gated in CI single-seat and four-seat. The
+`fit-or-fold` strategy stays in the gate as a fold-heavy postflop line.
+Every probe cell was byte-identical before and after the removal, since the
+removed branch never fired.

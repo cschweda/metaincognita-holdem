@@ -104,7 +104,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 986 tests across 43 files
+- [Test Suites](#test-suites) -- 983 tests across 43 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -708,14 +708,15 @@ The adjustments are bounded and gentle -- a bot's fundamental personality doesn'
 
 ### Table Reads
 
-Bots read the *table*, not you — that is Nemesis's job. A rolling 30-hand window counts public signals only: bets and raises, checks, flops seen, showdowns reached. Two reads come out of it, each with thresholds set outside a normal pro table's range (passivity 0.41–0.56 and showdown-per-flop 0.42–0.71 over 30-hand windows; a calling station drives 0.64+ and 1.00); the showdown reads also stay off until the window holds at least 5 flops (`minFlops`) — too few flops make the ratio noise, and passivity is unaffected:
+Bots read the *table*, not you — that is Nemesis's job. A rolling 30-hand window counts public signals only: bets and raises, checks, flops seen, showdowns reached. One read comes out of it, with thresholds set outside a normal pro table's range (passivity 0.41–0.56 and showdown-per-flop 0.42–0.71 over 30-hand windows; a calling station drives 0.64+ and 1.00), and it stays off until the window holds `minFlops` (5) flops:
 
 | Table | Read | What the bots do |
 |---|---|---|
 | Calling stations (check-heavy, everything goes to showdown) | `passive && showdownHeavy` | River thin value ×1.4, river bluff-raises ×0.3 |
-| Weak-tight (check-heavy, folds before showdown) | `passive && showdownLight` | Probe and stab bets ×1.25 |
 
-Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker: `station` exercises the calling-station read end to end in CI, and the bots value-bet it thinner for it — −1,080 → −1,142 bb/100 at 100bb, −552 → −565 at 25bb. The weak-tight read is unit-tested (each multiplier moves exactly its knob) and calibrated (a fold-everything hero at the pro table produces a read in under 5% of windows), but no single probe strategy plays more than one hero at the table, and one hero folding can't make an eight-handed table check-heavy enough to trigger it — so it isn't measured end to end. `fit-or-fold` stays in the gate as its own degenerate line regardless. Four-seat probe runs (see the probe section's multi-seat mode) confirm the station read end to end — four stations lose −669 bb/100 per seat — and show that the weak-tight read never fires in any table composition tried, so that branch remains latent.
+Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker, so the read is measured end to end in CI: one `station` seat loses −1,142 bb/100 at 100bb (−1,080 before the read) and −565 at 25bb, and four station seats lose −669 per seat with the read firing in most windows.
+
+A second "weak-tight" read (`passive && showdownLight`, probe bets ×1.25) was designed, built and then removed the same day: multi-seat probe runs showed it never fires at any realistic table — fold-heavy seats make the table showdown-heavy, and the remaining pros' own bets keep passivity below threshold — and an adaptation nothing can trigger is complexity without difficulty.
 
 ### Hero Adaptation
 
@@ -798,11 +799,11 @@ yarn probe station 10000 20260712 100 4   # four scripted seats (bb/100 per seat
 | nit-value (jam only QQ+/AK) | paying off too light | **−19** | **+2** |
 | steal-fold (open CO/BTN any two, fold to 3-bets, one c-bet) | blind defense, c-bet folding | **−20** | **−20** |
 | donk-33 (call opens, bet ⅓ pot whenever checked to) | small-bet fold discipline | **−28** | **−131** |
-| fit-or-fold (call opens, continue only with any pair, including a board pair) | weak-tight postflop folding | **−321** | **−123** |
+| fit-or-fold (call opens, continue only with any pair, including a board pair) | fold-heavy postflop line | **−321** | **−123** |
 
 Numbers: 10,000 hands per cell, seed 20260712, `$1/$2`. Stacks reset to the column's depth every hand.
 
-**Multi-seat mode.** A sixth argument seats that many copies of the strategy (the pro lineup fills the rest, so the table stays eight-handed) and reports bb/100 *per seat*. One hero cannot make an eight-handed table abnormal; four can, so this is how the table reads are measured end to end. Gate cells at 100bb, 10,000 hands: `station` ×4 **−669 bb/100 per seat** (the station read fires in most windows and the bots value-bet it thinner), `fit-or-fold` ×4 **−563**. What the sweep also showed: the weak-tight read (`passive && showdownLight`) never fires in any composition tried — `fit-or-fold` seats fold or go to showdown, so the table reads showdown-*heavy* at five-plus seats, and even six check-fold seats leave passivity at 13% of windows because the remaining pros' bets dominate the count.
+**Multi-seat mode.** A sixth argument seats that many copies of the strategy (the pro lineup fills the rest, so the table stays eight-handed) and reports bb/100 *per seat*. One hero cannot make an eight-handed table abnormal; four can, so this is how the table read is measured end to end. Gate cells at 100bb, 10,000 hands: `station` ×4 **−669 bb/100 per seat** (the station read fires in most windows and the bots value-bet it thinner), `fit-or-fold` ×4 **−563**. The same sweep is what retired the weak-tight read: `fit-or-fold` seats fold or go to showdown, so the table reads showdown-*heavy* at five-plus seats, and even six check-fold seats leave passivity at 13% of windows because the remaining pros' bets dominate the count.
 
 The suite runs in CI as a regression gate (`tests/exploit-probe.test.ts`): every strategy must stay below +10 bb/100 at both 100bb and 25bb (short stacks change the jam/call maths, and nit-value sits at the +2 knife-edge there by design). An earlier version of this table waved off nit-value at +64 bb/100 as "mildly +EV, as in real life" — the gate proved that wrong. Root cause was twofold: the reraise-jam defense floor ignored jam size (bots called 100bb 3-bet jams with top ~3.4% hands — TT/AQ — paying off premium-only jammers), and the old refill-when-felted harness let stacks balloon past 1,000bb, so a handful of monster coolers dominated the metric (±100 bb/100 run-to-run noise). The floor now decays with jam size (full defense vs ≤40bb jams, ~QQ+/AK vs 100bb, ~KK+ at several hundred bb) and the harness pins stacks at 100bb.
 
@@ -885,7 +886,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (986 tests across 43 files) |
+| Testing | Vitest (983 tests across 43 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1069,7 +1070,7 @@ holdem-simulator/
 ├── scripts/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 43 Vitest test suites (986 tests)
+├── tests/                         # 43 Vitest test suites (983 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1100,7 +1101,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (986 tests, 43 files, ~100 seconds)
+Run all tests: `yarn test` (983 tests, 43 files, ~100 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)

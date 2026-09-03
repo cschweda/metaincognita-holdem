@@ -1,6 +1,6 @@
 /**
  * Table reads — what kind of table is this? A rolling window of PUBLIC,
- * table-wide signals (bets, checks, flops seen, showdowns reached) → three
+ * table-wide signals (bets, checks, flops seen, showdowns reached) → two
  * booleans the bot brain may act on. Nothing here looks at cards. Pure and
  * framework-free: the live engine, both simulators and the exploit probe
  * own a state object each and call the same three functions, so the CI
@@ -9,19 +9,16 @@
 export interface TableReadConfig {
   windowHands: number
   minHands: number
-  minFlops: number          // showdownHeavy/showdownLight need at least this many flops in the window (passivity is unaffected)
+  minFlops: number          // showdownHeavy needs at least this many flops in the window (passivity is unaffected)
   passiveAt: number         // passivity = checks / (checks + bets)
   showdownHeavyAt: number   // showdowns / flops seen
-  showdownLightAt: number
   thinValueBoost: number    // river thin-value frequency × (station table)
   riverBluffPenalty: number // river bluff-raise frequency × (station table)
-  probeBoost: number        // probe / stab bet rate × (weak-tight table)
 }
 
 export interface TableReads {
   passive: boolean
   showdownHeavy: boolean
-  showdownLight: boolean
 }
 
 interface HandSample { bets: number; checks: number; sawFlop: boolean; showdown: boolean }
@@ -73,6 +70,5 @@ export function readTable(state: TableReadState, cfg: TableReadConfig): TableRea
   return {
     passive: s.passivity >= cfg.passiveAt,
     showdownHeavy: enoughFlops && s.showdownPerFlop >= cfg.showdownHeavyAt,
-    showdownLight: enoughFlops && s.showdownPerFlop <= cfg.showdownLightAt,
   }
 }
