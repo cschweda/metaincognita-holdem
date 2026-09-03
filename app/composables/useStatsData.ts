@@ -5,6 +5,7 @@
  */
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
 import { downloadFile } from '~/utils/downloadFile'
+import { wentToShowdown } from '~/utils/observedStats'
 import type { SessionData, HandRecord } from './useSessionStats'
 
 export interface SessionRow {
@@ -102,8 +103,11 @@ export function useStatsData() {
     const avgProfit = totalSessions > 0 ? totalProfit / totalSessions : 0
     const handsPerSession = totalSessions > 0 ? Math.round(totalHands / totalSessions) : 0
     const foldPct = totalHands > 0 ? (folded / totalHands) * 100 : 0
-    const showdownRate = totalHands > 0 ? ((won + lost) / totalHands) * 100 : 0
-    const wonAtShowdown = (won + lost) > 0 ? (won / (won + lost)) * 100 : 0
+    // Only hands that actually reached showdown — an uncontested pot is a win, not a showdown win
+    const showdowns = hands.value.filter(wentToShowdown)
+    const showdownWins = showdowns.filter(h => h.result === 'won').length
+    const showdownRate = totalHands > 0 ? (showdowns.length / totalHands) * 100 : 0
+    const wonAtShowdown = showdowns.length > 0 ? (showdownWins / showdowns.length) * 100 : 0
     return { totalHands, won, lost, folded, totalProfit, totalSessions, biggestWin, biggestLoss, avgPot, avgProfit, handsPerSession, foldPct, showdownRate, wonAtShowdown }
   })
 

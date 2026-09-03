@@ -12,6 +12,7 @@ import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
 import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } from '~/utils/botDecision'
+import { computeObservedStats } from '~/utils/observedStats'
 import { bestHand, HAND_RANK_NAMES, describeHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
 import type { HeroProfile } from '~/utils/botDecision'
@@ -162,16 +163,13 @@ const positions = computed(() => {
 
 const heroPosition = computed(() => positions.value[0] || 'BTN')
 
+// Observed at this table — parsed from the session's recorded hands, never
+// from persona config. The panel asks for 10 hands before it prints reads.
 const opponentStats = computed(() => {
   if (!settings.value) return []
-  return settings.value.botConfigs.slice(0, settings.value.playerCount - 1).map(bot => ({
-    name: bot.name,
-    handsPlayed: 25,
-    vpip: bot.vpip * 100,
-    pfr: bot.pfr * 100,
-    af: bot.aggression,
-    wtsd: bot.vpip > 0.25 ? 35 : 22,
-  }))
+  const observed = computeObservedStats(session.value?.hands ?? [])
+  return settings.value.botConfigs.slice(0, settings.value.playerCount - 1).map(bot =>
+    observed.get(bot.name) ?? { name: bot.name, handsPlayed: 0, vpip: 0, pfr: 0, af: 0, wtsd: 0 })
 })
 
 // Showdown players — all non-folded players with cards and hand descriptions

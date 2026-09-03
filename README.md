@@ -103,7 +103,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 911 tests across 33 files
+- [Test Suites](#test-suites) -- 925 tests across 34 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -141,7 +141,7 @@ A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot o
 - Facing-aggression ranges: 3-bet (8%), call-vs-3-bet (12%), 4-bet (3.5%), 5-bet (1.5%)
 
 ### Opponent Stats (HUD)
-- Per-player stats: VPIP, PFR, Aggression Factor, Went-to-Showdown %
+- Per-player stats observed at your table: VPIP, PFR, Aggression Factor, Went-to-Showdown %, parsed from the recorded hands (never from the persona's configured numbers); reads appear after 10 hands
 - Player type labels: Nit, Tight, Solid, Loose, Very Loose
 - Aggression labels: Passive, Balanced, Aggressive, Hyper-aggressive
 - Strategic reads: "Nit -- 3-bet liberally, steal their blinds", "Calling station -- don't bluff, value bet thin"
@@ -864,7 +864,7 @@ Four levels of verification, each more realistic than the last:
 | Persistence | localStorage (browser-only) with JSON/CSV/PokerStars export |
 | Package Manager | Yarn |
 | Web deploy | Netlify (static SPA) |
-| Testing | Vitest (911 tests across 33 files) |
+| Testing | Vitest (925 tests across 34 files) |
 | Code Quality | A- grade — 13,400 LOC, no file >900 LOC (non-algorithmic), <80 LOC duplication |
 
 ## Bot Simulation Script
@@ -1052,7 +1052,7 @@ holdem-simulator/
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   ├── generate-analysis.ts       # Regenerate analysis.html + sample-hands.txt
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 33 Vitest test suites (911 tests)
+├── tests/                         # 34 Vitest test suites (925 tests)
 ├── holdem.config.ts               # Single source of truth for all game parameters
 ├── nuxt.config.ts                 # Nuxt 4 config — OG meta tags, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1083,7 +1083,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (911 tests, 33 files, ~90 seconds)
+Run all tests: `yarn test` (925 tests, 34 files, ~90 seconds)
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1157,6 +1157,9 @@ Run all tests: `yarn test` (911 tests, 33 files, ~90 seconds)
 ### Analysis Ground Truth (`analysis-ground-truth.test.ts`)
 Outs are distinct improving cards (pocket pair over the board = 2, flush + open-ender = 15, two pair with a pocket pair = 4, set = 7); A-high and wheel straight draws are gutshots; a made straight is not a draw; preflop equity matches published values (AKs 67%, 98s 51%, AA 85% heads-up / 49% six-way).
 
+### Observed Stats (`observed-stats.test.ts`)
+Per-bot VPIP / PFR / AF / WTSD parsed from recorded action logs: a big-blind check-through is not VPIP, a postflop call is not VPIP, all-ins count as raises, AF with no calls is capped, WTSD is showdowns over flops seen, a name that prefixes another name never absorbs its actions; `wentToShowdown` requires a five-card board and two unfolded players.
+
 ### Phase 5 -- Session Management (`phase5-session.test.ts`)
 - Timeout, bust-out, re-buy, session recording, data deletion
 
@@ -1217,8 +1220,8 @@ Scope: the whole app, web-only (the Tauri target was removed in this round), acr
 | 1 | High | **Outs were overcounted** — `totalOuts` (`handAnalysis.ts`) summed overlapping draws, a pocket pair's two "overcards" were counted on top of its set outs, and the straight-draw classifier treated any window-edge miss as open-ended, so an A-high or wheel draw got 8 outs instead of 4. Measured: a pocket pair over the board showed 10 outs and "38% by the river" (true 2 and 8%); QQ on 7-7-2-3 showed 12 (4); A♥K♥ on Q♥J♥2♣ 22 (18); J♥T♥ on 9♥8♥2♣ 22 (21); flush + open-ender 16 (15). | **Fixed** — every draw now lists its physical out cards and the total is the union of distinct cards; A-high/wheel draws are gutshots; a made straight or flush is no longer reported as a draw; pocket pairs get a single set draw. Pinned by `tests/analysis-ground-truth.test.ts`. |
 | 2 | High | **Preflop equity was a Chen-bucket lookup that scored suited broadways and connectors like pairs** — the panel showed AKs 77% heads-up (true 67.0), 98s 60% (51.1), T9s 60% (54.3), KQs 68% (63.4), AKo 68% (65.3), AKs 3-way 60% (49.8). Pairs were right. Postflop Monte Carlo was already accurate (river exact; flop within sampling noise). | **Fixed** — preflop equity now comes from the same 1,000-runout Monte Carlo pass as postflop (every hand above within ±2 points of published values); the bucket table is gone. Pinned by `tests/analysis-ground-truth.test.ts`. |
 | 3 | Medium | **TV-broadcast commentary peeks at the undealt turn and river** — the flop and turn "foreshadow" quips (`useCommentary.ts`, `gs.allCommunity`) fire only when a live player *will* improve to a straight+ (flop) or two pair+ (turn) by the river, so a TV-mode hero can read "I've seen the future…" as a reliable signal about the future board. Hero-POV mode is unaffected. | **Open** — gate foreshadowing to hands where the hero has folded, or drop the runout peek. |
-| 4 | Medium | **The opponent HUD is not observed play** — `opponentStats` (`index.vue`) maps each bot's configured persona VPIP/PFR/AF and hardcodes `handsPlayed: 25` and `wtsd: vpip > 0.25 ? 35 : 22`; the "Went to Showdown" number is invented and the reads ("Nit — 3-bet liberally") are printed from hand one. | **Open** — compute per-bot VPIP/PFR/AF/WTSD from the session hand records, or label the block as the bot's profile. |
-| 5 | Medium | **Stats page mislabels uncontested wins as showdown wins** — `result: 'won'` includes pots where everyone folded, so "Showdown Rate" = (won+lost)/hands and "Won at Showdown" = won/(won+lost) (`useStatsData.ts`) both inflate. | **Open** — derive "went to showdown" from the record (five-card board and two or more unfolded players). |
+| 4 | Medium | **The opponent HUD was not observed play** — `opponentStats` (`index.vue`) mapped each bot's configured persona VPIP/PFR/AF and hardcoded `handsPlayed: 25` and `wtsd: vpip > 0.25 ? 35 : 22`; the "Went to Showdown" number was invented and the reads ("Nit — 3-bet liberally") printed from hand one. | **Fixed** — `observedStats.ts` parses per-bot VPIP / PFR / AF / WTSD from the session's recorded action logs (standard denominators: hands dealt, hands dealt, calls, flops seen); the panel's existing 10-hand minimum now actually gates the reads. Pinned by `tests/observed-stats.test.ts`. |
+| 5 | Medium | **Stats page mislabeled uncontested wins as showdown wins** — `result: 'won'` includes pots where everyone folded, so "Showdown Rate" = (won+lost)/hands and "Won at Showdown" = won/(won+lost) (`useStatsData.ts`) both inflated. | **Fixed** — both stats now count only hands that reached showdown (five-card board and two or more unfolded players, `wentToShowdown`). |
 | 6 | Low | **The action recommendation ignores the price** — `recommend()` receives only a facing-a-bet boolean, so "CALL — 36% equity" is advised whether the bet is a third of the pot or three times it, while the panel's separate pot-odds verdict can say the opposite; `potOddsNeeded` is a `0` placeholder. | **Open** — pass pot and call amount and compare equity to the price. |
 | 7 | Low | **"Opponent reads" is dead code** — the engine's `handsForMemory`, `recentShowdowns` and `recentShowdownBluffs` counters (`useGameEngine.ts`) are declared but never incremented, so `opponentReads` is always `undefined` and bots run on the constant defaults in `botDecision.ts`; no simulator passes it either. Not a leak, but a documented adaptation that doesn't exist and branches CI never exercises. | **Open** — implement (count showdowns in `endHand`) or delete the field and branches. |
 | 8 | Low | **CSP keeps `'unsafe-eval'` the production build doesn't need** — the built `_nuxt/*.js` contains no `eval(` / `new Function(`; `connect-src https://api.iconify.design` is also unused (icons are bundled). Missing hardening: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `Strict-Transport-Security`. | **Open** — tighten `netlify.toml`; keep `'unsafe-inline'` (Vue). |
