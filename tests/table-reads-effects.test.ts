@@ -93,10 +93,18 @@ describe('table reads move exactly the configured knobs', () => {
     expect(boosted / base).toBeLessThan(cfg.probeBoost * 1.15)
   })
 
-  it('a station read does not touch probe bets, and a weak-tight read does not touch thin value', () => {
+  it('a station read does not touch probe bets, and a weak-tight read touches neither thin value nor river bluff-raises', () => {
+    // Identical seeds replay identical rng trajectories whenever the applied
+    // multiplier is exactly 1.0 (as it is here — STATION never sets
+    // weakTightTable, WEAK_TIGHT never sets stationTable — see the ternaries
+    // in decidePostflopAction), so these are exact-equality checks, not
+    // statistical ones: a swapped-gate bug would flip a multiplier away from
+    // 1.0 and desync the two rng trajectories, changing at least one hit.
     const probeBase = rate(r => probeCtx(r), isRaise, 40_000)
-    expect(rate(r => probeCtx(r, STATION), isRaise, 40_000)).toBeCloseTo(probeBase, 1)
+    expect(rate(r => probeCtx(r, STATION), isRaise, 40_000)).toBe(probeBase)
     const thinBase = rate(r => thinValueCtx(r), isRaise, 50_000)
-    expect(rate(r => thinValueCtx(r, WEAK_TIGHT), isRaise, 50_000)).toBeCloseTo(thinBase, 1)
+    expect(rate(r => thinValueCtx(r, WEAK_TIGHT), isRaise, 50_000)).toBe(thinBase)
+    const bluffBase = rate(r => bluffRaiseCtx(r), isRaise, 60_000)
+    expect(rate(r => bluffRaiseCtx(r, WEAK_TIGHT), isRaise, 60_000)).toBe(bluffBase)
   })
 })
