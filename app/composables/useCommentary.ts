@@ -24,7 +24,7 @@ import {
   lonFoldAssessment, normanFoldReactionQuips,
   lonChipObservation, normanChipQuips,
 } from '~/utils/commentaryQuips'
-import { strategicFlopObs, strategicActionObs, strategicShowdownObs } from '~/utils/commentaryStrategic'
+import { strategicFlopObs, strategicActionObs, strategicShowdownObs, foreshadowAllowed } from '~/utils/commentaryStrategic'
 
 export type CommentaryMode = 'hero' | 'tv'
 
@@ -812,17 +812,9 @@ export function useCommentary(gs: GS) {
         )
       }
 
-      // Foreshadowing
-      if (gs.allCommunity.value.length >= 5 && Math.random() < 0.4) {
-        for (const p of players) {
-          if (!p.holeCards) continue
-          const now = bestHand(Array.from(p.holeCards), community)
-          const later = bestHand(Array.from(p.holeCards), gs.allCommunity.value)
-          if (later && now && later.rank > now.rank && later.rank >= HAND_RANKS.STRAIGHT) {
-            addTV(normanForeshadowQuips.pick(), 'aside', 'norman')
-            break
-          }
-        }
+      // Foreshadowing — only once the hero is out of the hand (information hygiene)
+      if (Math.random() < 0.4 && foreshadowAllowed(gs.playerStates.value, community, gs.allCommunity.value, HAND_RANKS.STRAIGHT)) {
+        addTV(normanForeshadowQuips.pick(), 'aside', 'norman')
       }
     }
 
@@ -916,16 +908,9 @@ export function useCommentary(gs: GS) {
         }
       }
 
-      if (gs.allCommunity.value.length >= 5 && Math.random() < 0.35) {
-        for (const p of players) {
-          if (!p.holeCards) continue
-          const turnH = bestHand(Array.from(p.holeCards), community.slice(0, 4))
-          const fullH = bestHand(Array.from(p.holeCards), gs.allCommunity.value)
-          if (fullH && turnH && fullH.rank > turnH.rank && fullH.rank >= HAND_RANKS.TWO_PAIR) {
-            addTV(normanForeshadowQuips.pick(), 'aside', 'norman')
-            break
-          }
-        }
+      // Foreshadowing — only once the hero is out of the hand (information hygiene)
+      if (Math.random() < 0.35 && foreshadowAllowed(gs.playerStates.value, community.slice(0, 4), gs.allCommunity.value, HAND_RANKS.TWO_PAIR)) {
+        addTV(normanForeshadowQuips.pick(), 'aside', 'norman')
       }
     }
 

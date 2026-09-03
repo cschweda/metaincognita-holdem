@@ -135,3 +135,27 @@ export function strategicShowdownObs(heroWon: boolean, pot: number, heroCards: [
 
   return obs.length > 0 ? pick(obs) : null
 }
+
+/**
+ * Information hygiene for the TV booth's "I've seen the future" tease. The
+ * runout is dealt up-front, so the booth *could* peek — but a hero who is
+ * still in the hand must never learn anything about undealt cards. The tease
+ * is allowed only once the hero has folded, and only when a live player will
+ * actually improve to at least `minRank` by the river.
+ */
+export function foreshadowAllowed(
+  players: readonly { holeCards: readonly Card[] | null; folded: boolean; isHero: boolean }[],
+  visible: readonly Card[],
+  full: readonly Card[],
+  minRank: number,
+): boolean {
+  const hero = players.find(p => p.isHero)
+  if (hero && !hero.folded) return false
+  if (full.length < 5) return false
+  return players.some(p => {
+    if (p.folded || !p.holeCards) return false
+    const now = bestHand(Array.from(p.holeCards), Array.from(visible))
+    const later = bestHand(Array.from(p.holeCards), Array.from(full))
+    return !!(now && later && later.rank > now.rank && later.rank >= minRank)
+  })
+}
