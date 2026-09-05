@@ -7,6 +7,7 @@
 import config from '@config'
 import { dynamicBotName, describeBotStyle, FICTIONAL_NAMES } from '~/utils/botDescriptions'
 import { shuffle } from '~/utils/shuffle'
+import { botStrategyFromPreset } from '~/utils/botConfig'
 
 const emit = defineEmits<{
   start: [settings: GameSettings]
@@ -76,21 +77,7 @@ function generateDefaultBots(count: number): BotConfig[] {
   return selected.map(persona => ({
     preset: persona.name,
     name: persona.name,
-    vpip: persona.vpip,
-    pfr: persona.pfr,
-    aggression: persona.aggression,
-    bluffFreq: persona.bluffFreq,
-    creativeFreq: persona.creativeFreq,
-    tiltMultiplier: persona.tiltMultiplier ?? 1.0,
-    threeBetFreq: persona.threeBetFreq,
-    fourBetFreq: persona.fourBetFreq,
-    fiveBetFreq: persona.fiveBetFreq,
-    donkBetFreq: persona.donkBetFreq,
-    limpFreq: (persona as any).limpFreq,
-    styleBias: (persona as any).styleBias,
-    betSizeMult: (persona as any).betSizeMult,
-    overbetFreq: (persona as any).overbetFreq,
-    leak: persona.leak,
+    ...botStrategyFromPreset(persona as unknown as Record<string, unknown>),
   }))
 }
 
@@ -104,16 +91,7 @@ function applyPreset(botIndex: number, presetName: string) {
   if (!preset) return
   const bot = botConfigs.value[botIndex]
   bot.preset = presetName
-  bot.vpip = preset.vpip
-  bot.pfr = preset.pfr
-  bot.aggression = preset.aggression
-  bot.bluffFreq = preset.bluffFreq
-  bot.creativeFreq = preset.creativeFreq
-  bot.tiltMultiplier = 'tiltMultiplier' in preset ? (preset.tiltMultiplier ?? 1.0) : 1.0
-  bot.threeBetFreq = (preset as any).threeBetFreq
-  bot.fourBetFreq = (preset as any).fourBetFreq
-  bot.fiveBetFreq = (preset as any).fiveBetFreq
-  bot.leak = (preset as any).leak
+  Object.assign(bot, botStrategyFromPreset(preset as unknown as Record<string, unknown>))
   if ('leak' in preset) {
     bot.name = presetName
   }
