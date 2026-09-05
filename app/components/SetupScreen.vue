@@ -154,7 +154,7 @@ function handleStart() {
     stakeLevel: stakeLevel.value,
     customBB: null,
     stackBB: stackBB.value,
-    heroName: heroName.value,
+    heroName: heroName.value.trim() || config.betting.defaultHeroName,
     botConfigs: activeBots.value,
     guestMode: false,
     commentaryMode: commentaryChoice.value,

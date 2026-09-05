@@ -12,6 +12,7 @@ import { assignPositions } from '~/utils/seats'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
 import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } from '~/utils/botDecision'
+import { parseHeroHandRecord, actedInLine } from '~/utils/heroRecord'
 import { computeObservedStats } from '~/utils/observedStats'
 import { bestHand, HAND_RANK_NAMES, describeHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
@@ -566,7 +567,7 @@ function endHand() {
     const chipsAtStart = startingStack.value
     const lostBigPot = !won && !p.folded && gs.pot.value > chipsAtStart * config.tilt.bigLossThreshold
     const participated = gs.handActionLog.value.some(a =>
-      a.includes(p.name) && (a.includes('calls') || a.includes('raises') || a.includes('ALL-IN')))
+      actedInLine(a, p.name) && (a.includes('calls') || a.includes('raises') || a.includes('ALL-IN')))
       || (!p.folded && nonFoldedCount > 1)
     updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
   }
@@ -574,42 +575,11 @@ function endHand() {
   // Record hero actions for adaptation — 3-bet/c-bet facing derived from the log
   const heroState = gs.playerStates.value[0]
   if (heroState) {
-    const log = gs.handActionLog.value
-    const heroName = heroState.name
-    const isRaiseLine = (a: string) => a.includes('raises') || a.includes('ALL-IN')
-    const flopMarkIdx = log.findIndex(a => a.startsWith('--- FLOP'))
-    const preflopLog = flopMarkIdx >= 0 ? log.slice(0, flopMarkIdx) : log
-    const turnMarkIdx = log.findIndex(a => a.startsWith('--- TURN'))
-    const flopLog = flopMarkIdx >= 0
-      ? log.slice(flopMarkIdx + 1, turnMarkIdx >= 0 ? turnMarkIdx : undefined)
-      : []
-
-    // Hero faced a 3-bet: hero raised preflop, then a non-hero re-raise followed
-    const heroOpenIdx = preflopLog.findIndex(a => a.includes(heroName) && isRaiseLine(a))
-    const reRaiseAfterIdx = heroOpenIdx >= 0
-      ? preflopLog.findIndex((a, i) => i > heroOpenIdx && !a.includes(heroName) && isRaiseLine(a))
-      : -1
-    const faced3Bet = reRaiseAfterIdx >= 0
-    const foldedTo3Bet = faced3Bet
-      && preflopLog.some((a, i) => i > reRaiseAfterIdx && a.includes(heroName) && a.includes('folds'))
-
-    // Hero faced a c-bet: a non-hero bet led the flop while hero hadn't folded preflop
-    const heroFoldedPreflop = preflopLog.some(a => a.includes(heroName) && a.includes('folds'))
-    const flopLeadIdx = flopLog.findIndex(isRaiseLine)
-    const facedCbet = !heroFoldedPreflop && flopLeadIdx >= 0 && !flopLog[flopLeadIdx]!.includes(heroName)
-    const foldedToCbet = facedCbet
-      && flopLog.some((a, i) => i > flopLeadIdx && a.includes(heroName) && a.includes('folds'))
-
-    const heroRecord = {
-      enteredPot: !heroState.folded || gs.heroTotalWagered.value > bb.value,
-      faced3Bet,
-      foldedTo3Bet,
-      facedCbet,
-      foldedToCbet,
-      raiseCount: log.filter(a => a.includes(heroName) && isRaiseLine(a)).length,
-      callCount: log.filter(a => a.includes(heroName) && a.includes('calls')).length,
-      checkCount: log.filter(a => a.includes(heroName) && a.includes('checks')).length,
-    }
+    const heroRecord = parseHeroHandRecord(
+      gs.handActionLog.value,
+      heroState.name,
+      { heroFolded: heroState.folded, heroTotalWagered: gs.heroTotalWagered.value, bb: bb.value },
+    )
     heroProfileStore.recordHeroAction(heroRecord)
     // The book learns in every mode (exploitation is gated separately)
     nemesisStore.record(
