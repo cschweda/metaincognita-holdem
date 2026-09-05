@@ -20,6 +20,13 @@ describe('actedInLine', () => {
   it('ignores street markers', () => {
     expect(actedInLine('--- FLOP: A♠ K♦ 2♣ ---', 'Sam')).toBe(false)
   })
+
+  it('rejects a candidate name that is a whitespace-delimited prefix of a longer actor name', () => {
+    expect(actedInLine('Wild Wendy raises to $20', 'Wild')).toBe(false)
+    expect(actedInLine('Wild Wendy raises to $20', 'Wild Wendy')).toBe(true)
+    expect(actedInLine('Mike the Mouth calls $4', 'Mike')).toBe(false)
+    expect(actedInLine('Mike calls $4', 'Mike')).toBe(true)
+  })
 })
 
 describe('parseHeroHandRecord', () => {
@@ -34,6 +41,13 @@ describe('parseHeroHandRecord', () => {
     expect(r.raiseCount).toBe(0)
     expect(r.callCount).toBe(0)
     expect(r.facedCbet).toBe(false)   // hero folded preflop
+  })
+
+  it('does not credit a name-prefix bot\'s actions to a shorter-named hero', () => {
+    const log = ['Mike the Mouth raises to $6', 'Mike the Mouth calls $10']
+    const r = parseHeroHandRecord(log, 'Mike', { ...opts, heroFolded: true, heroTotalWagered: 0 })
+    expect(r.raiseCount).toBe(0)
+    expect(r.callCount).toBe(0)
   })
 
   it('counts the hero\'s own raises and calls', () => {
