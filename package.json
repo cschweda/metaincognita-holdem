@@ -2,6 +2,7 @@
   "name": "holdem-simulator",
   "version": "0.20.0",
   "private": true,
+  "repository": "github:cschweda/metaincognita-holdem",
   "type": "module",
   "scripts": {
     "build": "nuxt build",
