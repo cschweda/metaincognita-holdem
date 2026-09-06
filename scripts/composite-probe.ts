@@ -72,6 +72,14 @@ const topPairPlus = (c: Ctx) => {
   const boardMax = Math.max(...c.community.map(x => x.rank))
   return r.score[1]! >= boardMax && c.holeCards.some(x => x.rank === r.score[1])
 }
+/** Two pair or better, and not just playing the board — at least one of the
+ * five winning cards is a hole card. Rules out "the board's own two pair"
+ * (everyone has it), which topPairPlus above doesn't distinguish. */
+const madeTwoPairPlusFromHole = (c: Ctx) => {
+  const r = bestHand(c.holeCards, c.community)
+  if (!r || r.rank < 2) return false
+  return r.bestFive.some(bf => c.holeCards.some(h => h.rank === bf.rank && h.suit === bf.suit))
+}
 
 /** Bet `frac` pot on every river the baseline checks. */
 const riverBet = (frac: number) => (c: Ctx): BotAction => {
@@ -95,6 +103,17 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
   'river-50': riverBet(0.50),
   'river-66': riverBet(0.66),
   'river-100': riverBet(1.00),
+  // Round 8 follow-up: river.strongBase/weakBase now defend 1.5x-pot river
+  // bets at ~57%, up from ~45% pre-fix — correct against an any-two bettor,
+  // but river-33..river-100 above only ever bet 33-100% of pot, and
+  // overbet-spam is an any-two line (more calling just makes it lose
+  // harder), so nothing measures whether that extra calling pays off a
+  // genuine value overbet. This cell only bets when it actually has the
+  // goods: two pair or better made with a hole card, 1.5x pot.
+  'river-value-150': c => {
+    if (riverCheck(c) && madeTwoPairPlusFromHole(c)) { c.tag('rivervalue150'); return betPot(c, 1.5) }
+    return c.base!
+  },
   'river-call-tp': c => {
     if (c.street === 'river' && c.toCall > 0 && c.toCall <= c.pot && topPairPlus(c) && c.base!.type === 'fold') {
       c.tag('rivercall')
