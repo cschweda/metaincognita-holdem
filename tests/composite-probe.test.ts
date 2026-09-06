@@ -21,13 +21,13 @@
  * regression (full method and numbers in task-12-report.md, sections 5 and
  * 9). `river-50`, `river-66`, `pf-exploit`, and the whole 3-bet/4-bet
  * family (`prem3bet-25-fj`, `prem3bet-50-fj`, `wide5-3bet-50-fj`)
- * demonstrably trip when their fix is undone. `river-33`, `river-100` and
- * `river-value-150` moved hard under the same test (the river's
- * size-awareness flattened to a constant) but landed under their own
- * bounds -- responded, did not fire. `turn-33`, `turn-river-33` and
- * `turn-value-150` barely moved at all under an equivalent test of the
- * turn's size-awareness and do not currently demonstrate they would catch
- * anything on that street. Each cell's status is recorded in its own
+ * demonstrably trip when their fix is undone. `river-33`, `river-100`,
+ * `river-value-150` and `turn-value-150` all moved substantially under the
+ * corresponding neutralisation (the river's or the turn's size-awareness
+ * flattened to a constant) but landed under their own bounds -- responded,
+ * did not fire. `turn-33` and `turn-river-33`, by contrast, barely moved at
+ * all under the same turn test and do not currently demonstrate they would
+ * catch anything on that street. Each cell's status is recorded in its own
  * comment below. DO NOT read an untripped or unresponsive cell as evidence
  * its corresponding fix is intact -- for the turn specifically, that
  * evidence lives in tests/turn-defense.test.ts, not here; see the note
@@ -120,11 +120,11 @@ function delta(name: string, depthBB: number): number {
 // cell's DEMONSTRATED status from task-12-report.md sections 5 and 9 — a
 // revert or a config-neutralisation of the corresponding fix, actually run,
 // not assumed. Three statuses appear below:
-//   TRIPPED       — measured to cross its bound when the fix was undone.
-//   NOT DEMOSTRATED — tested under the same undoing; moved, in the leak's
-//                     direction, but stayed under its own bound.
-//   NOT RESPONSIVE  — tested under the same undoing; did not move
-//                     meaningfully at all.
+//   TRIPPED          — measured to cross its bound when the fix was undone.
+//   NOT DEMONSTRATED — tested under the same undoing; moved, in the leak's
+//                      direction, but stayed under its own bound.
+//   NOT RESPONSIVE   — tested under the same undoing; did not move
+//                      meaningfully at all.
 // A cell with no TRIPPED status next to it is NOT evidence that the fix it
 // watches is safe. It means this particular noisy, coarse-net cell has not
 // been shown to catch that fix's removal — nothing more, nothing less. Where
@@ -142,7 +142,7 @@ const CELLS: Array<{ name: string; depthBB: number; bound: number }> = [
   { name: 'river-33', depthBB: 100, bound: 25 }, // true +3.0, range [3.0, 17.2]
   // TRIPPED: same river flattening reproduces +21.20 against this bound of
   // 19 (task-12-report.md §9a).
-  { name: 'river-50', depthBB: 100, bound: 19 }, // true +8.6, range [5.9, 13.6] — closest cell to its own bound
+  { name: 'river-50', depthBB: 100, bound: 19 }, // true +8.6, range [5.9, 13.6]
   // TRIPPED: same river flattening reproduces +18.31 against this bound of
   // 16 (task-12-report.md §9a).
   { name: 'river-66', depthBB: 100, bound: 16 }, // true +4.3, range [4.3, 10.4]
@@ -178,11 +178,14 @@ const CELLS: Array<{ name: string; depthBB: number; bound: number }> = [
   // percent graded) and was shown to fail when neutralised. This cell was
   // NOT shown to fail, and should not be read as if it were.
   { name: 'turn-33', depthBB: 100, bound: 20 }, // true -2.2, range [-9.1, 10.0]
-  // NOT RESPONSIVE, same test and same explanation as turn-33 above: moved
-  // from +0.80 to +9.83 under the turn flattening -- more movement than
-  // turn-33 or turn-river-33 showed, but still far under this bound of 22,
-  // and for the same multiway-dilution reason. tests/turn-defense.test.ts
-  // is the real guard for this residual too.
+  // NOT DEMONSTRATED, not NOT RESPONSIVE -- unlike turn-33 and turn-river-33
+  // above, this cell DID respond: the turn flattening (task-12-report.md
+  // §9b) moved it from +0.80 to +9.83, a 9.03-point move. That is larger
+  // than river-value-150's ~5.3-point move and comparable to river-100's
+  // ~9.9-point move, both correctly labelled NOT DEMONSTRATED above for
+  // equal or smaller movement, so the same label belongs here. It still
+  // landed well under this bound of 22. tests/turn-defense.test.ts remains
+  // the real, deterministic guard for this residual.
   { name: 'turn-value-150', depthBB: 100, bound: 22 }, // true +0.8, range [0.8, 14.6] — documented residual (shipped wider than the river's vetted constants; measured +2.3 at ship time)
   // Preflop 3-bet/4-bet family (Task 10 fixed the flat continue-rate leak;
   // wide5-3bet-50-fj was the original motivating cell at +16.19 pre-fix).
