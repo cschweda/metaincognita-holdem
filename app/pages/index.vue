@@ -573,22 +573,22 @@ function endHand() {
     updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
   }
 
-  // TEMPORARY dev-only per-hand dump (utils/devHandLog.ts). Runs after the
-  // hand is decided, so an open console cannot help play the current hand,
-  // and `import.meta.dev` drops it entirely from a production build.
-  if (import.meta.dev) {
-    logHandToConsole({
-      handNumber: session.value.handsPlayed + 1,
-      players: gs.playerStates.value,
-      positions: positions.value,
-      community: gs.visibleCommunity.value,
-      pot: gs.pot.value,
-      winnerName: gs.handWinnerName.value,
-      winnerId: gs.handWinnerId.value,
-      actionLog: gs.handActionLog.value,
-      bb: bb.value,
-    })
-  }
+  // TEMPORARY per-hand console dump (utils/devHandLog.ts). Runs in every
+  // build, not just dev -- gating it behind `import.meta.dev` made it vanish
+  // from the built artifact the game is actually played on. It runs after the
+  // hand is decided, so an open console cannot help play the current hand.
+  // Switch off at runtime with: localStorage.holdemHandLog = 'off'
+  logHandToConsole({
+    handNumber: session.value.handsPlayed + 1,
+    players: gs.playerStates.value,
+    positions: positions.value,
+    community: gs.visibleCommunity.value,
+    pot: gs.pot.value,
+    winnerName: gs.handWinnerName.value,
+    winnerId: gs.handWinnerId.value,
+    actionLog: gs.handActionLog.value,
+    bb: bb.value,
+  })
 
   // Record hero actions for adaptation — 3-bet/c-bet facing derived from the log
   const heroState = gs.playerStates.value[0]

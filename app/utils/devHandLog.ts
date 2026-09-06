@@ -7,14 +7,19 @@
  * that back from the UI alone meant reconstructing the hand from the action
  * log by eye; this prints the whole hand, player by player, in one group.
  *
- * Two rules keep it honest:
+ * This runs in EVERY build, dev or production. The first cut gated it behind
+ * `import.meta.dev`, which meant it vanished from exactly the built artifact
+ * the game is normally played on — invisible where it was needed. If this
+ * ships to a public deploy the hand dumps are visible to anyone who opens a
+ * console, so it comes out before that matters.
  *
- *  - `import.meta.dev` gates every call, so nothing reaches a built site.
- *    Nuxt evaluates that to a literal `false` in production and the whole
- *    body is dropped by the bundler.
- *  - It runs only from the hand-end handler, after the hand is decided. A
- *    bot's hole cards are never printed while a decision is still pending,
- *    so an open console cannot be used to play the current hand.
+ * What keeps it honest is WHEN it runs: only from the hand-end handler, after
+ * the hand is decided. A bot's hole cards are never printed while a decision
+ * is still pending, so an open console cannot be used to play the hand in
+ * front of you.
+ *
+ * Off switch, no rebuild needed:  localStorage.holdemHandLog = 'off'
+ * Back on:                        delete localStorage.holdemHandLog
  *
  * Delete this file and its single call site in pages/index.vue to remove it.
  */
@@ -37,9 +42,26 @@ export interface DevHandLogInput {
 
 const cards = (cs: Card[] | null): string => (cs && cs.length ? cs.map(displayCard).join(' ') : '—')
 
+/**
+ * Reading localStorage can throw outright (Safari private mode, a browser set
+ * to block site data), and this is a debugging aid — it must never be the
+ * reason a hand fails to end. Any failure means "not switched off".
+ */
+function switchedOff(): boolean {
+  try {
+    return globalThis.localStorage?.getItem('holdemHandLog') === 'off'
+  } catch {
+    return false
+  }
+}
+
 /** One console group per hand: seats, cards, tilt, stacks, then the action line. */
 export function logHandToConsole(input: DevHandLogInput): void {
-  const { handNumber, players, positions, community, pot, winnerName, actionLog, bb } = input
+  if (switchedOff()) return
+  const { handNumber, players, positions, community, pot, winnerName, winnerId, actionLog, bb } = input
+  // handWinnerName is "Split: A & B" for a chopped pot, so no single name
+  // matches; seat id is the reliable test and the split is called out on top.
+  const split = winnerName.startsWith('Split')
 
   const rows = players
     .filter(p => !p.eliminated)
@@ -54,7 +76,7 @@ export function logHandToConsole(input: DevHandLogInput): void {
         stack: `$${p.chips}`,
         bb: +(p.chips / bb).toFixed(1),
         invested: `$${p.totalInvested}`,
-        result: p.folded ? 'folded' : p.name === winnerName ? 'WON' : 'lost',
+        result: p.folded ? 'folded' : split ? 'split?' : p.id === winnerId ? 'WON' : 'lost',
         // Raw severity is the trigger level; effective is what the bot plays
         // at (severity x tiltMultiplier). They differ for every persona whose
         // multiplier is not 1, which is what made the badge misleading.
@@ -63,7 +85,7 @@ export function logHandToConsole(input: DevHandLogInput): void {
     })
 
   console.groupCollapsed(
-    `%c#${handNumber}%c ${cards(community) || 'no board'} — pot $${pot} — ${winnerName || 'no winner'}`,
+    `%c#${handNumber}%c  ${community.length ? cards(community) : 'no flop'}  ·  pot $${pot}  ·  ${winnerName || 'no winner'}`,
     'font-weight:bold', 'font-weight:normal',
   )
   console.table(rows)
