@@ -147,7 +147,18 @@ export default {
     preflop: {
       sizePenaltyExp: 0.85,        // value 3-bet range shrink vs open size
       bluffSizePenaltyExp: 1.5,    // bluff 3-bet range shrink vs open size
-      jamToCallStackRatio: 0.6,    // toCall >= chips * this → jam-like
+      jamToCallStackRatio: 0.45,   // toCall >= chips * this → jam-like
+      // Re-raise size awareness (Round 8). Opens already shrink defense
+      // ranges continuously with size; re-raises did not, so the fold/call
+      // mix vs a 3-bet was identical from 7.5bb to 60bb and 3-betting
+      // premiums huge was free money. The reference size is the larger of a
+      // standard bb-denominated re-raise and a normal multiple of what this
+      // bot already put in.
+      threeBetRefBB: 9,
+      threeBetRefMult: 3.5,
+      fourBetRefBB: 25,
+      fourBetRefMult: 2.5,
+      reraiseSizePenaltyExp: 0.85,
       jamOpenBBThreshold: 15,      // raiseLevel<=1 && toCall >= bb*this → jam-like
       jamSizeShrinkExp: 1.1,       // continue-range shrink vs jam size
       reraiseJamFloorBase: 0.85,   // reraise-jam defense floor (decays with size)

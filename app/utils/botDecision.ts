@@ -890,11 +890,14 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
   }
 
   if (raiseLevel === 2) {
+    // Size penalty: a 9bb 3-bet and a 40bb 3-bet are different decisions.
+    const ref3 = Math.max(STRAT.preflop.threeBetRefBB * bb, STRAT.preflop.threeBetRefMult * playerBet)
+    const pen3 = currentBet <= ref3 ? 1 : Math.pow(ref3 / currentBet, STRAT.preflop.reraiseSizePenaltyExp)
     const reraiseFreq = profile.fourBetFreq ?? (profile.pfr * 0.15 * profile.aggression)
-    const valueFreq = reraiseFreq * 0.6
-    const bluffRate4 = (reraiseFreq * 0.4) / Math.max(effectiveVpip, 0.15)
+    const valueFreq = reraiseFreq * 0.6 * Math.sqrt(pen3)
+    const bluffRate4 = (reraiseFreq * 0.4) / Math.max(effectiveVpip, 0.15) * Math.pow(pen3, STRAT.preflop.bluffSizePenaltyExp)
     // Facing 3-bet: tighter defense but still wide by modern standards
-    const flatCallFreq4 = effectiveVpip * 0.45
+    const flatCallFreq4 = effectiveVpip * 0.45 * pen3
 
     // 4-bet value is raw hand quality, not position-shifted
     if (rawHandPct < valueFreq && chips > currentBet * 2.5) {
@@ -913,8 +916,10 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
 
   if (raiseLevel === 3) {
     // Facing 4-bet: pure hand value territory — raw percentile, no position shift
+    const ref4 = Math.max(STRAT.preflop.fourBetRefBB * bb, STRAT.preflop.fourBetRefMult * playerBet)
+    const pen4 = currentBet <= ref4 ? 1 : Math.pow(ref4 / currentBet, STRAT.preflop.reraiseSizePenaltyExp)
     const reraiseFreq = profile.fiveBetFreq ?? 0.01
-    const flatCallFreq5 = effectiveVpip * 0.20
+    const flatCallFreq5 = effectiveVpip * 0.20 * pen4
 
     if (rawHandPct < reraiseFreq) {
       return { type: 'raise', amount: chips + playerBet }
