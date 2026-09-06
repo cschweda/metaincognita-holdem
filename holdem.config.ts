@@ -284,6 +284,19 @@ export default {
     // Draws and the overcard credit are untouched by this task on purpose —
     // a card is still to come, so they are live equity, not something to
     // fold out (see botDecision.ts).
+    //
+    // Review finding: turn-33 and turn-river-33 above are both pure
+    // any-two-cards bluff lines, so tuning strongMin/weakBase/weakMin wider
+    // than the river's own vetted values against those two cells alone left
+    // the value direction unmeasured — wider calling could just as easily
+    // overpay a genuine turn value bet as it starves a turn bluff, and
+    // river-value-150 exists precisely because the analogous river widening
+    // carried that risk. Checked with a turn-value-150 composite cell (bets
+    // 1.5x pot on the turn only with two pair or better made from a hole
+    // card, no bluffing component): 2.3 bb/100 at 8 seeds x 30,000 hands,
+    // comfortably under the same +5 bound turn-33 is judged against. The
+    // wider-than-river values below are measured safe in both directions,
+    // not merely assumed safe in the one direction they were tuned against.
     turn: {
       strongBase: 1.20,
       strongShield: 0.45,

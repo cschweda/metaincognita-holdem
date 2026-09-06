@@ -64,6 +64,8 @@ const jam = (c: Ctx): BotAction => ({ type: 'raise', amount: c.chips + c.playerB
 const pf = (c: Ctx) => c.street === 'preflop'
 /** A river spot the baseline would have checked — the leak's entry point. */
 const riverCheck = (c: Ctx) => c.street === 'river' && c.toCall === 0 && c.base!.type === 'check'
+/** A turn spot the baseline would have checked (Round 8, Task 11b). */
+const turnCheck = (c: Ctx) => c.street === 'turn' && c.toCall === 0 && c.base!.type === 'check'
 const topPairPlus = (c: Ctx) => {
   const r = bestHand(c.holeCards, c.community)
   if (!r) return false
@@ -132,7 +134,21 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
   // own leak can be measured without the (already-fixed) river cell adding
   // to it.
   'turn-33': c => {
-    if (c.street === 'turn' && c.toCall === 0 && c.base!.type === 'check') return betPot(c, 0.33)
+    if (turnCheck(c)) return betPot(c, 0.33)
+    return c.base!
+  },
+  // Turn analog of river-value-150 (Round 8, Task 11b review finding).
+  // turn-33/turn-river-33 are both pure any-two-cards bluff lines, so tuning
+  // the turn's constants against them alone leaves the value direction
+  // unmeasured: the turn's strongMin/weakBase/weakMin all shipped wider than
+  // the river's already-vetted values, and wider calling could just as
+  // easily overpay a genuine turn value bet as it starves a turn bluff. This
+  // cell only bets when it actually has the goods — two pair or better made
+  // with a hole card, not just playing the board — sized the same as the
+  // river's value probe (1.5x pot; no bluffing component, no any-two-cards
+  // element).
+  'turn-value-150': c => {
+    if (turnCheck(c) && madeTwoPairPlusFromHole(c)) { c.tag('turnvalue150'); return betPot(c, 1.5) }
     return c.base!
   },
   'prem3bet-25-fj': prem3bet(25),
