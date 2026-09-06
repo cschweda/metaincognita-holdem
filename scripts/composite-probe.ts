@@ -85,7 +85,7 @@ const prem3bet = (bbs: number) => (c: Ctx): BotAction => {
     c.tag('prem3bet')
     return raiseToBB(c, bbs)
   }
-  if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) return jam(c)
+  if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) { c.tag('prem3bet-jam'); return jam(c) }
   return c.base!
 }
 
@@ -114,7 +114,7 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
       c.tag('wide3bet')
       return raiseToBB(c, 50)
     }
-    if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) return jam(c)
+    if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) { c.tag('wide3bet-jam'); return jam(c) }
     return c.base!
   },
   'open-any-late': c => {
@@ -127,10 +127,12 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
     const pct = handPercentile(c.holeCards)
     if (c.toCall >= c.chips * 0.5) {
       if (pct < 0.07) { c.tag('jamcall'); return jam(c) }
+      c.tag('pf-fold')
       return { type: 'fold' }
     }
     if (c.raiseLevel === 0 && c.toCall > 0) {
       if (pct < 0.20) { c.tag('open'); return raiseToBB(c, 2.2) }
+      c.tag('pf-fold')
       return { type: 'fold' }
     }
     return c.base!
@@ -183,7 +185,8 @@ function main() {
       `${mean.toFixed(1).padStart(9)}${(s === 'base' ? '' : (delta >= 0 ? '+' : '') + delta.toFixed(1)).padStart(9)}` +
       `${String(rs[0]!.overrides).padStart(11)}   ${tagStr}`)
   }
-  console.log('\nEvery deviation should be <= 0 against a leak-free engine.')
+  console.log('\nTagged EV is the average WHOLE-HAND net for hands where that tag fired, not the incremental EV of the tagged decision alone (e.g. a tag that only fires on premium hands reads high regardless of how the hand was sized).')
+  console.log('Every deviation should be <= 0 against a leak-free engine.')
   console.log('Judge the MEAN column: per-seed SD is ~8-10 bb/100 over 30k hands.')
 }
 
