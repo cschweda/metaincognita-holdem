@@ -462,7 +462,10 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[], knownD
 
   // High card with overcards to the board — two overcards are much stronger than one
   // (Fix 7: AK on a low board has ~6 outs to top pair = ~24% equity, not just 12%)
-  if (result.rank === 0) {
+  // Overcards are equity only while cards are still to come. On the river an
+  // unpaired hand is air — which is exactly the hand that should be bluffing
+  // rather than folding into every bet (Round 8 #2).
+  if (result.rank === 0 && community.length < 5) {
     const boardMax = Math.max(...community.map(c => c.rank))
     const overcards = holeCards.filter(c => c.rank > boardMax).length
     if (overcards === 1) strength = 0.15
@@ -966,7 +969,12 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   const cardAware = !!(ctx.holeCards && ctx.community && ctx.community.length >= 3)
   // Detect draws once — postflopHandStrength and the decision logic below
   // share the same scan (it used to run twice per decision)
-  const decisionDraws: DrawInfo[] = cardAware ? detectDraws(ctx.holeCards!, ctx.community!) : []
+  // A "draw" on the river has no cards left to come — a busted flush draw is
+  // air, and treating it as a made hand kept it out of the bluffing bucket
+  // and made it call rivers it should fold (Round 8 #2).
+  const decisionDraws: DrawInfo[] = cardAware && ctx.street !== 'river'
+    ? detectDraws(ctx.holeCards!, ctx.community!)
+    : []
   const strength = cardAware
     ? postflopHandStrength(ctx.holeCards!, ctx.community!, decisionDraws)
     : -1 // sentinel: use old probabilistic logic
@@ -1151,7 +1159,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       // Medium-strength hands check to avoid value-owning themselves.
       // IP bluffs more on the river (last to act = maximum fold equity information)
       const barrelRate = hasMonster ? 0.85
-        : hasNothing ? profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost * ipAggBoost
+        : hasNothing ? Math.min(profile.bluffFreq * 0.45 * profile.aggression * riverBluffBoost * ipAggBoost, STRAT.river.maxBluffRate)
         : 0  // strong hands and weak made hands CHECK the river (polarization)
       if (rng() < barrelRate) {
         const betSize = maybeOverbet(pot, profile, bb, rng)
@@ -1173,7 +1181,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       // Weak-tight table: this air bluff-bet is the river leg of the probe/stab
       // boost (the two `ctx.street === 'river'` blocks above and here both
       // return before the IP/OOP probe section, so this is the only place a
-      if (hasNothing && rng() < profile.bluffFreq * 0.35 * profile.aggression) {
+      if (hasNothing && rng() < Math.min(profile.bluffFreq * 0.35 * profile.aggression, STRAT.river.maxBluffRate)) {
         const bluffSize = maybeOverbet(pot, profile, bb, rng)
           ?? sizedBet(pot, 0.55 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }
@@ -1336,15 +1344,22 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       if (rng() < foldProb) return { type: 'fold' }
     }
 
-    // Call-down discipline: marginal made hands (top pair, mid pair) continue
-    // less often vs normal-sized bets on later streets — real players fold
-    // second-best hands to sustained pressure; passives call down more.
-    if (!hasMonster && toCall > 0 && ctx.street !== 'flop') {
+    // Turn call-down discipline: marginal made hands continue less often vs
+    // sustained pressure; passives call down more.
+    if (!hasMonster && toCall > 0 && ctx.street === 'turn') {
       const marginShield = Math.max(0, Math.min((strength - 0.35) / 0.20, 1)) // 0 at 0.35 → 1 at 0.55
-      const baseContinue = ctx.street === 'turn'
-        ? 0.55 + marginShield * 0.45
-        : 0.35 + marginShield * 0.50
-      const continueProb = Math.min(baseContinue * passiveBoost, 1.0)
+      const continueProb = Math.min((0.55 + marginShield * 0.45) * passiveBoost, 1.0)
+      if (rng() > continueProb) return { type: 'fold' }
+    }
+
+    // River: continuation is anchored to the MDF this bet size implies, so a
+    // third-pot stab must be called far more often than a pot-sized one. The
+    // old rule was size-blind and folded ~55% to everything (Round 8 #1).
+    if (!hasMonster && toCall > 0 && ctx.street === 'river') {
+      const shield = Math.max(0, Math.min((strength - STRAT.postflop.strongStrength) / 0.20, 1))
+      const continueProb = Math.max(STRAT.river.strongMin, Math.min(
+        mdf * (STRAT.river.strongBase + shield * STRAT.river.strongShield) * passiveBoost * sizingExploit,
+        STRAT.river.strongMax))
       if (rng() > continueProb) return { type: 'fold' }
     }
 
@@ -1366,10 +1381,6 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       const raiseSize = Math.round(currentBet * (2.0 + profile.aggression * 0.5))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    // Fold top pair to pot-sized+ bets on the river (could be beaten)
-    if (ctx.street === 'river' && betToPotRatio > 0.8 && strength < 0.50 && rng() > profile.vpip) {
-      return { type: 'fold' }
-    }
     return { type: 'call' }
   }
 
@@ -1388,8 +1399,13 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     return { type: 'fold' }
   }
 
-  // Weak made hands — call small bets on flop, tighten on later streets
+  // Weak made hands — call small bets on flop, tighten by street.
   if (hasWeakMade) {
+    if (ctx.street === 'river') {
+      const continueProb = Math.max(STRAT.river.weakMin, Math.min(
+        mdf * STRAT.river.weakBase * passiveBoost * sizingExploit, STRAT.river.weakMax))
+      return rng() < continueProb ? { type: 'call' } : { type: 'fold' }
+    }
     if (betToPotRatio < 0.4 && rng() < profile.vpip * 0.7 * streetFactor) return { type: 'call' }
     if (isWithinMDF && rng() < 0.80) return { type: 'call' } // MDF defense (some mixing)
     if (rng() < profile.vpip * 0.2 * streetFactor) return { type: 'call' }
