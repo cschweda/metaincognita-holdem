@@ -787,6 +787,32 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
   const sizePenalty = openSizeBB <= 3 ? 1.0 : Math.pow(3 / openSizeBB, STRAT.preflop.sizePenaltyExp)
   const jamLike = toCall >= chips * STRAT.preflop.jamToCallStackRatio || (raiseLevel <= 1 && toCall >= bb * STRAT.preflop.jamOpenBBThreshold)
 
+  // HANDOFF POINT (Round 8 #4 review): below this gate, a facing-a-3-bet or
+  // facing-a-4-bet re-raise gets the continuous pen3/pen4 penalty defined in
+  // the raiseLevel===2/3 branches below; at and above it, control passes
+  // entirely to jamContinueFloor/reraiseJamFloor just below, which decays
+  // far more slowly with size. That makes the HANDOFF ITSELF a step
+  // function: swept on a fine grid (not the sparse sizes any test samples),
+  // continue rate falls from 10.71% to 2.83% between a 46bb and a 46.5bb
+  // 3-bet (defender at 97.5bb after a 2.5bb open — crossover at exactly
+  // currentBet = 2.5bb + jamToCallStackRatio*97.5bb = 46.375bb), and from
+  // 3.664% to 2.975% between a 49.5bb and a 50bb 4-bet (defender at 91bb
+  // after a 9bb 3-bet — crossover at 9bb + jamToCallStackRatio*91bb =
+  // 49.95bb). The discontinuity is real and exactly where the algebra says
+  // it is. Whether it's exploitable was measured, not assumed: composite
+  // probe cell `reraise-cliff-bluff` (scripts/composite-probe.ts) re-raises
+  // any two cards to just past this exact crossover — sized off the
+  // opponent's own remaining stack, so it tracks the cliff at any
+  // depth — and gives up on every later street. At 8 seeds x 30,000 hands,
+  // 100bb: delta -242.1 bb/100 against baseline, nowhere near the +5 bound.
+  // A sharper cliff is not automatically a bigger leak: any-two-cards
+  // preflop aggression that folds cheaply postflop still pays the same
+  // blind-and-raise tax this whole file's degenerate strategies pay
+  // (open-jam, 3bet-jam), and that tax swamps the extra fold equity a
+  // slightly-larger-than-needed re-raise buys here. Left as a known,
+  // measured, non-exploitable discontinuity rather than "fixed" on
+  // reasoning alone — the composite probe is what settles this, not the
+  // static sweep (see this project's own tuning history for why).
   if (jamLike) {
     // Vs a jam the continue range is equity-driven (raw percentile) and
     // narrows with the jam SIZE: a 15-25bb shove gets called by ~top 4.5%

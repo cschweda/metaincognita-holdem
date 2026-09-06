@@ -136,6 +136,30 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
     if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) { c.tag('wide3bet-jam'); return jam(c) }
     return c.base!
   },
+  // Round 8 task-10 review finding: the continuous size penalty that task
+  // added governs re-raise defense only BELOW the jam-like gate (toCall >=
+  // chips * jamToCallStackRatio). At and above it, control passes entirely
+  // to the pre-existing (Round 8 #3) reraiseJamFloor, which decays far more
+  // slowly with size — so the HANDOFF itself is a step function, not a
+  // continuation of the new penalty. No hand-strength gate (any two cards)
+  // and no postflop follow-up (give up), since either would let the 3-bet
+  // cells above partially catch this instead of isolating it. Sized off the
+  // SPECIFIC opponent's remaining stack, not a fixed bb number: every hand
+  // resets to depthBB (see exploit-probe.ts), and the player who set
+  // c.currentBet has put in exactly that much this street, so
+  // (c.chips + c.playerBet) - c.currentBet is their remaining stack
+  // regardless of hero's own seat, prior action, or the table's depth —
+  // which is what lets this cell keep landing just past the cliff at any
+  // depthBB, not just the 100bb this task measures it at.
+  'reraise-cliff-bluff': c => {
+    if (!pf(c) || c.toCall <= 0) return c.base!
+    if (c.raiseLevel !== 1 && c.raiseLevel !== 2) return c.base!
+    const opponentStack = Math.max((c.chips + c.playerBet) - c.currentBet, BB)
+    const crossover = c.currentBet + config.strategy.preflop.jamToCallStackRatio * opponentStack
+    c.tag(c.raiseLevel === 1 ? 'reraise-cliff-3bet' : 'reraise-cliff-4bet')
+    const amount = Math.min(Math.max(Math.round(crossover + BB), c.currentBet + BB), c.chips + c.playerBet)
+    return { type: 'raise', amount }
+  },
   'open-any-late': c => {
     if (pf(c) && c.raiseLevel === 0 && c.toCall > 0 && c.toActBehind <= 1 && c.base!.type !== 'raise') return raiseToBB(c, 2.5)
     return c.base!
