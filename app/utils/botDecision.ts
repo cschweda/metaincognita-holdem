@@ -1275,27 +1275,33 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // Estimate hand's position in range: strength 0.55+ = top ~20%, 0.35+ = top ~40%, etc.
   const handRangePos = 1 - Math.min(strength / 0.70, 1.0)
   const isWithinMDF = handRangePos <= mdf
-  // River-only true defense frequency (Round 8 #3). `mdf` above is
+  // River-only true defense frequency (Round 8 #3/#4/#5). `mdf` above is
   // `1 - potOdds`, computed from `pot` which already includes the bet being
   // faced — a real quantity, but not minimum defense frequency, and it only
   // compresses ~22% from a third-pot bet to a 1.5x-pot overbet where MDF
   // compresses ~47%. That shortfall is why river.strongBase/weakBase could
   // not simultaneously defend small bets enough and overbets little enough
-  // (see the Round 8 task 7 report). `pot` includes every contribution so
-  // far this street, including our own prior `playerBet` (e.g. we donk-bet
-  // and got raised) — so the pot the villain's bet actually went into is
-  // `pot - playerBet - toCall`, and the pot they bet it relative to is
-  // `pot - playerBet`. When `playerBet` is 0 (we checked, then faced a
-  // bet — every scenario the static sweep and probes mostly exercise) this
-  // reduces to `pot - toCall` over `pot`; when it isn't (we bet or raised
-  // and got raised back), omitting `playerBet` inflates the result and
-  // over-defends the reraise (Round 8 #4). Dividing recovers the textbook
-  // figure exactly: preBetPot / (preBetPot + bet) either way.
+  // when the river rules were anchored to `mdf` directly (proven by
+  // exhaustive sweep: no value of those two constants can produce both).
+  //
+  // MDF comes from the villain's indifference to bluffing: if their bet or
+  // raise wins `P0` when we fold and risks their whole contribution this
+  // street, `R`, when we call and their bluff loses, their breakeven bluff
+  // frequency is `R / (P0 + R)`, so our minimum continue frequency is
+  // `P0 / (P0 + R)`. `P0` is the pot right before villain's action — this
+  // street's pot plus our own prior contribution (`playerBet`, e.g. we
+  // donk-bet and got raised back) if we'd already put money in — which is
+  // exactly `pot - toCall - playerBet` (when `playerBet` is 0, i.e. we
+  // checked and then faced a bet — every scenario the static sweep and
+  // most probe cells construct — this is just `pot - toCall`). `P0 + R`
+  // equals `pot` identically, since `pot` already contains everyone's
+  // contribution including villain's, so the denominator needs no
+  // adjustment for `playerBet` — only the numerator does.
   // Deliberately NOT folded into the shared `mdf`/`isWithinMDF` above —
   // those still anchor flop/turn defense (`isWithinMDF`), which isn't
   // leaking, and re-deriving their behavior is a separate, separately
   // verified change.
-  const riverMdf = (Math.max(pot - toCall - playerBet, 0) / Math.max(pot - playerBet, 1)) / mdfDefenders
+  const riverMdf = (Math.max(pot - toCall - playerBet, 0) / Math.max(pot, 1)) / mdfDefenders
 
   // Street pressure: later streets require stronger hands to continue
   // Flop = 1.0, Turn = 0.75, River = 0.55 (much harder to call river bets)

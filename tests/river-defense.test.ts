@@ -78,21 +78,17 @@ function riverDefense(frac: number, n = 18000) {
 // true defense frequency does (~22% from a third-pot bet to a 1.5x-pot
 // overbet, vs. true MDF's ~47%). A first fix anchored the river rules to
 // that shared `mdf` and could not simultaneously defend small bets enough
-// and overbets little enough — proven unsatisfiable by exhaustive sweep
-// (Round 8 task 7 report). Round 8 #3 fixed this at the source: the river
-// block (only — flop/turn still use the shared `mdf`, unchanged, since
-// they are not leaking and re-deriving their behavior is a separate,
-// separately verified round) now computes true defense frequency locally,
-// since `pot` already has the bet added in:
-//
-//   riverMdf = (pot - toCall) / pot            [/ mdfDefenders, as before]
-//
-// which recovers preBetPot / (preBetPot + bet) directly. That restores the
-// full ~47% compression, so these bands are back to (approximately) the
-// textbook-MDF shape the original brief intended — this is not a
-// coincidence, it's the fix working. If the shared `mdf` is ever corrected
-// the same way, these bands should still hold; if `riverMdf`'s formula
-// changes, re-derive them.
+// and overbets little enough — proven unsatisfiable by exhaustive sweep.
+// The river block (only — flop/turn still use the shared `mdf`, unchanged,
+// since they are not leaking and re-deriving their behavior is a separate,
+// separately verified round) now computes true defense frequency locally
+// instead, from bettor indifference: `riverMdf = (pot - toCall -
+// playerBet) / pot / mdfDefenders` (see its definition in
+// botDecision.ts for the full derivation). That restores the full ~47%
+// compression, so these bands are back to (approximately) the textbook-MDF
+// shape the original brief intended — this is not a coincidence, it's the
+// fix working. If the shared `mdf` is ever corrected the same way, these
+// bands should still hold; if `riverMdf`'s formula changes, re-derive them.
 describe('river defense scales with bet size', () => {
   const third = riverDefense(0.33)
   const pot = riverDefense(1.0)
