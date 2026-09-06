@@ -183,20 +183,25 @@ export default {
     // hands that used to free-fall to an unconditional fold regardless of
     // these constants (a `detectDraws`/overcard-credit river exclusion).
     // Round 8 #3 fixed the root cause: the river now computes true defense
-    // frequency locally instead of reusing the shared `mdf`.
+    // frequency locally instead of reusing the shared `mdf`. Round 8 #4
+    // generalized that local formula to hold when we ourselves bet or
+    // raised this street and got raised back, not just when we checked
+    // into the bet (see riverMdf in botDecision.ts).
     //
     // strongBase raised from 1.15 to 1.20 after #3 landed: the corrected,
     // steeper compression curve meant medium bets (0.66x-1.0x pot) were
     // slightly under-defended relative to before, measurably by the
     // composite probe's river-66/river-100 cells. This is the smallest
     // strongBase nudge that improved those cells without reopening the
-    // overbet leak river-value-150 measures — weakBase changes and larger
-    // strongBase moves were tried and cost more in ordinary bot-vs-bot
-    // play than they recovered (see task-7-report.md's tuning-round-3
-    // section: composite-probe deltas are genuinely noisy at this
-    // resolution, ~5-15 bb/100 between adjacent settings even at 30k hands
-    // x 4 seeds — this value is the best balance found, not a clean
-    // optimum, and not every target cell is met with full confidence).
+    // overbet leak river-value-150 measures — it was settled empirically
+    // against the composite probe (river-33/50/66/100/call-tp/value-150),
+    // not derived analytically: composite-probe deltas are genuinely noisy
+    // at this resolution (single-digit-to-teens bb/100 swings between
+    // adjacent settings, even at 30k hands x 4-8 seeds), and both larger
+    // strongBase increases and weakBase changes were tried and measured to
+    // cost more in ordinary bot-vs-bot play than they recovered against
+    // any one probe cell. This value is the best balance found across that
+    // search, not a clean optimum.
     river: {
       strongBase: 1.20,     // top-pair class: share of MDF at the bottom of the class
       strongShield: 0.45,   // ...plus this much at the top of the class

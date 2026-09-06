@@ -1281,14 +1281,21 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // compresses ~22% from a third-pot bet to a 1.5x-pot overbet where MDF
   // compresses ~47%. That shortfall is why river.strongBase/weakBase could
   // not simultaneously defend small bets enough and overbets little enough
-  // (see the Round 8 task 7 report). Recovering the pre-bet pot (`pot -
-  // toCall`, since `pot` already has the bet added in) gives the textbook
-  // figure directly: preBetPot / (preBetPot + bet) = preBetPot / pot.
+  // (see the Round 8 task 7 report). `pot` includes every contribution so
+  // far this street, including our own prior `playerBet` (e.g. we donk-bet
+  // and got raised) — so the pot the villain's bet actually went into is
+  // `pot - playerBet - toCall`, and the pot they bet it relative to is
+  // `pot - playerBet`. When `playerBet` is 0 (we checked, then faced a
+  // bet — every scenario the static sweep and probes mostly exercise) this
+  // reduces to `pot - toCall` over `pot`; when it isn't (we bet or raised
+  // and got raised back), omitting `playerBet` inflates the result and
+  // over-defends the reraise (Round 8 #4). Dividing recovers the textbook
+  // figure exactly: preBetPot / (preBetPot + bet) either way.
   // Deliberately NOT folded into the shared `mdf`/`isWithinMDF` above —
   // those still anchor flop/turn defense (`isWithinMDF`), which isn't
   // leaking, and re-deriving their behavior is a separate, separately
   // verified change.
-  const riverMdf = (Math.max(pot - toCall, 0) / Math.max(pot, 1)) / mdfDefenders
+  const riverMdf = (Math.max(pot - toCall - playerBet, 0) / Math.max(pot - playerBet, 1)) / mdfDefenders
 
   // Street pressure: later streets require stronger hands to continue
   // Flop = 1.0, Turn = 0.75, River = 0.55 (much harder to call river bets)
