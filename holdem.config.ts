@@ -178,6 +178,12 @@ export default {
       shortJamCallScale: 0.45, // calling range vs a jam, as a share of the shove range
       shortJamCallFloor: 0.04, // continue range vs a 25bb jam
       shortJamCallCeil: 0.10,  // ...and vs a 12bb-or-shorter jam
+      // Big-blind pot discount (Round 8). The BB is already 1bb in, so a
+      // 2-3bb open lays it better than 3:1 and folding 86% is a leak. The
+      // discount fades out linearly and is gone by bbDefenseFadeBB.
+      bbDefenseBoost: 2.0,
+      bbDefenseFullBB: 3,
+      bbDefenseFadeBB: 6,
     },
     postflop: {
       monsterStrength: 0.55,       // strength >= this → monster

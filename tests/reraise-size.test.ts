@@ -113,3 +113,55 @@ describe('jam-like threshold', () => {
     expect(config.strategy.preflop.jamToCallStackRatio).toBe(0.45)
   })
 })
+
+/** In the big blind facing an open to `toBB` from the cutoff, no callers. */
+function bbDefense(toBB: number, n = 18000) {
+  let cont = 0, total = 0
+  for (const name of LINEUP) {
+    const rng = mulberry32(5)
+    for (let i = 0; i < n / LINEUP.length; i++) {
+      const d = deck(rng)
+      const a = decideBotAction(profileOf(name), {
+        street: 'preflop', toCall: (toBB - 1) * BB, pot: (toBB + 1.5) * BB,
+        currentBet: toBB * BB, playerBet: BB, chips: 99 * BB, bb: BB,
+        numActivePlayers: 4, raiseLevel: 1, position: 'BB', holeCards: [d[0]!, d[1]!], rng,
+      })
+      total++
+      if (a.type !== 'fold') cont++
+    }
+  }
+  return cont / total
+}
+
+describe('big blind defends small opens', () => {
+  it('defends a 2.5bb open at a realistic rate', () => {
+    const d = bbDefense(2.5)
+    expect(d).toBeGreaterThan(0.20)
+    expect(d).toBeLessThan(0.40)
+  })
+
+  it('defends less as the open gets bigger', () => {
+    expect(bbDefense(2.5)).toBeGreaterThan(bbDefense(5))
+    expect(bbDefense(5)).toBeGreaterThan(bbDefense(8))
+  })
+
+  it('the boost is fully faded out by 6bb', () => {
+    expect(bbDefense(8)).toBeLessThan(0.14)
+  })
+
+  it('does not leak into other positions', () => {
+    let cont = 0, total = 0
+    const rng = mulberry32(6)
+    for (let i = 0; i < 6000; i++) {
+      const d = deck(rng)
+      const a = decideBotAction(profileOf('Solid Sam'), {
+        street: 'preflop', toCall: 2.5 * BB, pot: 4 * BB, currentBet: 2.5 * BB, playerBet: 0,
+        chips: 100 * BB, bb: BB, numActivePlayers: 4, raiseLevel: 1, position: 'MP',
+        holeCards: [d[0]!, d[1]!], rng,
+      })
+      total++
+      if (a.type !== 'fold') cont++
+    }
+    expect(cont / total).toBeLessThan(0.20)
+  })
+})

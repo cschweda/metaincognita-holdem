@@ -887,6 +887,18 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
         : effectiveVpip * ipFlat * 0.65           // OOP cold-call
     ) * sizePenalty
 
+    // The BB already has 1bb in the pot: against a small open it is getting
+    // a price no other seat gets, and the flat range should reflect that.
+    const bbDefenseMult = ctx.position === 'BB'
+      ? openSizeBB <= STRAT.preflop.bbDefenseFullBB
+        ? STRAT.preflop.bbDefenseBoost
+        : openSizeBB >= STRAT.preflop.bbDefenseFadeBB
+          ? 1
+          : 1 + (STRAT.preflop.bbDefenseBoost - 1)
+            * (STRAT.preflop.bbDefenseFadeBB - openSizeBB)
+            / (STRAT.preflop.bbDefenseFadeBB - STRAT.preflop.bbDefenseFullBB)
+      : 1
+
     // Multiway/squeeze discount: with callers already between the opener and us,
     // value tightens and bluff 3-bets shrink fast (squeezes are rarer than 3-bets)
     const playersIn = Math.max(ctx.preflopCallers ?? 0, 0)
@@ -909,7 +921,7 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
       const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    if (handPct < flatCallFreq) {
+    if (handPct < flatCallFreq * bbDefenseMult) {
       return { type: 'call' }
     }
     return { type: 'fold' }
