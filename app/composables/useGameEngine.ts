@@ -11,6 +11,8 @@ import config from '@config'
 import { getTableDynamics as sharedTableDynamics } from '~/utils/gameSimulation'
 import { applyEngineAction, startBettingRound } from '~/utils/bettingEngine'
 import { canRevealBotThinking } from '~/utils/thinkingInsight'
+import { logDecision } from '~/utils/devHandLog'
+import { effectiveTiltSeverity } from '~/utils/botDecision'
 import { createTableReadState, noteTableAction, finishTableHand, readTable } from '~/utils/tableReads'
 import type { TableReads } from '~/utils/tableReads'
 import type { BettingRound } from '~/utils/bettingEngine'
@@ -181,6 +183,12 @@ export function useGameEngine(options: GameEngineOptions) {
    */
   function applyAction(p: PlayerState, action: { type: string; amount?: number }): boolean {
     const betBefore = p.betThisRound
+    // TEMPORARY hand-log capture: the pot and stack as this player saw them,
+    // before the action is applied. Every seat's every decision funnels
+    // through here, hero included, so this is the one place that sees them all.
+    const chipsBefore = p.chips
+    const potBefore = gs.pot.value
+    const toCallBefore = gs.currentBet.value - p.betThisRound
     const r = engineRound()
     const result = applyEngineAction(r, p.id,
       action.type === 'raise'
@@ -216,6 +224,27 @@ export function useGameEngine(options: GameEngineOptions) {
         preflopRaiserId = p.id
       }
     }
+
+    // TEMPORARY: one console line per decision (utils/devHandLog.ts).
+    logDecision({
+      street: gs.street.value,
+      name: p.name,
+      position: assignPositions(gs.playerStates.value.length, gs.dealerSeat.value)[p.id] ?? '',
+      isHero: p.isHero,
+      holeCards: p.holeCards,
+      board: gs.visibleCommunity.value,
+      chipsBefore,
+      chipsAfter: p.chips,
+      pot: potBefore,
+      toCall: Math.max(toCallBefore, 0),
+      bb: bb.value,
+      action: result.type,
+      amount: result.type === 'raise' ? result.amount - betBefore
+        : result.type === 'call' ? result.amount : 0,
+      raiseTo: result.type === 'raise' ? result.amount : 0,
+      isAllIn: result.type === 'raise' ? !!result.isAllIn : false,
+      tiltSeverity: effectiveTiltSeverity(p.tilt, p.tiltMultiplier),
+    })
 
     // Track street actions for awareness
     const street = gs.street.value

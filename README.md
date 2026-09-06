@@ -1,6 +1,6 @@
 # No Limit Hold'em Simulator
 
-**[Live Demo](https://nlh-simulation.netlify.app/)**
+**[Live Demo](https://holdem.metaincognita.com/)**
 
 > **This is a free, open-source, single-player educational tool** -- no real money, no gambling, no multiplayer. The simulator itself is serious: three professional poker audits plus a full statistical realism overhaul (40+ fixes), real-time equity calculations, opponent HUD stats, and 27 bots with distinct playing styles. It just happens to also have funny commentary. Think of it as a poker training tool that doesn't take itself too seriously.
 

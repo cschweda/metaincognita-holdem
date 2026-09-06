@@ -44,6 +44,9 @@ const history: string[] = []
 /** Stacks as they were at the deal, keyed by seat — filled by noteHandStart. */
 let stacksAtDeal = new Map<number, number>()
 
+/** Hand counter, owned here so per-decision lines need nothing threaded in. */
+let handNo = 0
+
 /**
  * localStorage can throw outright (Safari private mode, a browser set to
  * block site data). This is a debugging aid: it must never be the reason a
@@ -66,6 +69,8 @@ const pad = (s: string, n: number): string => (s.length >= n ? s : s + ' '.repea
 /** Call at the top of a new hand, before any chips move. */
 export function noteHandStart(players: PlayerState[]): void {
   stacksAtDeal = new Map(players.map(p => [p.id, p.chips]))
+  handNo++
+  if (!isOff()) console.log(`\n───────── hand #${handNo} dealt ─────────`)
 }
 
 export interface DevHandLogInput {
@@ -79,6 +84,76 @@ export interface DevHandLogInput {
   actionLog: string[]
   bb: number
   sb: number
+}
+
+export interface DecisionLogInput {
+  street: string
+  name: string
+  position: string
+  isHero: boolean
+  holeCards: [Card, Card] | null
+  board: Card[]
+  chipsBefore: number
+  chipsAfter: number
+  pot: number
+  toCall: number
+  bb: number
+  action: string          // 'fold' | 'check' | 'call' | 'raise' | 'all-in'
+  amount: number          // chips committed by THIS action
+  raiseTo: number         // total bet-to for a raise, else 0
+  isAllIn: boolean
+  tiltSeverity: number    // effective, not raw
+}
+
+/**
+ * One line per decision, from every player, as it happens.
+ *
+ * This is the view that matters for "why did that bot shove?" — the hand
+ * summary tells you what happened, this tells you what the bot could see
+ * when it chose. Anything that commits a big share of a stack is flagged
+ * with >>> so a weird shove can be found by eye or by grep.
+ *
+ * Note: this prints a bot's hole cards at the moment it acts, i.e. while the
+ * hand is still live. That is unavoidable if the log is to explain the
+ * decision, but it does mean an open console reveals the table. It is a
+ * debugging build, not a shipping one.
+ */
+export function logDecision(d: DecisionLogInput): void {
+  if (isOff()) return
+  const bb = d.bb || 1
+  const stackBB = (d.chipsBefore / bb).toFixed(0)
+  const potOdds = d.toCall > 0 ? ` odds ${((d.toCall / (d.pot + d.toCall)) * 100).toFixed(0)}%` : ''
+  const spr = d.pot > 0 ? (d.chipsBefore / d.pot).toFixed(1) : '-'
+
+  let verb = d.action.toUpperCase()
+  if (d.action === 'raise') verb = d.isAllIn ? `ALL-IN $${d.raiseTo}` : `RAISE to $${d.raiseTo}`
+  else if (d.action === 'call') verb = `CALL $${d.amount}`
+
+  // The share of the stack a decision commits is the single most useful
+  // number for spotting a punt, so it is always shown for a raise or call.
+  let commit = ''
+  if (d.amount > 0 && d.chipsBefore > 0) {
+    const pctStack = (d.amount / d.chipsBefore) * 100
+    const pctPot = d.pot > 0 ? (d.amount / d.pot) * 100 : 0
+    commit = `  (${pctStack.toFixed(0)}% stack${d.pot > 0 ? `, ${pctPot.toFixed(0)}% pot` : ''})`
+  }
+
+  const left = d.chipsAfter
+  const flags: string[] = []
+  if (d.isAllIn) flags.push('ALL-IN')
+  // A bet that leaves under 6bb is the dust case the commit rule exists to
+  // prevent; if one appears here, the rule did not fire and that is a bug.
+  else if (d.amount > 0 && left > 0 && left < bb * 6) flags.push(`DUST $${left} left`)
+  if (d.amount > 0 && d.chipsBefore > 0 && d.amount / d.chipsBefore >= 0.5) flags.push('COMMITS 50%+')
+  if (d.tiltSeverity > 0) flags.push(`tilt ${d.tiltSeverity.toFixed(2)}`)
+  const flag = flags.length ? `  >>> ${flags.join(' | ')}` : ''
+
+  console.log(
+    `  #${handNo} ${pad(d.street, 8)}${pad(d.position, 4)}${pad(d.name + (d.isHero ? '*' : ''), 22)}`
+    + `${pad(cards(d.holeCards) || '--', 9)}| ${pad(cards(d.board) || '(preflop)', 18)}| `
+    + `${pad(`${stackBB}bb`, 6)}${pad(`pot $${d.pot}`, 10)}${pad(`SPR ${spr}`, 9)}`
+    + `${pad(`to call $${d.toCall}${potOdds}`, 22)}=> ${verb}${commit}${flag}`,
+  )
 }
 
 /** Renders one hand as a flat block of text. Exported for testing. */
