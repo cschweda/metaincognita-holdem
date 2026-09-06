@@ -1,0 +1,190 @@
+/**
+ * Composite exploit probe — a scripted hero that plays a SOLID baseline
+ * (Solid Sam's own bot logic) and deviates in exactly ONE way. The delta in
+ * bb/100 against the untouched baseline is that deviation's EV, which is how
+ * Round 8 found leaks the pure-degenerate battery masks: a hero who jams any
+ * two cards pays so much blind tax that a +18 bb/100 river leak disappears
+ * inside a −300 bb/100 line.
+ *
+ * Usage:
+ *   yarn probe:composite all 30000 20260712,999,7,4242
+ *   yarn probe:composite river-33 30000 20260712 100
+ *   yarn probe:composite pf-exploit 30000 20260712 24
+ *
+ * Read the 4-seed MEAN, never a single seed: per-seed bb/100 SD is ~8-10.
+ */
+import config from '../holdem.config'
+import type { ProbeCtx } from './exploit-probe'
+import type { BotProfile, BotAction } from '../app/utils/botDecision'
+import { handPercentile } from '../app/utils/ranges'
+import { bestHand } from '../app/utils/handAnalysis'
+import type { Card } from '../app/utils/cards'
+
+// exploit-probe.ts runs its own CLI `main()` at module top level, guarded
+// only by `process.env.VITEST` (its own comment: vite-node gives a script no
+// reliable "am I the entry point" signal, so it keys off Vitest's env marker
+// instead). That guard assumes its only non-CLI importer is the vitest gate
+// test, where Vitest sets VITEST itself. This script is a second, non-vitest
+// importer: a plain `import { runStrategy } from './exploit-probe'` evaluates
+// exploit-probe's module body — main() included — before any of THIS file's
+// own top-level code runs, so it would consume our argv as its own and
+// process.exit(1) the moment our strategy name isn't one of ITS strategies.
+// Toggling VITEST around a dynamic import suppresses that side effect
+// without touching the frozen file; it's restored immediately after so this
+// file's own `if (!process.env.VITEST) main()` below still behaves correctly
+// both under vitest and under a direct CLI run.
+const hadVitest = process.env.VITEST
+process.env.VITEST = '1'
+const { runStrategy } = await import('./exploit-probe')
+if (hadVitest === undefined) delete process.env.VITEST
+else process.env.VITEST = hadVitest
+
+const STAKE = config.stakes.find(s => s.level === 3)!
+const BB = STAKE.bb
+
+const SAM = config.personas.find(p => p.name === 'Solid Sam')!
+export const BASELINE: BotProfile = {
+  vpip: SAM.vpip, pfr: SAM.pfr, aggression: SAM.aggression, bluffFreq: SAM.bluffFreq,
+  creativeFreq: SAM.creativeFreq, threeBetFreq: SAM.threeBetFreq, fourBetFreq: SAM.fourBetFreq,
+  fiveBetFreq: SAM.fiveBetFreq, donkBetFreq: SAM.donkBetFreq, limpFreq: SAM.limpFreq,
+  styleBias: SAM.styleBias, betSizeMult: SAM.betSizeMult, overbetFreq: SAM.overbetFreq,
+}
+
+type Ctx = ProbeCtx
+
+const isPremium = (h: [Card, Card]) => {
+  const [a, b] = [h[0].rank, h[1].rank].sort((x, y) => y - x)
+  return (a === b && a >= 12) || (a === 14 && b === 13) // QQ+ / AK
+}
+const betPot = (c: Ctx, frac: number): BotAction =>
+  ({ type: 'raise', amount: Math.min(c.playerBet + c.toCall + Math.max(Math.round(c.pot * frac), BB), c.chips + c.playerBet) })
+const raiseToBB = (c: Ctx, bbs: number): BotAction =>
+  ({ type: 'raise', amount: Math.min(Math.max(Math.round(bbs * BB), c.currentBet + BB), c.chips + c.playerBet) })
+const jam = (c: Ctx): BotAction => ({ type: 'raise', amount: c.chips + c.playerBet })
+const pf = (c: Ctx) => c.street === 'preflop'
+/** A river spot the baseline would have checked — the leak's entry point. */
+const riverCheck = (c: Ctx) => c.street === 'river' && c.toCall === 0 && c.base!.type === 'check'
+const topPairPlus = (c: Ctx) => {
+  const r = bestHand(c.holeCards, c.community)
+  if (!r) return false
+  if (r.rank >= 2) return true
+  if (r.rank !== 1) return false
+  const boardMax = Math.max(...c.community.map(x => x.rank))
+  return r.score[1]! >= boardMax && c.holeCards.some(x => x.rank === r.score[1])
+}
+
+/** Bet `frac` pot on every river the baseline checks. */
+const riverBet = (frac: number) => (c: Ctx): BotAction => {
+  if (riverCheck(c)) { c.tag('riverbet'); return betPot(c, frac) }
+  return c.base!
+}
+/** 3-bet premiums to `bbs`, then jam any flop once the pot is committing. */
+const prem3bet = (bbs: number) => (c: Ctx): BotAction => {
+  if (pf(c) && c.raiseLevel === 1 && c.toCall > 0 && isPremium(c.holeCards)) {
+    c.mem.p3 = true
+    c.tag('prem3bet')
+    return raiseToBB(c, bbs)
+  }
+  if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) return jam(c)
+  return c.base!
+}
+
+export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
+  'base': c => c.base!,
+  'river-33': riverBet(0.33),
+  'river-50': riverBet(0.50),
+  'river-66': riverBet(0.66),
+  'river-100': riverBet(1.00),
+  'river-call-tp': c => {
+    if (c.street === 'river' && c.toCall > 0 && c.toCall <= c.pot && topPairPlus(c) && c.base!.type === 'fold') {
+      c.tag('rivercall')
+      return { type: 'call' }
+    }
+    return c.base!
+  },
+  'turn-river-33': c => {
+    if ((c.street === 'turn' || c.street === 'river') && c.toCall === 0 && c.base!.type === 'check') return betPot(c, 0.33)
+    return c.base!
+  },
+  'prem3bet-25-fj': prem3bet(25),
+  'prem3bet-50-fj': prem3bet(50),
+  'wide5-3bet-50-fj': c => {
+    if (pf(c) && c.raiseLevel === 1 && c.toCall > 0 && handPercentile(c.holeCards) < 0.05) {
+      c.mem.p3 = true
+      c.tag('wide3bet')
+      return raiseToBB(c, 50)
+    }
+    if (c.street === 'flop' && c.mem.p3 && c.pot >= c.chips * 0.5) return jam(c)
+    return c.base!
+  },
+  'open-any-late': c => {
+    if (pf(c) && c.raiseLevel === 0 && c.toCall > 0 && c.toActBehind <= 1 && c.base!.type !== 'raise') return raiseToBB(c, 2.5)
+    return c.base!
+  },
+  // Short-stack line: only meaningful at depthBB below 25.
+  'pf-exploit': c => {
+    if (!pf(c)) return c.base!
+    const pct = handPercentile(c.holeCards)
+    if (c.toCall >= c.chips * 0.5) {
+      if (pct < 0.07) { c.tag('jamcall'); return jam(c) }
+      return { type: 'fold' }
+    }
+    if (c.raiseLevel === 0 && c.toCall > 0) {
+      if (pct < 0.20) { c.tag('open'); return raiseToBB(c, 2.2) }
+      return { type: 'fold' }
+    }
+    return c.base!
+  },
+}
+
+export function runComposite(name: string, numHands: number, seed: number, depthBB = 100) {
+  const fn = COMPOSITE[name]
+  if (!fn) throw new Error(`unknown composite strategy: ${name}`)
+  let overrides = 0
+  const wrapped = (c: Ctx) => {
+    const a = fn(c)
+    if (a !== c.base) overrides++
+    return a
+  }
+  const r = runStrategy(name, wrapped, numHands, seed, depthBB, 1, { baselineProfile: BASELINE })
+  return { name, bb100: r.bb100, overrides, tagStats: r.tagStats }
+}
+
+function main() {
+  const which = process.argv[2] || 'all'
+  const numHands = parseInt(process.argv[3] || '30000', 10)
+  const seeds = (process.argv[4] || '20260712,999,7,4242').split(',').map(s => parseInt(s, 10))
+  const depthBB = process.argv[5] !== undefined ? parseInt(process.argv[5], 10) : 100
+  const toRun = which === 'all' ? Object.keys(COMPOSITE) : which.split(',')
+
+  console.log(`\nComposite probe — hero = ${SAM.name}'s own logic + one deviation`)
+  console.log(`${numHands} hands x seeds ${seeds.join('/')}, stacks reset to ${depthBB}bb every hand\n`)
+  console.log(`${'strategy'.padEnd(20)}${seeds.map(s => `@${s}`.padStart(11)).join('')}${'mean'.padStart(9)}${'delta'.padStart(9)}${'overrides'.padStart(11)}   tagged EV`)
+  console.log('-'.repeat(100))
+
+  let baseMean = 0
+  for (const s of ['base', ...toRun.filter(t => t !== 'base')]) {
+    const rs = seeds.map(seed => runComposite(s, numHands, seed, depthBB))
+    const mean = rs.reduce((a, r) => a + r.bb100, 0) / rs.length
+    if (s === 'base') baseMean = mean
+    const delta = mean - baseMean
+    const tags: Record<string, { n: number; net: number }> = {}
+    for (const r of rs) {
+      for (const [t, e] of Object.entries(r.tagStats)) {
+        const x = (tags[t] ??= { n: 0, net: 0 })
+        x.n += e.n
+        x.net += e.net
+      }
+    }
+    const tagStr = Object.entries(tags)
+      .map(([t, e]) => `${t}: n=${e.n} ${(e.net / BB / e.n).toFixed(2)}bb/hand`).join('; ')
+    console.log(
+      `${s.padEnd(20)}${rs.map(r => r.bb100.toFixed(1).padStart(11)).join('')}` +
+      `${mean.toFixed(1).padStart(9)}${(s === 'base' ? '' : (delta >= 0 ? '+' : '') + delta.toFixed(1)).padStart(9)}` +
+      `${String(rs[0]!.overrides).padStart(11)}   ${tagStr}`)
+  }
+  console.log('\nEvery deviation should be <= 0 against a leak-free engine.')
+  console.log('Judge the MEAN column: per-seed SD is ~8-10 bb/100 over 30k hands.')
+}
+
+if (!process.env.VITEST) main()

@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "nuxt typecheck",
-    "probe": "vite-node scripts/exploit-probe.ts"
+    "probe": "vite-node scripts/exploit-probe.ts",
+    "probe:composite": "vite-node scripts/composite-probe.ts"
   },
   "dependencies": {
     "@nuxt/ui": "^4.6.0",
