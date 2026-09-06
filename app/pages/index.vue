@@ -9,7 +9,7 @@ defineOptions({ name: 'index' })
  */
 import config from '@config'
 import { assignPositions } from '~/utils/seats'
-import { logHandToConsole } from '~/utils/devHandLog'
+import { logHandToConsole, noteHandStart, installHandLogHelpers } from '~/utils/devHandLog'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
 import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState, effectiveTiltSeverity } from '~/utils/botDecision'
@@ -380,7 +380,13 @@ function onGameKeydown(e: KeyboardEvent) {
 // other route (and phase stays 'table', so the guard doesn't help).
 // onActivated also fires on initial mount; duplicate addEventListener with
 // the same function reference is a no-op.
-onMounted(() => window.addEventListener('keydown', onGameKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onGameKeydown)
+  // TEMPORARY: prints the hand-log banner and installs holdemHands()/
+  // holdemCopy()/holdemLog(). If the banner is absent from the console on
+  // load, the build being served does not contain utils/devHandLog.ts.
+  installHandLogHelpers()
+})
 onActivated(() => window.addEventListener('keydown', onGameKeydown))
 onDeactivated(() => window.removeEventListener('keydown', onGameKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onGameKeydown))
@@ -463,6 +469,7 @@ function dealNewHand() {
     })
   }
   gs.playerStates.value = states
+  noteHandStart(states) // stacks as dealt, for the hand log's before/after column
 
   idx++ // burn
   const community = [deck[idx++], deck[idx++], deck[idx++]]
@@ -474,6 +481,13 @@ function dealNewHand() {
 
   gs.resetGameState()
   queuedAction.value = null
+
+  // Advance the button BEFORE anything reads `positions`. This used to sit
+  // below the deal log, so that log printed the PREVIOUS hand's positions
+  // while the blinds and every bot decision — which all run after this line —
+  // used the advanced one. The hand played correctly; only the log lied, and
+  // it lied in the app's own replay view and the PokerStars export too.
+  gs.dealerSeat.value = (gs.dealerSeat.value + 1) % count
 
   const playerCards = states
     .filter(p => !p.eliminated)
@@ -488,7 +502,6 @@ function dealNewHand() {
     `--- PREFLOP ---`,
   ]
 
-  gs.dealerSeat.value = (gs.dealerSeat.value + 1) % count
   engine.schedule(() => engine.postBlindsAndStartBetting(), 400)
 }
 
@@ -588,6 +601,7 @@ function endHand() {
     winnerId: gs.handWinnerId.value,
     actionLog: gs.handActionLog.value,
     bb: bb.value,
+    sb: sb.value,
   })
 
   // Record hero actions for adaptation — 3-bet/c-bet facing derived from the log
