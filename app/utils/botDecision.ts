@@ -623,15 +623,18 @@ function maybeThinValueRiver(
 }
 
 /**
- * Between pushFoldBB and 25bb, a raise that costs a large share of the stack
- * has no fold-equity-preserving retreat: raising to 40% of stack and folding
- * to the shove is the worst of both. Promote it to an all-in. Outside that
- * band the raise stands as sized.
+ * From pushFoldBB up to and including shortStackCeilingBB, a raise that
+ * costs a large share of the stack has no fold-equity-preserving retreat:
+ * raising to 40% of stack and folding to the shove is the worst of both.
+ * Promote it to an all-in. Outside that closed band the raise stands as
+ * sized. The pure push/fold branch below is a strict less-than on
+ * pushFoldBB, so this band starts at pushFoldBB itself (inclusive) — the
+ * two rules meet with no gap and no overlap at exactly pushFoldBB.
  */
 function applyCommitRule(action: BotAction, ctx: DecisionContext): BotAction {
   if (action.type !== 'raise') return action
   const stackBB = ctx.chips / ctx.bb
-  if (stackBB <= STRAT.preflop.pushFoldBB || stackBB > 25) return action
+  if (stackBB < STRAT.preflop.pushFoldBB || stackBB > STRAT.preflop.shortStackCeilingBB) return action
   const allIn = ctx.chips + ctx.playerBet
   const total = action.amount ?? 0
   if (total >= allIn) return action
@@ -817,8 +820,9 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
     // at 25bb — any-two-cards shoving over a short stack's tiny open printed
     // money because the field folded ~96% of the time. Widening regardless
     // of raiseLevel fixes both.
-    if (jamBB < 25) {
-      const t = Math.max(0, Math.min((25 - jamBB) / (25 - STRAT.preflop.pushFoldBB), 1))
+    if (jamBB < STRAT.preflop.shortStackCeilingBB) {
+      const t = Math.max(0, Math.min(
+        (STRAT.preflop.shortStackCeilingBB - jamBB) / (STRAT.preflop.shortStackCeilingBB - STRAT.preflop.pushFoldBB), 1))
       const shortRange = STRAT.preflop.shortJamCallFloor
         + (STRAT.preflop.shortJamCallCeil - STRAT.preflop.shortJamCallFloor) * t
       continueRange = Math.max(continueRange, shortRange)

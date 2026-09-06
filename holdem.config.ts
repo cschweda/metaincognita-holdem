@@ -160,6 +160,8 @@ export default {
       // again (bots do not rebuy), and it reused its shove range as its
       // jam-CALLING range.
       pushFoldBB: 12,
+      shortStackCeilingBB: 25, // ceiling of the short-stack band (pushFoldBB is its floor);
+                               // the commit rule and the jam-call widening both switch off above this
       commitRatio: 0.40,
       shortReJamScale: 0.70,   // re-jam range vs a small raise, as a share of the shove range
       shortJamCallScale: 0.45, // calling range vs a jam, as a share of the shove range
