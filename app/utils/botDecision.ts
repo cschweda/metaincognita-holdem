@@ -1414,6 +1414,14 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // leaking, and re-deriving their behavior is a separate, separately
   // verified change.
   const riverMdf = (Math.max(pot - toCall - playerBet, 0) / Math.max(pot, 1)) / mdfDefenders
+  // Turn true defense frequency (Round 8, Task 11b) — same derivation as
+  // riverMdf immediately above; the P0/(P0+R) bettor-indifference argument
+  // never referenced the river specifically, only that the villain's whole
+  // this-street contribution is at risk on a bluff, which is equally true on
+  // the turn. Kept as its own constant rather than reusing `riverMdf` under a
+  // second name so the river branches below — already tuned across five fix
+  // rounds — read unchanged and this task's diff stays scoped to the turn.
+  const turnMdf = (Math.max(pot - toCall - playerBet, 0) / Math.max(pot, 1)) / mdfDefenders
 
   // Street pressure: later streets require stronger hands to continue
   // Flop = 1.0, Turn = 0.75, River = 0.55 (much harder to call river bets)
@@ -1483,11 +1491,21 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       if (rng() < foldProb) return { type: 'fold' }
     }
 
-    // Turn call-down discipline: marginal made hands continue less often vs
-    // sustained pressure; passives call down more.
+    // Turn call-down discipline: anchored to the true defense frequency this
+    // bet size implies (turnMdf, not the shared mdf — see its definition
+    // above), the same derivation the river uses, so a third-pot turn stab
+    // must be called far more often than a pot-or-bigger one. The old rule
+    // read bet size nowhere — it folded a flat rate against everything from
+    // a third-pot bet to a 1.5x-pot overbet (Round 8, Task 11b) — exactly
+    // the leak the river had before Round 8 #3. turn.strongBase/strongShield
+    // start from the river's shipped values but run wider (see
+    // holdem.config.ts): a card is still to come, so more of this class has
+    // real equity to continue with than the same class does on the river.
     if (!hasMonster && toCall > 0 && ctx.street === 'turn') {
-      const marginShield = Math.max(0, Math.min((strength - 0.35) / 0.20, 1)) // 0 at 0.35 → 1 at 0.55
-      const continueProb = Math.min((0.55 + marginShield * 0.45) * passiveBoost, 1.0)
+      const shield = Math.max(0, Math.min((strength - STRAT.postflop.strongStrength) / 0.20, 1))
+      const continueProb = Math.max(STRAT.turn.strongMin, Math.min(
+        turnMdf * (STRAT.turn.strongBase + shield * STRAT.turn.strongShield) * passiveBoost * sizingExploit,
+        STRAT.turn.strongMax))
       if (rng() > continueProb) return { type: 'fold' }
     }
 
@@ -1544,6 +1562,14 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
     if (ctx.street === 'river') {
       const continueProb = Math.max(STRAT.river.weakMin, Math.min(
         riverMdf * STRAT.river.weakBase * passiveBoost * sizingExploit, STRAT.river.weakMax))
+      return rng() < continueProb ? { type: 'call' } : { type: 'fold' }
+    }
+    // Turn: same true-defense anchoring as the river rule just above, with
+    // turn.weakBase/weakMin/weakMax in place of river's (Round 8, Task 11b —
+    // wider than the river's, see holdem.config.ts).
+    if (ctx.street === 'turn') {
+      const continueProb = Math.max(STRAT.turn.weakMin, Math.min(
+        turnMdf * STRAT.turn.weakBase * passiveBoost * sizingExploit, STRAT.turn.weakMax))
       return rng() < continueProb ? { type: 'call' } : { type: 'fold' }
     }
     if (betToPotRatio < 0.4 && rng() < profile.vpip * 0.7 * streetFactor) return { type: 'call' }

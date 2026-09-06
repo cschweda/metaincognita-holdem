@@ -125,6 +125,16 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
     if ((c.street === 'turn' || c.street === 'river') && c.toCall === 0 && c.base!.type === 'check') return betPot(c, 0.33)
     return c.base!
   },
+  // Turn-only isolation of turn-river-33 above (Round 8, Task 11b):
+  // turn-river-33 conflates two streets, so it can't tell a turn leak from a
+  // river one. This bets 1/3 pot on the turn alone whenever checked to and
+  // the baseline would check, and never deviates on the river, so the turn's
+  // own leak can be measured without the (already-fixed) river cell adding
+  // to it.
+  'turn-33': c => {
+    if (c.street === 'turn' && c.toCall === 0 && c.base!.type === 'check') return betPot(c, 0.33)
+    return c.base!
+  },
   'prem3bet-25-fj': prem3bet(25),
   'prem3bet-50-fj': prem3bet(50),
   'wide5-3bet-50-fj': c => {

@@ -252,6 +252,47 @@ export default {
       weakMax: 0.85,
       maxBluffRate: 0.35,   // cap on any single river bluff frequency
     },
+    // Turn defense (Round 8, Task 11b). River had already been re-anchored to
+    // the true defense frequency the bet size implies (see `river` above and
+    // `turnMdf`/`riverMdf` in botDecision.ts); the turn's made-hand call-down
+    // was still the old flat, size-blind rule. Tasks 9-11 each widened some
+    // part of preflop continuing, so more hands now reach the turn with wider
+    // ranges, and a hero betting a third of pot on both the turn and river
+    // whenever checked to (composite probe's turn-river-33 cell) had climbed
+    // to the largest leak in the battery, bigger than the river leak Round 8
+    // set out to fix. The river block above was already clean, so the turn
+    // half was carrying it.
+    //
+    // Same field names and same formula shape as `river` (see the turn
+    // call-down block in botDecision.ts). Measured three settings against the
+    // composite probe (turn-33 isolates the turn; turn-river-33 is the
+    // combined line; targets +5 and +10; 8 seeds x 30,000 hands each):
+    // identical to `river` cleared both targets but left turn-river-33 at
+    // +9.9 — technically under +10 but with almost no margin against this
+    // measurement's own seed-to-seed noise (documented elsewhere in this
+    // round at roughly +/-3-4 for an 8-seed run); doubling the gap to river
+    // (strongMin 0.40, weakBase 1.15, weakMin 0.15) widened turn-river-33's
+    // margin (+5.5) but let more/stronger hands reach the river than before,
+    // measurably worsening several river cells (river-66 +6.2 -> +15.7, the
+    // largest single move) even though nothing in the river's own code
+    // changed. The values below split the difference — half the widening —
+    // and were the smallest step that cleared turn-river-33 with real margin
+    // (+7.1) while leaving every river cell flat or improved. strongBase/
+    // strongShield/strongMax are unchanged from `river`: they already sit at
+    // the top of the class (strongMax 0.97), so raising them further does
+    // nothing for the bottom of the class where the leak actually lived.
+    // Draws and the overcard credit are untouched by this task on purpose —
+    // a card is still to come, so they are live equity, not something to
+    // fold out (see botDecision.ts).
+    turn: {
+      strongBase: 1.20,
+      strongShield: 0.45,
+      strongMin: 0.30,      // river's 0.25
+      strongMax: 0.97,
+      weakBase: 1.00,       // river's 0.95
+      weakMin: 0.08,        // river's 0.05
+      weakMax: 0.85,
+    },
     // Table reads — public table-wide signals over a rolling window.
     // Thresholds sit outside a normal pro table's range (passivity
     // 0.41–0.56, showdown-per-flop 0.42–0.71 over 30-hand windows, seed
