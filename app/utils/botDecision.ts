@@ -889,7 +889,16 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
 
     // The BB already has 1bb in the pot: against a small open it is getting
     // a price no other seat gets, and the flat range should reflect that.
-    const bbDefenseMult = ctx.position === 'BB'
+    // Heads-up is excluded on purpose: that branch above is already
+    // calibrated wide by design (min(vpip*1.5, 0.65)), and this boost is
+    // sized for the much narrower multiway OOP branch. Stacking it on top
+    // of the heads-up formula too pushed the threshold past 1 and made
+    // folding unreachable — measured directly (Loose Lucy, Bean-Robert
+    // Jellande and Wild Wendy folded 0% of hands heads-up before this
+    // exclusion) — and since numActivePlayers counts unfolded players, "BB
+    // facing an open with no callers" (this task's own motivating scenario)
+    // IS the heads-up branch at any table size, not a corner case.
+    const bbDefenseMult = ctx.position === 'BB' && !isHeadsUp
       ? openSizeBB <= STRAT.preflop.bbDefenseFullBB
         ? STRAT.preflop.bbDefenseBoost
         : openSizeBB >= STRAT.preflop.bbDefenseFadeBB
@@ -921,7 +930,11 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
       const raiseSize = Math.round(currentBet * (threeBetMult + (profile.aggression - 1) * 0.3) * (profile.betSizeMult ?? 1.0))
       return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
     }
-    if (handPct < flatCallFreq * bbDefenseMult) {
+    // Belt and braces: even with the heads-up exclusion above, cap the
+    // boosted threshold strictly below 1 so no future combination of
+    // constants (a bigger boost, a looser persona, a wider base formula)
+    // can ever make folding unreachable here.
+    if (handPct < Math.min(flatCallFreq * bbDefenseMult, STRAT.preflop.bbDefenseCeiling)) {
       return { type: 'call' }
     }
     return { type: 'fold' }

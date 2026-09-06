@@ -180,10 +180,19 @@ export default {
       shortJamCallCeil: 0.10,  // ...and vs a 12bb-or-shorter jam
       // Big-blind pot discount (Round 8). The BB is already 1bb in, so a
       // 2-3bb open lays it better than 3:1 and folding 86% is a leak. The
-      // discount fades out linearly and is gone by bbDefenseFadeBB.
+      // discount fades out linearly and is gone by bbDefenseFadeBB. Applied
+      // only outside the heads-up branch (that one is already wide by
+      // design — see botDecision.ts).
       bbDefenseBoost: 2.0,
       bbDefenseFullBB: 3,
       bbDefenseFadeBB: 6,
+      // Safety ceiling (review finding): the heads-up exclusion above is the
+      // real fix, but this is a second, independent guard so no future
+      // constant change can push the boosted flat-call frequency to or past
+      // 1 and make folding unreachable. Comfortably above every realistic
+      // computed value (~0.4 at most for current personas) so it does not
+      // change behavior today; it only bites if something goes wrong later.
+      bbDefenseCeiling: 0.90,
     },
     postflop: {
       monsterStrength: 0.55,       // strength >= this → monster
