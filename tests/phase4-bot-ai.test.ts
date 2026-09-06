@@ -69,10 +69,6 @@ describe('Session memory adaptation', () => {
     expect(config.sessionMemory.windowSize).toBeLessThanOrEqual(20)
   })
 
-  it('short stack threshold triggers push/fold mode', () => {
-    expect(config.sessionMemory.shortStackThreshold).toBe(20) // standard
-  })
-
   it('deep stack threshold loosens play', () => {
     expect(config.sessionMemory.deepStackThreshold).toBeGreaterThan(100)
   })

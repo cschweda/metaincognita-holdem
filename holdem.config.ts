@@ -153,6 +153,18 @@ export default {
       reraiseJamFloorBase: 0.85,   // reraise-jam defense floor (decays with size)
       jamContinueFloor: 0.04,      // minimum jam-continue range
       jamRaisePortion: 0.4,        // top fraction of continue range that reraises
+      // Short stacks (Round 8). Pure push/fold below pushFoldBB; between it
+      // and 25bb the normal branches run, with any raise costing commitRatio
+      // of the stack promoted to all-in. The old code pushed or folded from
+      // 25bb down, so a bot that lost one pot never played a normal hand
+      // again (bots do not rebuy), and it reused its shove range as its
+      // jam-CALLING range.
+      pushFoldBB: 12,
+      commitRatio: 0.40,
+      shortReJamScale: 0.70,   // re-jam range vs a small raise, as a share of the shove range
+      shortJamCallScale: 0.45, // calling range vs a jam, as a share of the shove range
+      shortJamCallFloor: 0.04, // continue range vs a 25bb jam
+      shortJamCallCeil: 0.10,  // ...and vs a 12bb-or-shorter jam
     },
     postflop: {
       monsterStrength: 0.55,       // strength >= this → monster
@@ -292,7 +304,6 @@ export default {
   sessionMemory: {
     windowSize: 10,                      // bots track last N hands
     threeBetAdjustThreshold: 3,          // hero folds to 3-bet N times → bot widens
-    shortStackThreshold: 20,             // BB — switch to push/fold
     deepStackThreshold: 150,             // BB — loosen up with speculative hands
   },
 

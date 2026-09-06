@@ -622,24 +622,56 @@ function maybeThinValueRiver(
   return sizedBet(pot, 0.30 + rng() * 0.12, profile, bb)
 }
 
+/**
+ * Between pushFoldBB and 25bb, a raise that costs a large share of the stack
+ * has no fold-equity-preserving retreat: raising to 40% of stack and folding
+ * to the shove is the worst of both. Promote it to an all-in. Outside that
+ * band the raise stands as sized.
+ */
+function applyCommitRule(action: BotAction, ctx: DecisionContext): BotAction {
+  if (action.type !== 'raise') return action
+  const stackBB = ctx.chips / ctx.bb
+  if (stackBB <= STRAT.preflop.pushFoldBB || stackBB > 25) return action
+  const allIn = ctx.chips + ctx.playerBet
+  const total = action.amount ?? 0
+  if (total >= allIn) return action
+  if (total - ctx.playerBet >= ctx.chips * STRAT.preflop.commitRatio) {
+    return { type: 'raise', amount: allIn }
+  }
+  return action
+}
+
 function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: number): BotAction {
+  return applyCommitRule(decidePreflopCore(profile, ctx, rand), ctx)
+}
+
+function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: number): BotAction {
   const rng = ctx.rng ?? Math.random
   const { toCall, chips, bb, currentBet, playerBet } = ctx
   const raiseLevel = ctx.raiseLevel ?? 1
   const stackBB = chips / bb
 
-  // ─── Short-stack push/fold mode (<25BB) ────────────────
-  // Fix 5: Position-aware push/fold — late position shoves wider
-  if (stackBB < 25 && toCall > 0 && ctx.holeCards) {
+  // ─── Short-stack push/fold mode ────────────────────────
+  // Below pushFoldBB there is no room to play post-flop, so the whole game
+  // is shove-or-fold. Between pushFoldBB and 25bb the normal branches run
+  // and the commit rule (applyCommitRule) promotes committing raises to
+  // all-ins. Position-aware: late position shoves wider.
+  if (stackBB < STRAT.preflop.pushFoldBB && toCall > 0 && ctx.holeCards) {
     const handPct = handRankIndex(ctx.holeCards) >= 0
       ? handPercentile(ctx.holeCards)
       : chenToPercentile(chenPlusScore(ctx.holeCards, ctx.position ?? '', { vpip: profile.vpip, aggression: profile.aggression }))
     const latePos = ['BTN', 'D', 'D/BTN', 'CO', 'D/SB'].includes(ctx.position ?? '')
-    // Late position shoves wider; desperate stacks (<10BB) shove widest
+    // Desperate stacks (<10BB) shove widest
     const shoveThreshold = stackBB < 10
-      ? (latePos ? 0.35 : 0.28) // desperate: wide in LP, moderate in EP
-      : (latePos ? 0.25 : 0.18) // short: standard LP vs EP thresholds
-    if (handPct < shoveThreshold) {
+      ? (latePos ? 0.35 : 0.28)
+      : (latePos ? 0.25 : 0.18)
+    // Calling a shove is not the same decision as making one: you have no
+    // fold equity, so the range must be tighter than the shoving range.
+    const facingJam = toCall >= chips * STRAT.preflop.commitRatio
+    const scale = toCall <= bb ? 1
+      : facingJam ? STRAT.preflop.shortJamCallScale
+      : STRAT.preflop.shortReJamScale
+    if (handPct < shoveThreshold * scale) {
       return { type: 'raise', amount: chips + playerBet } // all-in
     }
     return { type: 'fold' }
@@ -770,7 +802,27 @@ function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: nu
     const sizeShrink = Math.min(1, Math.pow(20 / Math.max(jamBB, 15), STRAT.preflop.jamSizeShrinkExp))
     const reraiseJamFloor = STRAT.preflop.reraiseJamFloorBase * Math.sqrt(Math.min(1, 40 / Math.max(jamBB, 1)))
     const jamSizeFactor = raiseLevel >= 2 ? Math.max(sizeShrink, reraiseJamFloor) : sizeShrink
-    const continueRange = Math.max(profile.fourBetFreq ?? 0.025, STRAT.preflop.jamContinueFloor) * jamSizeFactor
+    let continueRange = Math.max(profile.fourBetFreq ?? 0.025, STRAT.preflop.jamContinueFloor) * jamSizeFactor
+    // A 12-25bb shove is a much wider range than a 100bb one, and the table
+    // has to call it wider or short stacks print money (Round 8 #3). This is
+    // keyed on jam SIZE, not raiseLevel, deliberately covering both an open
+    // shove (raiseLevel<=1) and a shove over someone else's raise
+    // (raiseLevel>=2): before this task, 12-25bb opens were themselves
+    // shove-or-fold, so "someone opened small at a short stack" could not
+    // happen and the raiseLevel>=2 branch above never had to defend it. Once
+    // opens go back to normal sizing in that band, that branch's
+    // fourBetFreq-sized floor (~3-4% continue, meant for deep-stacked
+    // reraise-jams) is far too tight for it: measured, gating this widening
+    // to raiseLevel<=1 only left open-jam and 3bet-jam both above +40bb/100
+    // at 25bb — any-two-cards shoving over a short stack's tiny open printed
+    // money because the field folded ~96% of the time. Widening regardless
+    // of raiseLevel fixes both.
+    if (jamBB < 25) {
+      const t = Math.max(0, Math.min((25 - jamBB) / (25 - STRAT.preflop.pushFoldBB), 1))
+      const shortRange = STRAT.preflop.shortJamCallFloor
+        + (STRAT.preflop.shortJamCallCeil - STRAT.preflop.shortJamCallFloor) * t
+      continueRange = Math.max(continueRange, shortRange)
+    }
     if (rawHandPct < continueRange * STRAT.preflop.jamRaisePortion && chips > toCall) {
       return { type: 'raise', amount: chips + playerBet }
     }
