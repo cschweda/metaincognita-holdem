@@ -198,6 +198,18 @@ export default {
       monsterStrength: 0.55,       // strength >= this → monster
       strongStrength: 0.35,        // strength >= this → strong made hand
       weakMadeStrength: 0.10,      // strength in [this, strong) → weak made
+      // Postflop bet sizes are pot fractions and never consulted the stack, so
+      // a short stack could bet itself down to a stub with no leverage left —
+      // it buys no more folds than a smaller bet and cannot threaten a later
+      // street. When the leftover would be dust, push the bet to all-in.
+      //
+      // Dust is BOTH absolute and relative, and it needs both tests. The ratio
+      // alone promoted a half-pot turn bet that left 30bb behind in a big
+      // 3-bet pot, which is a stack you can still fold or shove with — that
+      // reopened the prem3bet-25-fj composite cell at +6.1 bb/100 against its
+      // bound of 4. The BB floor alone would shove 6bb into a pot of 3.
+      commitLeftoverRatio: 0.25,   // leftover must be under this share of the pot it creates
+      commitLeftoverBB: 6,         // ...and under this many big blinds outright
     },
     cbet: {
       strongDry: 0.85, strongWet: 0.55, strongNeutral: 0.65,
@@ -251,6 +263,13 @@ export default {
       weakMin: 0.05,
       weakMax: 0.85,
       maxBluffRate: 0.35,   // cap on any single river bluff frequency
+      // Leading the river into the preflop aggressor from out of position is a
+      // donk bet, and the flop/turn treat that line as deliberately rare: the
+      // OOP air probe runs at 0.18 where the in-position probe runs at 0.40.
+      // The river had no such discount, so a bot led it OOP exactly as often
+      // as it bet in position. Personas carrying an explicit donkBetFreq lead
+      // at their own rate; a pro (donkBetFreq 0) takes this discount.
+      proDonkMod: 0.45,     // 0.18 / 0.40 — the flop/turn OOP-to-IP probe ratio
     },
     // Turn defense (Round 8, Task 11b). River had already been re-anchored to
     // the true defense frequency the bet size implies (see `river` above and

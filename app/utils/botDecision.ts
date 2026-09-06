@@ -151,6 +151,22 @@ export function decayTilt(state: TiltState): void {
 }
 
 /**
+ * The tilt severity a bot actually PLAYS at, which is what `applyTilt` uses.
+ *
+ * `severity` alone is the raw trigger level: a big-pot loss pins it to 1.0 for
+ * everyone, tiltMultiplier or not. Read on its own it says an untiltable
+ * persona is on full tilt, which is what the table badge was showing — Ihil
+ * Pvey (0.3) reading FULL TILT while playing at 0.3 tilt. Anything reporting
+ * tilt to the player should use this instead.
+ *
+ * Not clamped to 1: tilt-prone personas are meant to exceed it (Phellmuth 2.5),
+ * and `applyTilt` caps the individual stats it feeds rather than the scalar.
+ */
+export function effectiveTiltSeverity(tilt: TiltState, tiltMultiplier: number = 1.0): number {
+  return tilt.tilted ? tilt.severity * tiltMultiplier : 0
+}
+
+/**
  * Returns a tilt-modified copy of the base profile. The original is not mutated.
  * tiltMultiplier scales how severely tilt affects this specific bot:
  *   - Phellmuth (2.5): massive tilt swings
@@ -164,7 +180,7 @@ export function applyTilt(
   tiltMultiplier: number = 1.0,
 ): BotProfile {
   if (!tilt.tilted) return base
-  const s = tilt.severity * tiltMultiplier
+  const s = effectiveTiltSeverity(tilt, tiltMultiplier)
   // Cap tilt VPIP widening at +50% of base (a 20% player goes to 30% max, not 65%)
   // This prevents tilt-prone players like Phellmuth from becoming unrecognizable
   const maxVpip = Math.min(base.vpip * 1.5, 0.50)
@@ -644,6 +660,33 @@ function applyCommitRule(action: BotAction, ctx: DecisionContext): BotAction {
   return action
 }
 
+/**
+ * Postflop mirror of applyCommitRule. Postflop sizes are pot fractions
+ * (`sizedBet`, `maybeOverbet`) that never looked at the stack, so a short stack
+ * bet itself down to an unplayable stub — the line that had Ihil Pvey lead the
+ * river for 88% of a 17bb stack and sit down behind $4. That leftover is
+ * strictly dominated: it buys no more fold equity than a smaller bet and no
+ * more than the shove would, and it cannot threaten anything afterwards.
+ *
+ * When the leftover is dust — small relative to the pot the bet creates AND
+ * small outright — promote to all-in; otherwise leave the size alone, clamped
+ * to the stack so no branch can return a bet the player cannot make. A stack
+ * that can still fold or shove on a later street is not dust and is left
+ * alone, so normal-depth play is untouched.
+ */
+function applyPostflopCommitRule(action: BotAction, ctx: DecisionContext): BotAction {
+  if (action.type !== 'raise') return action
+  const allIn = ctx.chips + ctx.playerBet
+  const total = Math.min(action.amount ?? 0, allIn)
+  const remaining = allIn - total
+  if (remaining <= 0) return { type: 'raise', amount: allIn }
+  const potAfter = ctx.pot + (total - ctx.playerBet)
+  const isDust = remaining < potAfter * STRAT.postflop.commitLeftoverRatio
+    && remaining <= STRAT.postflop.commitLeftoverBB * ctx.bb
+  if (isDust) return { type: 'raise', amount: allIn }
+  return total === action.amount ? action : { type: 'raise', amount: total }
+}
+
 function decidePreflopAction(profile: BotProfile, ctx: DecisionContext, rand: number): BotAction {
   return applyCommitRule(decidePreflopCore(profile, ctx, rand), ctx)
 }
@@ -1072,7 +1115,11 @@ function rangeAdvantage(board: BoardTexture, isPreflopRaiser: boolean): number {
   return advantage
 }
 
-function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: number, heroProfile?: HeroProfile): BotAction {
+function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, rand: number, heroProfile?: HeroProfile): BotAction {
+  return applyPostflopCommitRule(decidePostflopCore(profile, ctx, rand, heroProfile), ctx)
+}
+
+function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: number, heroProfile?: HeroProfile): BotAction {
   const rng = ctx.rng ?? Math.random
   const { toCall, pot, chips, bb, currentBet, playerBet, numActivePlayers } = ctx
 
@@ -1247,26 +1294,30 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       return { type: 'check' }
     }
 
+    // How bluffable this river is. Hoisted out of the barrel branch because the
+    // non-barrel river block below needs exactly the same read and had none of
+    // it: a bot leading a scary river bluffed as if the card had not come.
+    const riverCard = ctx.community && ctx.community.length >= 5 ? ctx.community[4] : null
+    let riverScareCard = 1.0
+    if (ctx.street === 'river' && riverCard && board) {
+      // Flush-completing river = scary (slow down unless we have it)
+      const riverSuit = riverCard.suit
+      const flushCount = ctx.community!.filter(c => c.suit === riverSuit).length
+      if (flushCount >= 3 && !hasMonster) riverScareCard *= 0.55
+      // Straight-completing river (connected card near the board)
+      const boardRanks = ctx.community!.slice(0, 4).map(c => c.rank)
+      const minGap = Math.min(...boardRanks.map(r => Math.abs(r - riverCard.rank)))
+      if (minGap <= 2 && !hasMonster) riverScareCard *= 0.75
+    }
+    const riverBluffBoost = board
+      ? (board.isAceHigh && board.isDry ? 1.5 : 1.0)
+        * (board.isWet ? 1.3 : 1.0) // wet board that bricked = "missed draw" bluff
+        * (board.isPaired ? 0.7 : 1.0)
+        * rangeAdv * riverScareCard
+      : 1.0
+
     // Fix 8: Improved river barrel — considers whether river completed draws
     if (betOnTurn && ctx.street === 'river') {
-      const riverCard = ctx.community && ctx.community.length >= 5 ? ctx.community[4] : null
-      let riverScareCard = 1.0
-      if (riverCard && board) {
-        // Flush-completing river = scary (slow down unless we have it)
-        const riverSuit = riverCard.suit
-        const flushCount = ctx.community!.filter(c => c.suit === riverSuit).length
-        if (flushCount >= 3 && !hasMonster) riverScareCard *= 0.55
-        // Straight-completing river (connected card near the board)
-        const boardRanks = ctx.community!.slice(0, 4).map(c => c.rank)
-        const minGap = Math.min(...boardRanks.map(r => Math.abs(r - riverCard.rank)))
-        if (minGap <= 2 && !hasMonster) riverScareCard *= 0.75
-      }
-      const riverBluffBoost = board
-        ? (board.isAceHigh && board.isDry ? 1.5 : 1.0)
-          * (board.isWet ? 1.3 : 1.0) // wet board that bricked = "missed draw" bluff
-          * (board.isPaired ? 0.7 : 1.0)
-          * rangeAdv * riverScareCard
-        : 1.0
       // River polarization: only bet monsters (value) and air (bluffs).
       // Medium-strength hands check to avoid value-owning themselves.
       // IP bluffs more on the river (last to act = maximum fold equity information)
@@ -1293,7 +1344,24 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       // Weak-tight table: this air bluff-bet is the river leg of the probe/stab
       // boost (the two `ctx.street === 'river'` blocks above and here both
       // return before the IP/OOP probe section, so this is the only place a
-      if (hasNothing && rng() < Math.min(profile.bluffFreq * 0.35 * profile.aggression, STRAT.river.maxBluffRate)) {
+      // river bluff can come from for a bot that did not bet the turn).
+      //
+      // That same early return is why this rate had to grow two terms it was
+      // missing. It carried no position at all — an SB lead and a BTN bet
+      // fired at identical frequency — and no board read, so it bluffed a
+      // straight-completing river as though the card had not come. And a lead
+      // into the preflop aggressor from OOP is a donk bet, which the flop and
+      // turn deliberately keep rare; a persona with its own donkBetFreq leads
+      // at its own rate, a pro takes the discount.
+      const isRiverDonk = !isInPosition && !isPreflopRaiser
+      const donkMod = isRiverDonk && (profile.donkBetFreq ?? 0) === 0
+        ? STRAT.river.proDonkMod
+        : 1.0
+      const riverStabRate = Math.min(
+        profile.bluffFreq * 0.35 * profile.aggression * riverBluffBoost * ipAggBoost * donkMod,
+        STRAT.river.maxBluffRate,
+      )
+      if (hasNothing && rng() < riverStabRate) {
         const bluffSize = maybeOverbet(pot, profile, bb, rng)
           ?? sizedBet(pot, 0.55 + rng() * 0.20, profile, bb)
         return { type: 'raise', amount: bluffSize + playerBet }

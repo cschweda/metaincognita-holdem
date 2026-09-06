@@ -9,9 +9,10 @@ defineOptions({ name: 'index' })
  */
 import config from '@config'
 import { assignPositions } from '~/utils/seats'
+import { logHandToConsole } from '~/utils/devHandLog'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
-import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } from '~/utils/botDecision'
+import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState, effectiveTiltSeverity } from '~/utils/botDecision'
 import { parseHeroHandRecord, actedInLine } from '~/utils/heroRecord'
 import { computeObservedStats } from '~/utils/observedStats'
 import { bestHand, HAND_RANK_NAMES, describeHand } from '~/utils/handAnalysis'
@@ -572,6 +573,23 @@ function endHand() {
     updateTilt(p.tilt, won, lostBigPot, config.tilt, p.tiltMultiplier, participated)
   }
 
+  // TEMPORARY dev-only per-hand dump (utils/devHandLog.ts). Runs after the
+  // hand is decided, so an open console cannot help play the current hand,
+  // and `import.meta.dev` drops it entirely from a production build.
+  if (import.meta.dev) {
+    logHandToConsole({
+      handNumber: session.value.handsPlayed + 1,
+      players: gs.playerStates.value,
+      positions: positions.value,
+      community: gs.visibleCommunity.value,
+      pot: gs.pot.value,
+      winnerName: gs.handWinnerName.value,
+      winnerId: gs.handWinnerId.value,
+      actionLog: gs.handActionLog.value,
+      bb: bb.value,
+    })
+  }
+
   // Record hero actions for adaptation — 3-bet/c-bet facing derived from the log
   const heroState = gs.playerStates.value[0]
   if (heroState) {
@@ -881,7 +899,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
                 :last-action="gs.playerStates.value[seatIndex].lastAction"
                 :current-bet-amount="gs.playerStates.value[seatIndex].currentBetAmount"
                 :tilted="gs.playerStates.value[seatIndex].tilt.tilted"
-                :tilt-severity="gs.playerStates.value[seatIndex].tilt.severity"
+                :tilt-severity="effectiveTiltSeverity(gs.playerStates.value[seatIndex].tilt, gs.playerStates.value[seatIndex].tiltMultiplier)"
                 @settings="openBotSettings(seatIndex)"
               />
             </template>
