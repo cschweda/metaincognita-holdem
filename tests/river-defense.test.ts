@@ -71,49 +71,44 @@ function riverDefense(frac: number, n = 18000) {
   return { overall, byClass: Object.fromEntries(Object.entries(stat).map(([k, v]) => [k, v.def / v.n])) as Record<Cls, number> }
 }
 
-// The engine's `mdf` (botDecision.ts, just above the facing-a-bet section)
-// is `1 - potOdds`, where `potOdds = toCall / (pot + toCall)` and `pot`
-// already includes the bet being faced. That is NOT textbook minimum
-// defense frequency (pre-bet pot / (pre-bet pot + bet)) — it's a related
-// but different quantity that compresses much less across bet sizes.
-// Measured across this test's own pot/bet setup:
+// The shared `mdf` in botDecision.ts (used by isWithinMDF on the flop and
+// turn) is `1 - potOdds`, computed from `pot` which already includes the
+// bet being faced. That is a real quantity, but not textbook minimum
+// defense frequency, and it compresses far less across bet sizes than
+// true defense frequency does (~22% from a third-pot bet to a 1.5x-pot
+// overbet, vs. true MDF's ~47%). A first fix anchored the river rules to
+// that shared `mdf` and could not simultaneously defend small bets enough
+// and overbets little enough — proven unsatisfiable by exhaustive sweep
+// (Round 8 task 7 report). Round 8 #3 fixed this at the source: the river
+// block (only — flop/turn still use the shared `mdf`, unchanged, since
+// they are not leaking and re-deriving their behavior is a separate,
+// separately verified round) now computes true defense frequency locally,
+// since `pot` already has the bet added in:
 //
-//   bet size   engine "mdf"   textbook MDF
-//   0.33x         0.800          0.750
-//   0.5x          0.750          0.667
-//   0.66x         0.714          0.600
-//   1.0x          0.667          0.500
-//   1.5x          0.625          0.400
+//   riverMdf = (pot - toCall) / pot            [/ mdfDefenders, as before]
 //
-// The engine's quantity compresses ~22% from 0.33x to 1.5x pot; textbook
-// MDF compresses ~47%. Continuation anchored to the engine's `mdf` is real
-// and size-sensitive (see the monotonicity test below) but cannot compress
-// as fast as textbook MDF would, for any value of river.strongBase/
-// weakBase — proven by exhaustive sweep in the Round 8 task 7 report
-// (over.overall < 0.48 and third.overall > 0.58 cannot hold jointly, nor
-// can the top-pair-vs-overbet ceiling tighten below ~0.74 without pushing
-// pot/over defense out of any sane band). The bands below are
-// calibrated to what the engine's actual `mdf` quantity produces, not to
-// the textbook figure the original bands assumed. If `mdf` is ever
-// corrected to the textbook quantity (a separate change, with its own
-// probe re-verification), these bands — and river.strongBase/weakBase —
-// must be re-derived; they do not carry over.
+// which recovers preBetPot / (preBetPot + bet) directly. That restores the
+// full ~47% compression, so these bands are back to (approximately) the
+// textbook-MDF shape the original brief intended — this is not a
+// coincidence, it's the fix working. If the shared `mdf` is ever corrected
+// the same way, these bands should still hold; if `riverMdf`'s formula
+// changes, re-derive them.
 describe('river defense scales with bet size', () => {
   const third = riverDefense(0.33)
   const pot = riverDefense(1.0)
   const over = riverDefense(1.5)
 
   it('defends far more against a third-pot bet than against a pot-sized bet', () => {
-    expect(third.overall).toBeGreaterThan(pot.overall + 0.05)
+    expect(third.overall).toBeGreaterThan(pot.overall + 0.08)
   })
 
   it('overall defense lands in the MDF-anchored band at each size', () => {
-    expect(third.overall).toBeGreaterThan(0.62)
-    expect(third.overall).toBeLessThan(0.72)
-    expect(pot.overall).toBeGreaterThan(0.54)
-    expect(pot.overall).toBeLessThan(0.64)
-    expect(over.overall).toBeGreaterThan(0.52)
-    expect(over.overall).toBeLessThan(0.62)
+    expect(third.overall).toBeGreaterThan(0.58)
+    expect(third.overall).toBeLessThan(0.70)
+    expect(pot.overall).toBeGreaterThan(0.42)
+    expect(pot.overall).toBeLessThan(0.58)
+    expect(over.overall).toBeGreaterThan(0.33)
+    expect(over.overall).toBeLessThan(0.48)
   })
 
   it('is monotone non-increasing in bet size', () => {
@@ -123,7 +118,7 @@ describe('river defense scales with bet size', () => {
 
   it('top pair calls a small bet and folds enough to a big one', () => {
     expect(third.byClass['top pair']).toBeGreaterThan(0.85)
-    expect(over.byClass['top pair']).toBeLessThan(0.80)
+    expect(over.byClass['top pair']).toBeLessThan(0.65)
   })
 
   it('air still folds and monsters still continue', () => {

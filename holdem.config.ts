@@ -166,32 +166,39 @@ export default {
     barrel: {
       turnMonster: 0.90, turnStrong: 0.70, turnDrawBase: 0.45, turnDefault: 0.25,
     },
-    // River defense (Round 8). Continuation is anchored to the minimum
-    // defense frequency the bet size implies (mdf = 1 - potOdds, split
-    // across multiway defenders), scaled by how far up its class the hand
+    // River defense (Round 8). Continuation is anchored to the true
+    // river defense frequency the bet size implies (riverMdf, computed
+    // locally in botDecision.ts — NOT the shared `mdf` the flop/turn still
+    // use, which is a different, shallower-compressing quantity), split
+    // across multiway defenders, scaled by how far up its class the hand
     // sits. The old rules were size-blind, so the table defended a flat
     // ~45% against everything from a third-pot bet to a 1.5x-pot overbet
     // and a hero could print +18 bb/100 betting small on every river.
     //
-    // Kept at the brief's original 1.15/0.95 estimates rather than the
-    // lower values a static-sweep-only optimization finds. I tried tuning
-    // both down (to 0.925/0.80) to also clear the static sweep's pot- and
-    // overbet-sized ceilings once Round 8 #2 (decisionDraws' river
-    // exclusion + the overcard credit's river scope, both in
-    // botDecision.ts) freed the ~60% of pair-below-top hands that used to
-    // free-fall to an unconditional fold. That tuning DID clear more static
-    // bands, but it measurably hurt the metric that actually matters: the
-    // composite probe's river-33 delta rose from +4.8 (at these literal
-    // values) to +22.0 at 0.925/0.80 — over-defending everywhere costs the
-    // bots more in ordinary bot-vs-bot play than it recovers against a
-    // hero who only exploits checked rivers. See task-7-report.md's
-    // "settling on the brief's literal constants" section for the full
-    // comparison and for why the static sweep's pot/overbet-sized ceilings
-    // cannot be hit jointly with its third-pot floor by any value of these
-    // two constants regardless, given how `mdf` is computed here and how
-    // much of the two-pair+ class is a bet-size-insensitive monster call.
+    // History: Round 8 #1 anchored the river rules to the shared `mdf`,
+    // which compresses only ~22% across bet sizes where true defense
+    // frequency compresses ~47% — no value of strongBase/weakBase could
+    // defend small bets enough AND overbets little enough at once (proven
+    // by exhaustive sweep). Round 8 #2 freed the ~60% of pair-below-top
+    // hands that used to free-fall to an unconditional fold regardless of
+    // these constants (a `detectDraws`/overcard-credit river exclusion).
+    // Round 8 #3 fixed the root cause: the river now computes true defense
+    // frequency locally instead of reusing the shared `mdf`.
+    //
+    // strongBase raised from 1.15 to 1.20 after #3 landed: the corrected,
+    // steeper compression curve meant medium bets (0.66x-1.0x pot) were
+    // slightly under-defended relative to before, measurably by the
+    // composite probe's river-66/river-100 cells. This is the smallest
+    // strongBase nudge that improved those cells without reopening the
+    // overbet leak river-value-150 measures — weakBase changes and larger
+    // strongBase moves were tried and cost more in ordinary bot-vs-bot
+    // play than they recovered (see task-7-report.md's tuning-round-3
+    // section: composite-probe deltas are genuinely noisy at this
+    // resolution, ~5-15 bb/100 between adjacent settings even at 30k hands
+    // x 4 seeds — this value is the best balance found, not a clean
+    // optimum, and not every target cell is met with full confidence).
     river: {
-      strongBase: 1.15,     // top-pair class: share of MDF at the bottom of the class
+      strongBase: 1.20,     // top-pair class: share of MDF at the bottom of the class
       strongShield: 0.45,   // ...plus this much at the top of the class
       strongMin: 0.25,
       strongMax: 0.97,

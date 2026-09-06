@@ -1275,6 +1275,20 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   // Estimate hand's position in range: strength 0.55+ = top ~20%, 0.35+ = top ~40%, etc.
   const handRangePos = 1 - Math.min(strength / 0.70, 1.0)
   const isWithinMDF = handRangePos <= mdf
+  // River-only true defense frequency (Round 8 #3). `mdf` above is
+  // `1 - potOdds`, computed from `pot` which already includes the bet being
+  // faced — a real quantity, but not minimum defense frequency, and it only
+  // compresses ~22% from a third-pot bet to a 1.5x-pot overbet where MDF
+  // compresses ~47%. That shortfall is why river.strongBase/weakBase could
+  // not simultaneously defend small bets enough and overbets little enough
+  // (see the Round 8 task 7 report). Recovering the pre-bet pot (`pot -
+  // toCall`, since `pot` already has the bet added in) gives the textbook
+  // figure directly: preBetPot / (preBetPot + bet) = preBetPot / pot.
+  // Deliberately NOT folded into the shared `mdf`/`isWithinMDF` above —
+  // those still anchor flop/turn defense (`isWithinMDF`), which isn't
+  // leaking, and re-deriving their behavior is a separate, separately
+  // verified change.
+  const riverMdf = (Math.max(pot - toCall, 0) / Math.max(pot, 1)) / mdfDefenders
 
   // Street pressure: later streets require stronger hands to continue
   // Flop = 1.0, Turn = 0.75, River = 0.55 (much harder to call river bets)
@@ -1352,13 +1366,14 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
       if (rng() > continueProb) return { type: 'fold' }
     }
 
-    // River: continuation is anchored to the MDF this bet size implies, so a
-    // third-pot stab must be called far more often than a pot-sized one. The
-    // old rule was size-blind and folded ~55% to everything (Round 8 #1).
+    // River: continuation is anchored to the true defense frequency this bet
+    // size implies (riverMdf, not the shared mdf — see its definition above),
+    // so a third-pot stab must be called far more often than a pot-sized one.
+    // The old rule was size-blind and folded ~55% to everything (Round 8 #1).
     if (!hasMonster && toCall > 0 && ctx.street === 'river') {
       const shield = Math.max(0, Math.min((strength - STRAT.postflop.strongStrength) / 0.20, 1))
       const continueProb = Math.max(STRAT.river.strongMin, Math.min(
-        mdf * (STRAT.river.strongBase + shield * STRAT.river.strongShield) * passiveBoost * sizingExploit,
+        riverMdf * (STRAT.river.strongBase + shield * STRAT.river.strongShield) * passiveBoost * sizingExploit,
         STRAT.river.strongMax))
       if (rng() > continueProb) return { type: 'fold' }
     }
@@ -1403,7 +1418,7 @@ function decidePostflopAction(profile: BotProfile, ctx: DecisionContext, _rand: 
   if (hasWeakMade) {
     if (ctx.street === 'river') {
       const continueProb = Math.max(STRAT.river.weakMin, Math.min(
-        mdf * STRAT.river.weakBase * passiveBoost * sizingExploit, STRAT.river.weakMax))
+        riverMdf * STRAT.river.weakBase * passiveBoost * sizingExploit, STRAT.river.weakMax))
       return rng() < continueProb ? { type: 'call' } : { type: 'fold' }
     }
     if (betToPotRatio < 0.4 && rng() < profile.vpip * 0.7 * streetFactor) return { type: 'call' }
