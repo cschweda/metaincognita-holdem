@@ -9,7 +9,7 @@ import { execSync } from 'child_process'
 
 describe('static analysis report is retired', () => {
   it('ships no public/analysis.html', () => {
-    expect(existsSync('app/public/analysis.html')).toBe(false)
+    expect(existsSync('public/analysis.html')).toBe(false)
   })
 
   it('has no generator that could overwrite the live /analysis page', () => {

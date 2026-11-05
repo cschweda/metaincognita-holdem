@@ -4,13 +4,13 @@
 
 > **This is a free, open-source, single-player educational tool** -- no real money, no gambling, no multiplayer. The simulator itself is serious: three professional poker audits plus a full statistical realism overhaul (40+ fixes), real-time equity calculations, opponent HUD stats, and 27 bots with distinct playing styles. It just happens to also have funny commentary. Think of it as a poker training tool that doesn't take itself too seriously.
 
-![No Limit Hold'em Simulator](app/public/og-image.png)
+![No Limit Hold'em Simulator](public/og-image.png)
 
 | | |
 |---|---|
-| ![Setup Screen](app/public/screenshot01.jpg) | ![Showdown with Hero POV Commentary](app/public/screenshot02.jpg) |
+| ![Setup Screen](public/screenshot01.jpg) | ![Showdown with Hero POV Commentary](public/screenshot02.jpg) |
 | *Setup: choose opponents, stakes, stack depth, and commentary mode* | *Showdown: Hero POV commentary, winner comparison, session stats* |
-| ![TV Broadcast Mode](app/public/screenshot03.jpg) | ![Bot Analysis Report](app/public/screenshot04.jpg) |
+| ![TV Broadcast Mode](public/screenshot03.jpg) | ![Bot Analysis Report](public/screenshot04.jpg) |
 | *TV Broadcast: Mon & Chorman call the action, all cards face-up* | *Bot Analysis: 3,000-hand simulation with observed vs target stats* |
 
 A browser-based No-Limit Texas Hold'em poker simulator with 27 intelligent bot opponents (including 20 pro-inspired personas), real-time hand analysis, live text commentary, and comprehensive cross-session stats. Built for learning poker strategy through practice, observation, and hand replay. Three rounds of professional poker audits (29 fixes) plus a statistical realism overhaul: combo-weighted ranges, board-relative hand strength, episodic tilt, raise-size-aware defense, per-persona range shapes and sizing personalities — validated against live-poker HUD bands with repeatable fixed-lineup simulations.
@@ -931,7 +931,7 @@ The simulator includes a headless bot-vs-bot simulation script (`scripts/simulat
 The live report lives at `/analysis`: it runs the browser simulator (`app/utils/simulateBrowser.ts`) for 2-, 6- and 8-player tables in your tab and shows observed vs configured stats, metrics and chip counts. A downloadable PokerStars-format sample (`/sample-hands.txt`) ships with the site; to refresh it, run the CLI simulator below and copy its newest output:
 
 ```bash
-cp "$(ls -t scripts/output/*.txt | head -1)" app/public/sample-hands.txt
+cp "$(ls -t scripts/output/*.txt | head -1)" public/sample-hands.txt
 ```
 
 (The old static `analysis.html` snapshot and its generator were retired in Round 7 — the page loaded a CDN script the site's own CSP blocks, and the generator would have overwritten the live `/analysis` page.)
@@ -1080,7 +1080,6 @@ holdem-simulator/
 │   │   └── stats.vue              # Cross-session analytics, hand analysis, PokerStars export
 │   ├── stores/
 │   │   └── heroProfile.ts         # Pinia store: hero adaptation profile (fold-to-3bet, tells)
-│   ├── public/                    # og-image, screenshots, sample-hands.txt
 │   └── utils/
 │       ├── botDecision.ts         # Bot decision engine, board texture, tilt, table flow
 │       ├── botDescriptions.ts     # Bot playstyle descriptions for UI
@@ -1098,6 +1097,7 @@ holdem-simulator/
 │       ├── seats.ts               # Position assignment + polar coordinate layout
 │       ├── simulateBrowser.ts     # Browser-side bot-vs-bot simulation engine
 │       └── sidePots.ts            # Side pot calculation and multi-way pot awards
+├── public/                        # og-image, screenshots, sample-hands.txt (Nuxt 4 serves the root public/, not app/public/)
 ├── .github/
 │   └── workflows/ci.yml           # CI: test suite + exploit-probe engine-leak gate
 ├── scripts/
