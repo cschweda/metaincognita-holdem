@@ -1,136 +1,155 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Metaincognita branded background + hold'em content layer. Structure mirrors the
+       blackjack and craps og-images (navy gradient, grids, dot overlay, vignette, corner
+       marks, glowing mono title, stat chips, bottom METAINCOGNITA rule); the accent is the
+       hold'em violet used on metaincognita.com. No numbers are invented: "27 bots" is
+       from the README; equity, outs, pot odds and ranges are named, not quoted.
+       Render: rsvg-convert -w 1200 -h 630 og-image.svg -o og-image.png -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0%" stop-color="#09090b"/>
-      <stop offset="40%" stop-color="#0c0a1a"/>
-      <stop offset="100%" stop-color="#110d22"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0c1a"/>
+      <stop offset="1" stop-color="#060810"/>
     </linearGradient>
-    <radialGradient id="glow1" cx="30%" cy="60%" r="50%">
-      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.08"/>
-      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="glow2" cx="70%" cy="30%" r="40%">
-      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="felt" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#16a34a" stop-opacity="0.9"/>
-      <stop offset="60%" stop-color="#15803d"/>
-      <stop offset="100%" stop-color="#0f5132"/>
-    </radialGradient>
-    <linearGradient id="rail" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#78593a"/>
-      <stop offset="50%" stop-color="#5c3a1e"/>
-      <stop offset="100%" stop-color="#3d2713"/>
-    </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="1" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
-    </filter>
-    <filter id="glow">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2"/>
-      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-
-  <!-- Background -->
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#glow1)"/>
-  <rect width="1200" height="630" fill="url(#glow2)"/>
-
-  <!-- Subtle grid -->
-  <g opacity="0.025">
-    <pattern id="g" width="60" height="60" patternUnits="userSpaceOnUse">
-      <line x1="60" y1="0" x2="60" y2="60" stroke="#fff" stroke-width="0.5"/>
-      <line x1="0" y1="60" x2="60" y2="60" stroke="#fff" stroke-width="0.5"/>
+    <pattern id="grid-fine" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e2848" stroke-width="0.6" opacity="0.75"/>
     </pattern>
-    <rect width="1200" height="630" fill="url(#g)"/>
-  </g>
-
-  <!-- Table -->
-  <g transform="translate(600, 360)">
-    <ellipse cx="0" cy="0" rx="300" ry="150" fill="url(#rail)" stroke="#2a1a0a" stroke-width="2"/>
-    <ellipse cx="0" cy="-1" rx="297" ry="148" fill="none" stroke="#8b6b4a" stroke-width="0.5" opacity="0.4"/>
-    <ellipse cx="0" cy="0" rx="272" ry="130" fill="url(#felt)" stroke="#0d6b34" stroke-width="1.5"/>
-    <ellipse cx="0" cy="0" rx="272" ry="130" fill="url(#glow1)" opacity="0.3"/>
-    <ellipse cx="0" cy="0" rx="190" ry="82" fill="none" stroke="#22c55e" stroke-width="0.5" opacity="0.15" stroke-dasharray="6 4"/>
-
-    <!-- Community cards -->
-    <g transform="translate(-90, -12)">
-      <g transform="translate(0,0)" filter="url(#shadow)">
-        <rect width="36" height="50" rx="3" fill="#fafaf9" stroke="#d4d4d4" stroke-width="0.5"/>
-        <text x="4" y="13" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#dc2626">A</text>
-        <text x="18" y="35" font-family="serif" font-size="16" fill="#dc2626" text-anchor="middle">&#x2665;</text>
-      </g>
-      <g transform="translate(42,0)" filter="url(#shadow)">
-        <rect width="36" height="50" rx="3" fill="#fafaf9" stroke="#d4d4d4" stroke-width="0.5"/>
-        <text x="4" y="13" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#171717">K</text>
-        <text x="18" y="35" font-family="serif" font-size="16" fill="#171717" text-anchor="middle">&#x2660;</text>
-      </g>
-      <g transform="translate(84,0)" filter="url(#shadow)">
-        <rect width="36" height="50" rx="3" fill="#fafaf9" stroke="#d4d4d4" stroke-width="0.5"/>
-        <text x="4" y="13" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#dc2626">Q</text>
-        <text x="18" y="35" font-family="serif" font-size="16" fill="#dc2626" text-anchor="middle">&#x2666;</text>
-      </g>
-      <g transform="translate(126,0)" filter="url(#shadow)">
-        <rect width="36" height="50" rx="3" fill="#fafaf9" stroke="#d4d4d4" stroke-width="0.5"/>
-        <text x="4" y="13" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#171717">8</text>
-        <text x="18" y="35" font-family="serif" font-size="16" fill="#171717" text-anchor="middle">&#x2663;</text>
-      </g>
-      <g transform="translate(168,0)" filter="url(#shadow)">
-        <rect width="36" height="50" rx="3" fill="#fafaf9" stroke="#d4d4d4" stroke-width="0.5"/>
-        <text x="4" y="13" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#dc2626">J</text>
-        <text x="18" y="35" font-family="serif" font-size="16" fill="#dc2626" text-anchor="middle">&#x2665;</text>
-      </g>
-    </g>
-
-    <!-- Hero cards -->
-    <g transform="translate(-38, 68) rotate(-6)" filter="url(#shadow)">
-      <rect width="42" height="58" rx="3" fill="#fafaf9" stroke="#ccc" stroke-width="0.5"/>
-      <text x="5" y="16" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#171717">A</text>
-      <text x="21" y="42" font-family="serif" font-size="20" fill="#171717" text-anchor="middle">&#x2660;</text>
-    </g>
-    <g transform="translate(4, 66) rotate(5)" filter="url(#shadow)">
-      <rect width="42" height="58" rx="3" fill="#fafaf9" stroke="#ccc" stroke-width="0.5"/>
-      <text x="5" y="16" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#dc2626">K</text>
-      <text x="21" y="42" font-family="serif" font-size="20" fill="#dc2626" text-anchor="middle">&#x2665;</text>
-    </g>
-
-    <!-- Chips -->
-    <g transform="translate(-180, 30)">
-      <ellipse cx="0" cy="0" rx="14" ry="8" fill="#171717" stroke="#444" stroke-width="1"/>
-      <ellipse cx="0" cy="-5" rx="14" ry="8" fill="#dc2626" stroke="#991b1b" stroke-width="1"/>
-      <ellipse cx="0" cy="-10" rx="14" ry="8" fill="#16a34a" stroke="#14532d" stroke-width="1"/>
-    </g>
-    <g transform="translate(185, 25)">
-      <ellipse cx="0" cy="0" rx="14" ry="8" fill="#dc2626" stroke="#991b1b" stroke-width="1"/>
-      <ellipse cx="0" cy="-5" rx="14" ry="8" fill="#171717" stroke="#444" stroke-width="1"/>
-    </g>
-    <g transform="translate(15, -48)">
-      <ellipse cx="0" cy="0" rx="12" ry="7" fill="#a855f7" stroke="#7c3aed" stroke-width="1"/>
-      <ellipse cx="0" cy="-4" rx="12" ry="7" fill="#a855f7" stroke="#7c3aed" stroke-width="1"/>
-    </g>
-  </g>
-
-  <!-- Title -->
-  <text x="600" y="95" text-anchor="middle" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="48" font-weight="800" fill="#fafafa" letter-spacing="-1">
-    No Limit Hold'em Simulator
-  </text>
-
-  <!-- Accent line -->
-  <rect x="420" y="112" width="360" height="3" rx="1.5" fill="url(#accentLine)" opacity="0.8"/>
-  <defs>
-    <linearGradient id="accentLine" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#22c55e" stop-opacity="0"/>
-      <stop offset="30%" stop-color="#22c55e"/>
-      <stop offset="50%" stop-color="#a855f7"/>
-      <stop offset="70%" stop-color="#a855f7"/>
-      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    <pattern id="grid-major" width="100" height="100" patternUnits="userSpaceOnUse">
+      <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#283458" stroke-width="1.2"/>
+    </pattern>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="0.8" fill="#2a3460"/>
+    </pattern>
+    <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.55"/>
+    </radialGradient>
+    <radialGradient id="felt" cx="0.5" cy="0.1" r="1">
+      <stop offset="0" stop-color="#0d7a48"/>
+      <stop offset="0.7" stop-color="#0a5c36"/>
+      <stop offset="1" stop-color="#07472a"/>
+    </radialGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#78593a"/>
+      <stop offset="1" stop-color="#3d2713"/>
     </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
   </defs>
 
-  <!-- Tagline -->
-  <text x="600" y="146" text-anchor="middle" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#a1a1aa" letter-spacing="5">
-    LEARN. PLAY. WIN.
-  </text>
+  <!-- background stack -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid-fine)"/>
+  <rect width="1200" height="630" fill="url(#grid-major)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
 
+  <!-- ====================== content layer: hold'em table ====================== -->
+  <g>
+    <ellipse cx="760" cy="652" rx="540" ry="300" fill="url(#rail)"/>
+    <ellipse cx="760" cy="660" rx="518" ry="282" fill="url(#felt)"/>
+    <ellipse cx="760" cy="660" rx="460" ry="236" fill="none" stroke="#f5f0e1" stroke-opacity="0.18" stroke-width="2"/>
+  </g>
+  <!-- the board: flop, turn, river -->
+    <g filter="url(#shadow)" transform="translate(560 378) rotate(0)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#dc2626">A</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#dc2626" text-anchor="middle">&#9829;</text>
+    </g>
+    <g filter="url(#shadow)" transform="translate(634 378) rotate(0)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#111827">K</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#111827" text-anchor="middle">&#9824;</text>
+    </g>
+    <g filter="url(#shadow)" transform="translate(708 378) rotate(0)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#dc2626">Q</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#dc2626" text-anchor="middle">&#9830;</text>
+    </g>
+    <g filter="url(#shadow)" transform="translate(782 378) rotate(0)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#111827">8</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#111827" text-anchor="middle">&#9827;</text>
+    </g>
+    <g filter="url(#shadow)" transform="translate(856 378) rotate(0)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#dc2626">J</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#dc2626" text-anchor="middle">&#9829;</text>
+    </g>
+  <!-- the hero's hole cards -->
+    <g filter="url(#shadow)" transform="translate(694 486) rotate(-8)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#111827">A</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#111827" text-anchor="middle">&#9824;</text>
+    </g>
+    <g filter="url(#shadow)" transform="translate(756 482) rotate(7)">
+      <rect width="62" height="86" rx="7" fill="#fbf8ee" stroke="#d6d0bd" stroke-width="1"/>
+      <text x="9" y="24" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="700" fill="#dc2626">K</text>
+      <text x="31.0" y="70" font-family="Arial, sans-serif" font-size="32" fill="#dc2626" text-anchor="middle">&#9829;</text>
+    </g>
+  <!-- the pot -->
+  <g transform="translate(470 520)">
+    <ellipse cx="0" cy="0" rx="30" ry="9" fill="#1a1a1a" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+    <ellipse cx="0" cy="-12" rx="30" ry="9" fill="#16a34a" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+    <ellipse cx="0" cy="-24" rx="30" ry="9" fill="#dc2626" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+    <ellipse cx="0" cy="-36" rx="30" ry="9" fill="#8a8cff" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+  </g>
+  <g transform="translate(1060 470)">
+    <ellipse cx="0" cy="0" rx="30" ry="9" fill="#1a1a1a" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+    <ellipse cx="0" cy="-12" rx="30" ry="9" fill="#8a8cff" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+    <ellipse cx="0" cy="-24" rx="30" ry="9" fill="#16a34a" stroke="#f5f0e1" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="7 5"/>
+  </g>
+
+  <!-- the HUD motif (what the app shows as you play, right edge) -->
+  <g transform="translate(944 72)" opacity="0.9">
+    <text x="0" y="-12" font-family="'Fira Code', Menlo, monospace" font-size="13" fill="#64748b" letter-spacing="2">AS YOU PLAY</text>
+    <g font-family="'Fira Code', Menlo, monospace" font-size="13">
+      <text x="0" y="10" fill="#94a3b8">Equity</text><text x="196" y="10" fill="#8a8cff" text-anchor="end">live</text>
+      <text x="0" y="34" fill="#94a3b8">Outs</text><text x="196" y="34" fill="#8a8cff" text-anchor="end">counted</text>
+      <text x="0" y="58" fill="#94a3b8">Pot odds</text><text x="196" y="58" fill="#8a8cff" text-anchor="end">priced</text>
+      <text x="0" y="82" fill="#94a3b8">Hand ranges</text><text x="196" y="82" fill="#8a8cff" text-anchor="end">shown</text>
+    </g>
+    <line x1="0" y1="96" x2="196" y2="96" stroke="#283458" stroke-width="1"/>
+    <text x="0" y="116" font-family="'Fira Code', Menlo, monospace" font-size="14" fill="#8a8cff">27 BOTS AT THE TABLE</text>
+  </g>
+
+  <!-- title block -->
+  <g>
+    <text x="64" y="118" font-family="'Fira Code', Menlo, monospace" font-size="58" font-weight="700" fill="#8a8cff" filter="url(#glow)">No-Limit Hold&#8217;em</text>
+    <text x="66" y="162" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="21" fill="#64748b" letter-spacing="1">Texas Hold&#8217;em against intelligent bots &#183; live hand analysis</text>
+    <text x="66" y="200" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#a1a1aa" letter-spacing="5">KNOW YOUR EQUITY. COUNT YOUR OUTS. READ THE RANGE.</text>
+  </g>
+
+  <!-- mono stat chips -->
+  <g font-family="'Fira Code', Menlo, monospace" font-size="15">
+    <rect x="66" y="232" width="140" height="34" rx="8" fill="#10182e" stroke="#8a8cff" stroke-opacity="0.6"/>
+    <text x="80" y="255" fill="#8a8cff">Live equity</text>
+    <rect x="220" y="232" width="104" height="34" rx="8" fill="#10182e" stroke="#7ee0a6" stroke-opacity="0.6"/>
+    <text x="234" y="255" fill="#7ee0a6">27 bots</text>
+    <rect x="338" y="232" width="168" height="34" rx="8" fill="#10182e" stroke="#f5f0e1" stroke-opacity="0.6"/>
+    <text x="352" y="255" fill="#f5f0e1">Hand replay</text>
+  </g>
+
+  <!-- vignette over everything except chrome -->
+  <rect width="1200" height="630" fill="url(#vignette)"/>
+
+  <!-- corner registration marks -->
+  <g stroke="#3a4570" stroke-width="2" fill="none">
+    <path d="M 24 44 L 24 24 L 44 24"/>
+    <path d="M 1156 24 L 1176 24 L 1176 44"/>
+    <path d="M 1176 586 L 1176 606 L 1156 606"/>
+    <path d="M 44 606 L 24 606 L 24 586"/>
+  </g>
+
+  <!-- bottom branding -->
+  <rect x="64" y="594" width="120" height="4" fill="#8a8cff"/>
+  <line x1="0" y1="600" x2="1200" y2="600" stroke="#1e2848" stroke-width="1"/>
+  <text x="64" y="621" font-family="'Fira Code', Menlo, monospace" font-size="13" fill="#3a4570" letter-spacing="6">METAINCOGNITA</text>
+  <text x="1136" y="621" font-family="'Fira Code', Menlo, monospace" font-size="13" fill="#3a4570" letter-spacing="2" text-anchor="end">CASINO SIMULATOR SUITE</text>
 </svg>
