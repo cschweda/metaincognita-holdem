@@ -31,6 +31,36 @@ export function assignPositions(playerCount: number, dealerSeat: number): string
 }
 
 /**
+ * Position labels when some seats are empty (busted players). Only live seats
+ * get a label — the layout for the number of players still in the game,
+ * dealt clockwise from the button — and empty seats get ''. If the button
+ * seat itself is empty, the button is the next live seat.
+ */
+export function assignLivePositions(alive: boolean[], dealerSeat: number): string[] {
+  const n = alive.length
+  const positions = new Array<string>(n).fill('')
+  const live: number[] = []
+  for (let i = 0; i < n; i++) {
+    const seat = (dealerSeat + i) % n
+    if (alive[seat]) live.push(seat)
+  }
+  const template = POSITION_MAPS[live.length]
+  if (!template) return positions // fewer than two players: no hand to play
+  live.forEach((seat, i) => { positions[seat] = template[i]! })
+  return positions
+}
+
+/** The next live seat clockwise from `from` (exclusive). Returns `from` if none. */
+export function nextLiveSeat(alive: boolean[], from: number): number {
+  const n = alive.length
+  for (let i = 1; i <= n; i++) {
+    const seat = (from + i) % n
+    if (alive[seat]) return seat
+  }
+  return from
+}
+
+/**
  * Returns the seat index for a given position label.
  */
 export function findSeatByPosition(

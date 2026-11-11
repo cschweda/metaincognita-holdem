@@ -10,11 +10,20 @@ const props = withDefaults(defineProps<{
   toCall: number
   minRaise: number
   maxRaise: number // hero's remaining stack
+  heroBet?: number // chips the hero already has in front of them this street
+  raiseAllowed?: boolean // false when a short all-in left the hero call-or-fold only
   bb: number
   enabled?: boolean
 }>(), {
   enabled: true,
+  heroBet: 0,
+  raiseAllowed: true,
 })
+
+// Raise amounts are raise-TO totals, so all-in is the remaining stack plus
+// what is already in front of the hero (a big blind with 198 behind and 2
+// posted is all-in to 200, not 198).
+const allInTo = computed(() => props.maxRaise + props.heroBet)
 
 const emit = defineEmits<{
   fold: []
@@ -26,7 +35,7 @@ const emit = defineEmits<{
 // Default raise to half-pot (clamped to min/max) — more useful than min-raise on big pots
 function defaultRaise(): number {
   const halfPot = Math.round(props.pot * 0.5)
-  return Math.min(Math.max(halfPot, props.minRaise), props.maxRaise)
+  return Math.min(Math.max(halfPot, props.minRaise), allInTo.value)
 }
 
 const raiseAmount = ref(defaultRaise())
@@ -34,13 +43,13 @@ const customInput = ref('')
 const showCustom = ref(false)
 
 // Reset raise amount to a sensible default when the situation changes
-watch(() => [props.minRaise, props.maxRaise, props.pot], () => {
+watch(() => [props.minRaise, allInTo.value, props.pot], () => {
   raiseAmount.value = defaultRaise()
 })
 
 const canCheck = computed(() => props.toCall === 0)
-const canRaise = computed(() => props.maxRaise > props.toCall)
-const isAllIn = computed(() => raiseAmount.value >= props.maxRaise)
+const canRaise = computed(() => props.raiseAllowed && props.maxRaise > props.toCall)
+const isAllIn = computed(() => raiseAmount.value >= allInTo.value)
 
 // Pot-fraction presets
 const presets = computed(() => {
@@ -52,19 +61,19 @@ const presets = computed(() => {
   ]
   return fractions.map(f => {
     const raw = Math.round(props.pot * f.mult)
-    const clamped = Math.min(Math.max(raw, props.minRaise), props.maxRaise)
+    const clamped = Math.min(Math.max(raw, props.minRaise), allInTo.value)
     const isClamped = raw < props.minRaise // true if the fraction was below min-raise
-    return { ...f, amount: clamped, raw, isClamped, disabled: clamped > props.maxRaise }
+    return { ...f, amount: clamped, raw, isClamped, disabled: clamped > allInTo.value }
   })
 })
 
 function setRaise(amount: number) {
-  raiseAmount.value = Math.min(Math.max(amount, props.minRaise), props.maxRaise)
+  raiseAmount.value = Math.min(Math.max(amount, props.minRaise), allInTo.value)
   showCustom.value = false
 }
 
 function raisePreset(amount: number) {
-  const clamped = Math.min(Math.max(amount, props.minRaise), props.maxRaise)
+  const clamped = Math.min(Math.max(amount, props.minRaise), allInTo.value)
   raiseAmount.value = clamped
   emit('raise', clamped)
 }
@@ -144,7 +153,7 @@ function formatAmount(n: number): string {
       <UTooltip
         v-if="canRaise"
         :text="isAllIn
-          ? `Push all your chips in — ${formatAmount(maxRaise)}`
+          ? `Push all your chips in — ${formatAmount(allInTo)}`
           : `Increase the bet to ${formatAmount(raiseAmount)} (min ${formatAmount(minRaise)})`"
         class="flex-1"
       >
@@ -155,7 +164,7 @@ function formatAmount(n: number): string {
           @click="handleRaise"
         >
           <template v-if="isAllIn">
-            All-In <span class="tabular-nums">{{ formatAmount(maxRaise) }}</span>
+            All-In <span class="tabular-nums">{{ formatAmount(allInTo) }}</span>
           </template>
           <template v-else>
             Raise <span class="tabular-nums">{{ formatAmount(raiseAmount) }}</span>
@@ -194,17 +203,17 @@ function formatAmount(n: number): string {
         </UTooltip>
 
         <!-- All-in button -->
-        <UTooltip :text="`Go all-in for ${formatAmount(maxRaise)}`" class="flex-1">
+        <UTooltip :text="`Go all-in for ${formatAmount(allInTo)}`" class="flex-1">
           <button
             class="w-full py-2.5 rounded-lg text-sm font-bold transition-all border
                    active:scale-[0.97]"
-            :class="raiseAmount === maxRaise
+            :class="raiseAmount === allInTo
               ? 'bg-amber-700/70 text-amber-100 border-amber-500/60 shadow-sm shadow-amber-500/10'
               : 'bg-gray-800/70 text-gray-200 border-gray-700/50 hover:bg-gray-700/70'"
-            @click="raisePreset(maxRaise)"
+            @click="raisePreset(allInTo)"
           >
             All-In
-            <span class="block text-[0.6rem] opacity-60 mt-0.5 tabular-nums">{{ formatAmount(maxRaise) }}</span>
+            <span class="block text-[0.6rem] opacity-60 mt-0.5 tabular-nums">{{ formatAmount(allInTo) }}</span>
           </button>
         </UTooltip>
       </div>
@@ -216,7 +225,7 @@ function formatAmount(n: number): string {
           v-model.number="raiseAmount"
           type="range"
           :min="minRaise"
-          :max="maxRaise"
+          :max="allInTo"
           :step="bb"
           class="flex-1 h-2 appearance-none rounded-full bg-gray-700 cursor-pointer
                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
@@ -224,7 +233,7 @@ function formatAmount(n: number): string {
                  [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-green-300
                  [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer"
         />
-        <span class="text-[0.65rem] text-gray-500 w-16 font-mono tabular-nums">{{ formatAmount(maxRaise) }}</span>
+        <span class="text-[0.65rem] text-gray-500 w-16 font-mono tabular-nums">{{ formatAmount(allInTo) }}</span>
       </div>
 
       <!-- Current raise display + min-raise indicator + custom input toggle -->
@@ -249,9 +258,9 @@ function formatAmount(n: number): string {
           v-model="customInput"
           type="number"
           :min="minRaise"
-          :max="maxRaise"
+          :max="allInTo"
           :step="bb"
-          :placeholder="`${minRaise} – ${maxRaise}`"
+          :placeholder="`${minRaise} – ${allInTo}`"
           class="flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-white
                  placeholder-gray-500 focus:outline-none focus:border-green-500/50"
           @keyup.enter="applyCustom"

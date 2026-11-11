@@ -473,6 +473,8 @@ function resultClass(result: string): string {
             :to-call="gs.toCall.value"
             :min-raise="gs.minRaise.value"
             :max-raise="gs.maxRaise.value"
+            :hero-bet="gs.hero.value?.betThisRound ?? 0"
+            :raise-allowed="gs.heroCanRaise.value"
             :bb="bb"
             :enabled="true"
             @fold="engine.handleFold"

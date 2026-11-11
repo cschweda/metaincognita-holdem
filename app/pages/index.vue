@@ -8,7 +8,7 @@ defineOptions({ name: 'index' })
  * tilt tracking, session stats, hero adaptation).
  */
 import config from '@config'
-import { assignPositions } from '~/utils/seats'
+import { assignLivePositions, nextLiveSeat } from '~/utils/seats'
 import { logHandToConsole, noteHandStart, installHandLogHelpers } from '~/utils/devHandLog'
 import type { Card } from '~/utils/cards'
 import type { GameSettings } from '~/components/SetupScreen.vue'
@@ -159,10 +159,21 @@ const bb = computed(() => stake.value?.bb || 2)
 const sb = computed(() => stake.value?.sb || 1)
 const startingStack = computed(() => bb.value * (settings.value?.stackBB || 100))
 
+// Seats dealt into the current hand. A busted bot leaves the rotation: it
+// takes no button, posts no blind and is dealt no cards. Snapshotted at the
+// deal so labels do not shift when someone busts at showdown.
+const liveSeats = ref<boolean[]>([])
 const positions = computed(() => {
   if (!settings.value) return []
-  return assignPositions(settings.value.playerCount, gs.dealerSeat.value)
+  const n = settings.value.playerCount
+  const alive = liveSeats.value.length === n ? liveSeats.value : new Array<boolean>(n).fill(true)
+  return assignLivePositions(alive, gs.dealerSeat.value)
 })
+
+// Every bot is out of chips — there is nobody left to deal to.
+const tableCleared = computed(() =>
+  gs.playerStates.value.length > 1
+  && gs.playerStates.value.every(p => p.isHero || p.eliminated))
 
 const heroPosition = computed(() => positions.value[0] || 'BTN')
 
@@ -441,6 +452,8 @@ function shuffleDeck(): Card[] {
 
 function dealNewHand() {
   const count = settings.value?.playerCount || 2
+  const alive = Array.from({ length: count }, (_, i) => !gs.playerStates.value[i]?.eliminated)
+  if (alive.filter(Boolean).length < 2) return // table cleared — nobody to play
   const deck = shuffleDeck()
   let idx = 0
 
@@ -455,10 +468,11 @@ function dealNewHand() {
     states.push({
       id: i,
       name: isHero ? settings.value!.heroName : (botConfig?.name || `Bot ${i}`),
-      chips: prevState && !prevState.eliminated ? prevState.chips : startingStack.value,
-      holeCards: [deck[idx++], deck[idx++]],
+      // A busted seat stays empty: no refilled stack, no cards.
+      chips: prevState ? (prevState.eliminated ? 0 : prevState.chips) : startingStack.value,
+      holeCards: alive[i] ? [deck[idx++], deck[idx++]] : null,
       folded: false,
-      eliminated: prevState?.eliminated || false,
+      eliminated: !alive[i],
       isHero,
       lastAction: null,
       currentBetAmount: 0,
@@ -487,7 +501,10 @@ function dealNewHand() {
   // while the blinds and every bot decision — which all run after this line —
   // used the advanced one. The hand played correctly; only the log lied, and
   // it lied in the app's own replay view and the PokerStars export too.
-  gs.dealerSeat.value = (gs.dealerSeat.value + 1) % count
+  // The button skips busted seats, and positions are laid out over the
+  // players still in the game.
+  liveSeats.value = alive
+  gs.dealerSeat.value = nextLiveSeat(alive, gs.dealerSeat.value)
 
   const playerCards = states
     .filter(p => !p.eliminated)
@@ -645,7 +662,7 @@ function endHand() {
       name: p.name,
       position: positions.value[i] || '',
       holeCards: p.holeCards ? p.holeCards.map(c => displayCard(c)).join(' ') : '',
-      folded: p.folded,
+      folded: p.folded || p.eliminated, // an empty seat did not reach showdown
       isHero: p.isHero,
       chips: p.chips + (p.id === winnerId ? gs.pot.value : 0),
       seatIndex: i,
@@ -1011,6 +1028,8 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
             :to-call="gs.toCall.value"
             :min-raise="gs.minRaise.value"
             :max-raise="gs.maxRaise.value"
+            :hero-bet="gs.hero.value?.betThisRound ?? 0"
+            :raise-allowed="gs.heroCanRaise.value"
             :bb="bb"
             :enabled="true"
             @fold="engine.handleFold"
@@ -1037,6 +1056,12 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
                 @click="() => { phase = 'busted' }"
               >
                 Cash Out
+              </UButton>
+            </template>
+            <template v-else-if="tableCleared">
+              <span class="self-center text-sm text-amber-300 font-semibold">You busted the whole table.</span>
+              <UButton v-if="!careerMode" color="primary" size="lg" @click="backToSetup">
+                New Table
               </UButton>
             </template>
             <UButton
