@@ -17,6 +17,7 @@ import { parseHeroHandRecord, actedInLine } from '~/utils/heroRecord'
 import { computeObservedStats } from '~/utils/observedStats'
 import { bestHand, HAND_RANK_NAMES, describeHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
+import { actsLastPostflop } from '~/utils/bettingEngine'
 import type { HeroProfile } from '~/utils/botDecision'
 import { displayCard } from '~/utils/cards'
 import { useGameState } from '~/composables/useGameState'
@@ -31,7 +32,7 @@ import { shuffle } from '~/utils/shuffle'
 import { isPro as isProBot } from '~/utils/botDescriptions'
 
 const phase = ref<'setup' | 'table' | 'timeout' | 'busted'>('setup')
-const { session, initSession, recordHand, resetSession, downloadJSON, downloadCSV } = useSessionStats()
+const { session, initSession, recordHand, adoptStoredHands, resetSession, downloadJSON, downloadCSV } = useSessionStats()
 const settings = ref<GameSettings | null>(null)
 const heroProfileStore = useHeroProfileStore()
 const careerStore = useCareerStore()
@@ -99,6 +100,8 @@ function endCareerSession(endedBy: 'leave' | 'felted' | 'timeout') {
 // resumes it — unless the user had paused TV-mode themselves.
 let pausedByNav = false
 onActivated(() => {
+  // Hands deleted on the stats page while this page was cached stay deleted
+  if (phase.value !== 'setup') adoptStoredHands()
   if (phase.value === 'table') resetTimeout()
   if (pausedByNav) {
     engine.paused.value = false
@@ -132,6 +135,22 @@ function handleTimeout() {
     heroState.folded = true
     heroState.lastAction = 'fold'
     gs.waitingForHero.value = false
+  }
+  // The abandoned hand is a fold: book it, so the chips left in its pot are
+  // that hand's loss and do not turn up in the next hand's result.
+  if (heroState && gs.dealt.value && gs.street.value !== 'showdown') {
+    recordHand({
+      handNumber: session.value.handsPlayed + 1,
+      holeCards: heroState.holeCards ? heroState.holeCards.map(c => displayCard(c)).join(' ') : '',
+      board: gs.visibleCommunity.value.map(c => displayCard(c)).join(' '),
+      result: 'folded',
+      position: positions.value[0] || '',
+      potSize: gs.pot.value,
+      actions: [...gs.handActionLog.value, `${heroState.name} folds (timed out)`],
+      players: [],
+      winnerName: '',
+    }, heroState.chips)
+    gs.street.value = 'showdown'
   }
   if (careerMode.value) {
     // Inactivity ends the career session; current stack settles like a leave.
@@ -201,6 +220,12 @@ const showdownPlayers = computed(() => {
 })
 
 const queuedAction = ref<string | null>(null)
+
+// The hero's real result for the hand just finished: stack after the pots
+// were awarded minus stack at the deal. Right for split and side pots, where
+// "the pot minus what I put in" is not what the hero actually received.
+let heroStackAtDeal = 0
+const heroHandNet = ref(0)
 
 // ─── Bot Profile Modal ────────────────────────────────────────
 const botModalOpen = ref(false)
@@ -274,7 +299,8 @@ const engine = useGameEngine({
 
     const profile = applyTilt(baseProfile, p.tilt, config.tilt, p.tiltMultiplier)
 
-    const personaConfig = config.personas.find(per => per.name === botConfig.name)
+    // Looked up by preset, not display name: a renamed bot keeps its persona.
+    const personaConfig = config.personas.find(per => per.name === (botConfig.preset || botConfig.name))
     const consistency = personaConfig?.consistency ?? 0.95
 
     const sessionProfile: HeroProfile | undefined = heroProfileStore.handsTracked >= config.sessionMemory.windowSize
@@ -282,6 +308,7 @@ const engine = useGameEngine({
           vpip: heroProfileStore.heroVpip,
           foldTo3Bet: heroProfileStore.heroFoldTo3Bet,
           foldToCbet: heroProfileStore.heroFoldToCbet,
+          cbetsFaced: heroProfileStore.heroCbetsFaced,
           aggression: heroProfileStore.heroAggression,
           handsTracked: heroProfileStore.handsTracked,
           betSizingTell: heroProfileStore.betSizingTell,
@@ -298,6 +325,15 @@ const engine = useGameEngine({
         : undefined
     }
 
+    // A read on the hero is a read on the HERO: it applies only while the
+    // hero is still in the hand, and the bet-sizing tell only to a bet the
+    // hero made. (It used to steer every pot, including bot-vs-bot ones.)
+    const heroInHand = !!gs.hero.value && !gs.hero.value.folded
+    if (!heroInHand) heroProfile = undefined
+    const lastAggressor = gs.playerStates.value.find(o =>
+      !o.folded && !o.eliminated && gs.currentBet.value > 0 && o.betThisRound === gs.currentBet.value
+      && (o.lastAction === 'raise' || o.lastAction === 'all-in'))
+
     return decideBotAction(
       profile,
       {
@@ -311,12 +347,15 @@ const engine = useGameEngine({
         numActivePlayers: gs.activePlayers.value.length,
         raiseLevel,
         position: positions.value[p.id] || '',
+        inPosition: actsLastPostflop(gs.playerStates.value, gs.dealerSeat.value, p.id),
+        facingHeroBet: lastAggressor?.id === 0,
         holeCards: p.holeCards ?? undefined,
         // Street-sliced board only — decideBotAction re-slices defensively,
         // but never hand the full runout to a decision in the first place.
         community: gs.visibleCommunity.value.length > 0 ? gs.visibleCommunity.value : undefined,
         wasPreflopRaiser: streetContext?.wasPreflopRaiser,
         preflopCallers: streetContext?.preflopCallers,
+        checkedThisStreet: streetContext?.checkedThisStreet,
         streetHistory: streetContext?.streetHistory as any,
         tableDynamics: streetContext?.tableDynamics,
         tableReads: streetContext?.tableReads,
@@ -375,16 +414,17 @@ function onGameKeydown(e: KeyboardEvent) {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
   if (!gs.heroTurn.value) return
 
-  if (e.key === 'f' || e.key === 'F') {
-    e.preventDefault()
-    engine.handleFold()
-  }
-  else if (e.key === 'c' || e.key === 'C') {
-    e.preventDefault()
+  // Bare F / C / R only — with Cmd/Ctrl/Alt held the key is the browser's
+  // (Cmd+R must reload, not raise). utils/heroInput.ts
+  const action = hotkeyAction(e)
+  if (!action) return
+  e.preventDefault()
+  if (action === 'fold') engine.handleFold()
+  else if (action === 'call') {
     if (gs.toCall.value > 0) engine.handleCall(Math.min(gs.toCall.value, gs.maxRaise.value))
     else engine.handleCheck()
   }
-  else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); heroRaise(Math.round(gs.pot.value * 0.5)) }
+  else heroRaise(Math.round(gs.pot.value * 0.5))
 }
 // Keep-alive: bind on activation, unbind on deactivation — with only the
 // mounted/unmounted pair, the cached page keeps intercepting f/c/r on every
@@ -422,6 +462,9 @@ function handleStart(gameSettings: GameSettings) {
 
 // Hero raise wrapper — records postflop bet sizing for the bots' tell detection
 function heroRaise(amount: number) {
+  // A short all-in has closed the betting to the hero: the only options are
+  // call or fold, and a "raise" (the R key) must not be logged as a bet size.
+  if (!gs.heroCanRaise.value) { engine.handleCall(); return }
   if (gs.street.value !== 'preflop' && gs.pot.value > 0) {
     heroProfileStore.recordHeroBetSizing(amount / gs.pot.value)
     heroPendingSizings.push(amount / gs.pot.value)
@@ -431,6 +474,7 @@ function heroRaise(amount: number) {
 
 function findPersonaTiltMultiplier(name?: string): number {
   if (!name) return 1.0
+  // `name` is the persona preset — a renamed bot keeps its temperament
   const persona = config.personas.find(p => p.name === name)
   return persona?.tiltMultiplier ?? 1.0
 }
@@ -479,10 +523,11 @@ function dealNewHand() {
       betThisRound: 0,
       totalInvested: 0,
       tilt: prevTilt,
-      tiltMultiplier: !isHero ? (findPersonaTiltMultiplier(botConfig?.name) ?? 1.0) : 1.0,
+      tiltMultiplier: !isHero ? (botConfig?.tiltMultiplier ?? findPersonaTiltMultiplier(botConfig?.preset || botConfig?.name)) : 1.0,
     })
   }
   gs.playerStates.value = states
+  heroStackAtDeal = states[0]?.chips ?? 0
   noteHandStart(states) // stacks as dealt, for the hand log's before/after column
 
   idx++ // burn
@@ -587,6 +632,8 @@ function endHand() {
     }
   }
 
+  heroHandNet.value = (gs.playerStates.value[0]?.chips ?? 0) - heroStackAtDeal
+
   // Record winner for table flow dynamics
   if (winnerId >= 0) engine.recordHandWinner(winnerId)
 
@@ -673,7 +720,8 @@ function endHand() {
       holeCards: holeStr,
       board: boardStr,
       result: heroState.folded ? 'folded' : (heroWon ? 'won' : 'lost'),
-      profit: heroWon ? gs.pot.value : (heroState.folded ? 0 : -gs.pot.value),
+      // No `profit` here: recordHand derives the hero's net for the hand
+      // from the stack passed below (stack now minus stack at the deal).
       position: positions.value[0] || '',
       potSize: gs.pot.value,
       actions: [...gs.handActionLog.value],
@@ -691,6 +739,9 @@ function endHand() {
 }
 
 function handleRebuy() {
+  // A free stack is a practice-table thing. In career mode every buy-in is
+  // debited from the bankroll, so a felted hero settles and re-enters via /career.
+  if (!freeRebuyAllowed(careerMode.value, config.session.rebuyEnabled)) return
   engine.cleanup()
   engine.resetTableReads() // a new table is a new read
   initSession(settings.value!.stakeLevel, settings.value!.playerCount, startingStack.value)
@@ -717,14 +768,24 @@ function formatPot(n: number): string {
 }
 
 // Handle queued actions when hero's turn comes
+// What it cost to call when "Pre-call" was pressed. A queued call is consent
+// to THAT price only: if someone raises behind it, the queue is dropped and
+// the hero decides (utils/heroInput.ts).
+const queuedCallPrice = ref(0)
+function queueCallOrCheck() {
+  queuedCallPrice.value = gs.toCall.value
+  queuedAction.value = gs.toCall.value > 0 ? 'call' : 'check'
+}
+
 watch(() => gs.waitingForHero.value, (isHeroTurn) => {
   if (isHeroTurn && queuedAction.value) {
-    const action = queuedAction.value
+    const queued = { type: queuedAction.value, price: queuedCallPrice.value }
     queuedAction.value = null
     nextTick(() => {
-      if (action === 'fold') { engine.handleFold(); return }
-      if (action === 'check' && gs.toCall.value === 0) { engine.handleCheck(); return }
-      if (action === 'call' && gs.toCall.value > 0) { engine.handleCall(gs.toCall.value); return }
+      const action = resolveQueuedAction(queued, gs.toCall.value)
+      if (action === 'fold') engine.handleFold()
+      else if (action === 'check') engine.handleCheck()
+      else if (action === 'call') engine.handleCall(gs.toCall.value)
     })
   }
 })
@@ -979,7 +1040,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
                 'text-red-400': queuedAction === 'fold',
                 'text-gray-300': queuedAction === 'check',
                 'text-blue-400': queuedAction === 'call',
-              }">{{ queuedAction }}</span>
+              }">{{ queuedAction }}{{ queuedAction === 'call' ? ` $${queuedCallPrice}` : '' }}</span>
               <button
                 class="text-xs text-gray-500 hover:text-white underline underline-offset-2 transition-colors"
                 @click="queuedAction = null"
@@ -999,8 +1060,8 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
                 Pre-fold
               </UButton>
             </UTooltip>
-            <UTooltip :text="gs.toCall.value > 0 ? 'Queue a call — will execute when it\'s your turn' : 'Queue a check — will execute when it\'s your turn'">
-              <UButton size="xs" variant="ghost" color="neutral" @click="() => { queuedAction = gs.toCall.value > 0 ? 'call' : 'check' }">
+            <UTooltip :text="gs.toCall.value > 0 ? `Queue a call of $${gs.toCall.value} — will execute when it\'s your turn, unless the price changes first` : 'Queue a check — will execute when it\'s your turn, unless someone bets first'">
+              <UButton size="xs" variant="ghost" color="neutral" @click="queueCallOrCheck">
                 Pre-{{ gs.toCall.value > 0 ? 'call' : 'check' }}
               </UButton>
             </UTooltip>
@@ -1042,14 +1103,24 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           <div v-if="gs.street.value === 'showdown'" class="flex justify-center gap-3">
             <template v-if="gs.heroBusted.value">
               <UButton
-                v-if="config.session.rebuyEnabled"
+                v-if="freeRebuyAllowed(careerMode, config.session.rebuyEnabled)"
                 color="primary"
                 size="lg"
                 @click="handleRebuy"
               >
                 Buy More Chips (${{ startingStack }})
               </UButton>
+              <!-- Career: no free stack — the felted session settles against the bankroll -->
               <UButton
+                v-if="careerMode"
+                color="primary"
+                size="lg"
+                @click="() => endCareerSession('felted')"
+              >
+                Back to Career
+              </UButton>
+              <UButton
+                v-else
                 variant="outline"
                 color="neutral"
                 size="lg"
@@ -1073,7 +1144,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
               Deal Next Hand
             </UButton>
             <UButton
-              v-if="careerMode && !gs.dealt.value || careerMode && gs.street.value === 'showdown'"
+              v-if="careerMode && !gs.heroBusted.value && (!gs.dealt.value || gs.street.value === 'showdown')"
               variant="outline"
               color="neutral"
               size="lg"
@@ -1087,6 +1158,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
         <!-- Stats column -->
         <div class="w-full xl:w-80 xl:sticky xl:top-4 shrink-0 space-y-3">
         <StatsPanel
+          :bb="bb"
           :hole-cards="gs.heroHoleCards.value as [import('~/utils/cards').Card, import('~/utils/cards').Card] | null"
           :community="gs.visibleCommunity.value"
           :street="gs.street.value"
@@ -1101,7 +1173,7 @@ watch(() => gs.waitingForHero.value, (isHeroTurn) => {
           :hero-won="gs.heroWonHand.value"
           :win-amount="gs.heroWinAmount.value"
           :hero-wagered="gs.heroTotalWagered.value"
-          :hero-net-profit="gs.heroWonHand.value ? gs.heroWinAmount.value - gs.heroTotalWagered.value : -gs.heroTotalWagered.value"
+          :hero-net-profit="heroHandNet"
           :winner-name="gs.handWinnerName.value"
           :winner-cards="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards ? gs.playerStates.value[gs.handWinnerId.value].holeCards!.map(c => displayCard(c)).join(' ') : ''"
           :winner-hand="gs.handWinnerId.value >= 0 && gs.playerStates.value[gs.handWinnerId.value]?.holeCards && gs.visibleCommunity.value.length >= 3 ? describeHand(gs.playerStates.value[gs.handWinnerId.value].holeCards!, gs.visibleCommunity.value) : ''"

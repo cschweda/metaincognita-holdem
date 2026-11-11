@@ -212,3 +212,13 @@ export function refundAbandoned(state: CareerState, now: string): CareerState {
     pendingSession: null,
   }
 }
+
+/**
+ * The table's free "buy more chips" re-buy conjures a fresh stack from
+ * nowhere. That is fine at a practice table and wrong in career mode, where
+ * every stack is a buy-in debited from the bankroll: a felted career hero
+ * settles the session and buys in again from /career.
+ */
+export function freeRebuyAllowed(careerMode: boolean, rebuyEnabled: boolean): boolean {
+  return rebuyEnabled && !careerMode
+}

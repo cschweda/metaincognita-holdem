@@ -422,7 +422,7 @@ function handleStart() {
         <div class="w-2 h-2 rounded-full bg-emerald-500" />
         <span class="text-sm text-gray-300">Local Storage</span>
       </div>
-      <p class="text-xs text-gray-500 mt-1">Session stats are saved in this browser. Export hands as JSON/CSV/PokerStars format anytime.</p>
+      <p class="text-xs text-gray-500 mt-1">Session stats are saved in this browser. Export hands as JSON, CSV or PokerStars-style text anytime.</p>
     </div>
 
     <!-- Commentary Mode -->

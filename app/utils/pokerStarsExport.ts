@@ -1,8 +1,30 @@
 /**
- * Export hand history in PokerStars hand history text format.
+ * Export hand history as PokerStars-STYLE text.
  * Converts internal HandRecord/PlayerHand data (display cards like "A♠")
- * to PokerStars notation ("[As]") with proper street markers, blinds, and showdown.
- * Compatible with PokerTracker, Hold'em Manager, Equilab, and most poker analysis tools.
+ * to PokerStars notation ("[As]") with street markers, blinds, and showdown.
+ *
+ * This is not a conforming PokerStars hand history, and the UI must not say
+ * it is: it is written for this app's own Hand Replay (pokerStarsParser.ts),
+ * and trackers that validate the format may reject it. Known differences
+ * from a real PokerStars file:
+ *
+ *  - header: ISO date (`2026-04-01 12:00:00 ET`) instead of
+ *    `2026/04/01 12:00:00 ET`, no currency code after the stakes, a small
+ *    sequential hand number;
+ *  - `Dealt to` lists EVERY player's hole cards (the replay shows all hands
+ *    face-up); a real history deals only the hero in;
+ *  - actions: the engine logs every bet as "raises to $X", so an opening
+ *    postflop bet is written `raises to $X` instead of `bets $X`, a raise as
+ *    `raises to $Y` instead of `raises $X to $Y`, and any all-in as
+ *    `bets $X and is all-in` whether it was a bet, raise or call;
+ *  - no `Uncalled bet ($X) returned to …` line, and `collected` is written
+ *    once for one winner with the whole pot — split and side pots are not
+ *    itemised;
+ *  - `*** SHOW DOWN ***` is always written, even when the hand ended by
+ *    folds, and shown hands carry no description (`(a pair of Aces)`);
+ *  - seat stacks come from the recorded hand, which stores end-of-hand
+ *    stacks, not the stacks at the deal;
+ *  - summary lines lack the street a player folded on and the winning hand.
  */
 import type { HandRecord, PlayerHand } from '~/composables/useSessionStats'
 

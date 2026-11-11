@@ -314,8 +314,8 @@ const profitTrendClass = computed(() => {
             <div class="flex gap-2">
               <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimeJSON">JSON</UButton>
               <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimeCSV">CSV</UButton>
-              <UTooltip text="PokerStars hand history format — importable into PokerTracker, Hold'em Manager, Equilab">
-                <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimePokerStars">PokerStars</UButton>
+              <UTooltip text="PokerStars-style hand history text, for this app's Hand Replay. Not a conforming PokerStars file — tracking software may not import it.">
+                <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimePokerStars">PokerStars-style</UButton>
               </UTooltip>
             </div>
             <UButton
@@ -465,7 +465,7 @@ const profitTrendClass = computed(() => {
             <p class="text-sm font-semibold">This action is permanent and cannot be undone.</p>
           </div>
           <p class="text-sm text-gray-400">
-            All sessions, hand histories, and statistics will be permanently deleted from both your device and the cloud. This includes {{ lifetimeStats.totalHands }} hands across {{ lifetimeStats.totalSessions }} sessions.
+            All sessions, hand histories, and statistics will be permanently deleted from this browser's local storage — the only place they are kept. This includes {{ lifetimeStats.totalHands }} hands across {{ lifetimeStats.totalSessions }} sessions.
           </p>
           <div>
             <label class="text-xs text-gray-500 block mb-1.5">

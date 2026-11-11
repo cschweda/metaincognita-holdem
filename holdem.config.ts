@@ -140,10 +140,18 @@ export default {
   strategy: {
     // Percentile shift by position: negative = plays wider (late position)
     posShift: {
-      'BTN': -0.08, 'D': -0.08, 'D/BTN': -0.08, 'D/SB': -0.08,
-      'CO': -0.05, 'SB': 0, 'BB': -0.03,
-      'MP': 0, 'MP+1': 0, 'UTG': 0.03, 'UTG+1': 0.02,
+      'BTN': -0.15, 'D': -0.15, 'D/BTN': -0.15, 'D/SB': -0.08,
+      'CO': -0.08, 'SB': 0, 'BB': -0.03,
+      'MP': 0, 'MP+1': 0, 'UTG': 0.05, 'UTG+1': 0.03,
     } as Record<string, number>,
+    // Share of posShift kept when facing a 3-bet or more. At 1 the steeper
+    // shifts above had the button calling 25bb 3-bets lighter (composite
+    // `prem3bet-25-fj` +1.6 ± 1.9 over 32 seeds x 30k); at 0.5 it reads
+    // -2.6 ± 1.8 and at 0 -2.2 ± 1.9, but 0 drops the button's defense of a
+    // standard 9bb 3-bet under the floor tests/reraise-size.test.ts holds.
+    // 3-betting any two cards light loses over 100 bb/100 at every setting
+    // (`3bet-light`).
+    posShiftVsReraise: 0.5,
     preflop: {
       sizePenaltyExp: 0.85,        // value 3-bet range shrink vs open size
       bluffSizePenaltyExp: 1.5,    // bluff 3-bet range shrink vs open size
@@ -163,6 +171,7 @@ export default {
       jamSizeShrinkExp: 1.1,       // continue-range shrink vs jam size
       reraiseJamFloorBase: 0.85,   // reraise-jam defense floor (decays with size)
       jamContinueFloor: 0.04,      // minimum jam-continue range
+      jamPremiumFloor: 0.0095,     // KK+ continue against a jam of any size
       jamRaisePortion: 0.4,        // top fraction of continue range that reraises
       // Short stacks (Round 8). Pure push/fold below pushFoldBB; between it
       // and 25bb the normal branches run, with any raise costing commitRatio
@@ -325,6 +334,25 @@ export default {
       weakMin: 0.08,        // river's 0.05
       weakMax: 0.85,
     },
+    // Defense against bets bigger than the pot (2026-11-11). sizeMdf is the
+    // defense frequency the bet size implies: pot-before-bet / pot-after-bet.
+    overbet: {
+      flopStrongBase: 2.0,       // top-pair class on the flop: 100% at a pot-size bet (mdf 0.5)…
+      flopStrongShield: 0.5,     // …more for the top of the class
+      flopStrongMin: 0.10,
+      monsterFromFrac: 1.5,      // two pair starts mixing folds above 1.5x pot
+      monsterMdfMult: 2.5,
+      monsterFloor: 0.15,
+      neverFoldStrength: 0.70,   // trips/sets and better never fold to size alone
+    },
+    // Hero reads applied to specific spots (the profile-wide adaptation lives
+    // in applyHeroAdaptation).
+    heroRead: {
+      minCbetsFaced: 6,
+      cbetBluffSlope: 1.0,       // air c-bet rate x (1 + (foldToCbet - 0.5) * slope)
+      cbetBluffMin: 0.6,
+      cbetBluffMax: 1.5,
+    },
     // Table reads — public table-wide signals over a rolling window.
     // Thresholds sit outside a normal pro table's range (passivity
     // 0.41–0.56, showdown-per-flop 0.42–0.71 over 30-hand windows, seed
@@ -435,13 +463,8 @@ export default {
   // ─── Session & Bankroll ───────────────────────────────────────
   session: {
     heroTimeoutMs: 5 * 60 * 1000,        // 5 minutes of inactivity = session pause
-    autoSaveIntervalMs: 60 * 1000,        // save to Supabase every 60s
+    autoSaveIntervalMs: 60 * 1000,
     rebuyEnabled: true,                    // allow re-buy after bust-out
     // Re-buy starts a new session (separate P&L from the bust-out session)
-  },
-
-  // ─── Persistence ─────────────────────────────────────────────
-  storage: {
-    localStorageKey: 'holdem-simulator-session',
   },
 }

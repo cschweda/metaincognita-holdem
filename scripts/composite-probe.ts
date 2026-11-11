@@ -83,6 +83,18 @@ const madeTwoPairPlusFromHole = (c: Ctx) => {
   return r.bestFive.some(bf => c.holeCards.some(h => h.rank === bf.rank && h.suit === bf.suit))
 }
 
+/** Two pair or better that is really ours: not a board pair plus one of
+ * ours, not board trips, and at least one hole card in the winning five. */
+const ownTwoPairPlus = (c: Ctx) => {
+  const r = bestHand(c.holeCards, c.community)
+  if (!r || r.rank < 2) return false
+  const counts = new Map<number, number>()
+  for (const x of c.community) counts.set(x.rank, (counts.get(x.rank) ?? 0) + 1)
+  if (r.rank === 2 && [...counts.values()].some(v => v >= 2)) return false
+  if (r.rank === 3 && [...counts.values()].some(v => v >= 3)) return false
+  return r.bestFive.some(bf => c.holeCards.some(h => h.rank === bf.rank && h.suit === bf.suit))
+}
+
 /** Bet `frac` pot on every river the baseline checks. */
 const riverBet = (frac: number) => (c: Ctx): BotAction => {
   if (riverCheck(c)) { c.tag('riverbet'); return betPot(c, frac) }
@@ -204,6 +216,35 @@ export const COMPOSITE: Record<string, (c: Ctx) => BotAction> = {
       c.tag('pf-fold')
       return { type: 'fold' }
     }
+    return c.base!
+  },
+  // 2026-11-11 review: shove the flop or turn — whatever the pot — with two
+  // pair or better that the board did not hand out. Measured +18.5 bb/100
+  // before the fix: the bots' stack-to-pot ratio counted the shove itself as
+  // pot, so the bigger the overbet the more "committed" they felt, and top
+  // pair called a 16x-pot shove every time.
+  'value-jam-ft': c => {
+    if ((c.street === 'flop' || c.street === 'turn') && c.chips > c.toCall && ownTwoPairPlus(c)) {
+      c.tag('vjam')
+      return jam(c)
+    }
+    return c.base!
+  },
+  // Opposite-direction control for the 3-bet cells above: 3-bet ANY two
+  // cards to 3.2x over every single open, then play the baseline. If the
+  // bots fold too much to a normal-size 3-bet, this collects the dead money.
+  '3bet-light': c => {
+    if (pf(c) && c.raiseLevel === 1 && c.toCall > 0 && c.base!.type === 'fold') {
+      c.tag('light3bet')
+      return raiseToBB(c, (c.currentBet / BB) * 3.2)
+    }
+    return c.base!
+  },
+  // Opposite-direction control for value-jam-ft: shove every flop the
+  // baseline would have checked, with any two cards. If the overbet defense
+  // folds too much, this is what collects.
+  'air-jam-flop': c => {
+    if (c.street === 'flop' && c.toCall === 0 && c.base!.type === 'check') { c.tag('ajam'); return jam(c) }
     return c.base!
   },
 }

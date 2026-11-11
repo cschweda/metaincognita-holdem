@@ -215,6 +215,18 @@ const CELLS: Array<{ name: string; depthBB: number; bound: number }> = [
   // 12-25bb band Task 9 introduced) reproduces +8.97 against this bound of
   // 6 (task-12-report.md §9c).
   { name: 'pf-exploit', depthBB: 24, bound: 6 }, // true -0.8 vs base@24bb, range [-2.6, 0.3]
+  // 2026-11-11 review. TRIPPED before its fix: shoving the flop/turn with
+  // two pair+ measured +18.5 (4 seeds x 30k) while the bots' stack-to-pot
+  // ratio counted the shove as pot. After: -11.7 and -6.2 on two 8x30k runs.
+  { name: 'value-jam-ft', depthBB: 100, bound: 6 },
+  // Opposite-direction control for the overbet defense above: shoving any
+  // two cards on every flop the baseline checks. Measured -13.0 and -17.6;
+  // a positive number here means the bots now fold too much to overbets.
+  { name: 'air-jam-flop', depthBB: 100, bound: 0 },
+  // Opposite-direction control for the three 3-bet cells: 3-betting any two
+  // cards to 3.2x over every open. Measured -105 to -111 (32 seeds x 30k);
+  // anything near zero means the bots fold too much to a normal 3-bet.
+  { name: '3bet-light', depthBB: 100, bound: -50 },
 ]
 
 describe('composite probe covers the cells gated below', () => {

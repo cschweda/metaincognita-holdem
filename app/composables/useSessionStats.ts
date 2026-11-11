@@ -20,7 +20,7 @@ export interface HandRecord {
   holeCards: string      // hero's cards e.g. "Ah Kd"
   board: string          // e.g. "As Td 7c 2h 9s"
   result: 'won' | 'lost' | 'folded'
-  profit: number         // +/- from this hand
+  profit: number         // hero's net for the hand: stack after minus stack at the deal
   position: string       // BTN, UTG, etc.
   potSize: number
   actions: string[]      // play-by-play log
@@ -131,9 +131,16 @@ export function useSessionStats() {
     trySave()
   }
 
-  function recordHand(record: HandRecord, newStack: number) {
+  /**
+   * `profit` is derived here, not taken from the caller: it is the hero's
+   * real net for the hand — the stack after it minus the stack the session
+   * last saw (the stack at the deal). A fold costs what was invested, a
+   * split pot is the partial result, and the hands sum to `totalProfit`.
+   */
+  function recordHand(record: Omit<HandRecord, 'profit'>, newStack: number) {
+    const profit = Math.round((newStack - session.value.currentStack) * 100) / 100
     session.value.handsPlayed++
-    session.value.hands.push(record)
+    session.value.hands.push({ ...record, profit })
 
     if (record.result === 'won') session.value.handsWon++
     else if (record.result === 'lost') session.value.handsLost++
@@ -147,9 +154,28 @@ export function useSessionStats() {
     trySave()
   }
 
+  // The stats page edits the stored session directly (delete a hand, delete
+  // the session) while the kept-alive game page still holds its own copy.
+  // Called when the game page is shown again, so the next save does not put
+  // the deleted hands back. Only the hand list is adopted — the stack and
+  // counters are this table's to keep.
+  function adoptStoredHands() {
+    let stored: unknown = null
+    try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') } catch { return }
+    const s = stored as { id?: string; hands?: unknown } | null
+    if (s && s.id === session.value.id && Array.isArray(s.hands)) {
+      session.value.hands = s.hands as HandRecord[]
+    } else if (!s) {
+      session.value.hands = []
+    }
+  }
+
+  // "New Session" at a running table: the hero keeps the chips in front of
+  // them, so the new session starts from that stack — not from the original
+  // buy-in, which would book the old session's result into the new one.
   function resetSession() {
     const prev = session.value
-    initSession(prev.stakeLevel, prev.playerCount, prev.startingStack)
+    initSession(prev.stakeLevel, prev.playerCount, prev.currentStack)
   }
 
   // ─── Export ────────────────────────────────────────────────
@@ -201,6 +227,7 @@ export function useSessionStats() {
     session: readonly(session),
     initSession,
     recordHand,
+    adoptStoredHands,
     resetSession,
     downloadJSON,
     downloadCSV,

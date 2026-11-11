@@ -53,6 +53,22 @@ export interface AppliedAction {
 const canAct = (p: EnginePlayer) => !p.folded && !p.eliminated && p.chips > 0
 const inHand = (p: EnginePlayer) => !p.folded && !p.eliminated
 
+/**
+ * Postflop position: does this seat act last among the players who can still
+ * act? Postflop action runs clockwise from the seat after the button, so the
+ * first able seat found walking BACK from the button closes the action.
+ * Position is a fact about who is left, not about the seat's label.
+ */
+export function actsLastPostflop(players: EnginePlayer[], dealerSeat: number, seatId: number): boolean {
+  const n = players.length
+  for (let i = 0; i < n; i++) {
+    const p = players[(dealerSeat - i + n * 2) % n]!
+    if (p.id === seatId) return true
+    if (canAct(p)) return false
+  }
+  return false
+}
+
 /** Reset needsToAct to everyone who can still act. Call at the start of each street. */
 export function startBettingRound(round: BettingRound): void {
   round.raiseClosed?.clear()

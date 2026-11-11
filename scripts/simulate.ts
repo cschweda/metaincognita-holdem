@@ -29,7 +29,7 @@ import { mulberry32 } from '../app/utils/rng'
 import type { Rng } from '../app/utils/rng'
 import { shuffle } from '../app/utils/shuffle'
 import { getTableDynamics as sharedTableDynamics } from '../app/utils/gameSimulation'
-import { startBettingRound, runBettingRound } from '../app/utils/bettingEngine'
+import { startBettingRound, runBettingRound, actsLastPostflop } from '../app/utils/bettingEngine'
 import type { BettingRound, EngineAction } from '../app/utils/bettingEngine'
 import { createTableReadState, noteTableAction, finishTableHand, readTable } from '../app/utils/tableReads'
 
@@ -272,6 +272,7 @@ function simulateHand(
           numActivePlayers: activePlayers().length,
           raiseLevel,
           position: positions[p.id] || '',
+          inPosition: actsLastPostflop(players, dealerSeat, p.id),
           holeCards: p.holeCards ?? undefined,
           community: street === 'preflop' ? []
             : street === 'flop' ? community.slice(0, 3)

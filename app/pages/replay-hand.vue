@@ -352,7 +352,7 @@ const playerAnalyses = computed<PlayerAnalysis[]>(() => {
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-white">Hand History Replay</h1>
-          <p class="text-gray-500 text-sm mt-1">Paste a PokerStars-format hand history to watch it play out visually.</p>
+          <p class="text-gray-500 text-sm mt-1">Paste a PokerStars hand history, or this app's PokerStars-style export, to watch it play out visually.</p>
         </div>
         <NuxtLink to="/">
           <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back</UButton>

@@ -1,8 +1,10 @@
 /**
- * Stats data composable — loads sessions/hands from localStorage,
+ * Stats data composable — loads the stored session and its hands from
+ * localStorage (the only store there is; nothing leaves the browser),
  * computes lifetime stats, position stats, profit timeline, and provides
- * CRUD operations (delete session/hand/all). Extracted from stats.vue.
+ * delete operations (session/hand/all). Extracted from stats.vue.
  */
+import { ref, computed } from 'vue'
 import { toPokerStarsFormat, exportHandsAsPokerStars } from '~/utils/pokerStarsExport'
 import { downloadFile } from '~/utils/downloadFile'
 import { wentToShowdown } from '~/utils/observedStats'
@@ -42,11 +44,13 @@ export function useStatsData() {
       // (hands not an array / null entries) must not escape the guard — an
       // uncaught throw here leaves the stats page on its spinner forever.
       mapLocalSessionToHands()
+      mapLocalSessionToSessions()
     } catch (e) {
       console.warn('Failed to parse session stats from localStorage:', e instanceof Error ? e.message : e)
       localStorage.removeItem('holdem-session-stats')
       localSession.value = null
       hands.value = []
+      sessions.value = []
     }
 
     loading.value = false
@@ -66,6 +70,24 @@ export function useStatsData() {
     }
   }
 
+  // localStorage holds one session — the one being played, or the last one
+  // played — so the sessions list is that session or nothing. Counts come
+  // from the hand list (they follow a hand deletion); the money figures are
+  // the session's own stack trail.
+  function mapLocalSessionToSessions() {
+    const s = localSession.value
+    if (!s || !Array.isArray(s.hands) || s.hands.length === 0) { sessions.value = []; return }
+    const count = (result: HandRecord['result']) => s.hands.filter(h => h?.result === result).length
+    const row: SessionRow = {
+      id: s.id, started_at: s.startedAt, ended_at: null,
+      stake_level: s.stakeLevel, player_count: s.playerCount, starting_stack: s.startingStack,
+      hands_played: s.hands.length, hands_won: count('won'), hands_lost: count('lost'), hands_folded: count('folded'),
+      final_stack: s.currentStack, peak_stack: s.peakStack, total_profit: s.totalProfit,
+    }
+    sessions.value = [row]
+    if (selectedSession.value?.id === row.id) selectedSession.value = row
+  }
+
   // ─── Delete Operations ─────────────────────────────────
 
   async function deleteAllData() {
@@ -80,11 +102,17 @@ export function useStatsData() {
     if (selectedSession.value?.id === sessionId) selectedSession.value = null
   }
 
+  // A row's id is its index when the page loaded, which goes stale as soon
+  // as one hand is deleted. `hands` and the stored array stay in the same
+  // order, so the row's CURRENT position is the index to remove.
   async function deleteHand(handId: string) {
-    hands.value = hands.value.filter(h => h.id !== handId)
-    if (handId.startsWith('local-') && localSession.value?.hands) {
-      const idx = parseInt(handId.replace('local-', ''), 10)
-      if (idx >= 0) { localSession.value.hands.splice(idx, 1); localStorage.setItem('holdem-session-stats', JSON.stringify(localSession.value)) }
+    const idx = hands.value.findIndex(h => h.id === handId)
+    if (idx < 0) return
+    hands.value = hands.value.filter((_, i) => i !== idx)
+    if (Array.isArray(localSession.value?.hands)) {
+      localSession.value.hands.splice(idx, 1)
+      localStorage.setItem('holdem-session-stats', JSON.stringify(localSession.value))
+      mapLocalSessionToSessions()
     }
   }
 
@@ -137,7 +165,8 @@ export function useStatsData() {
 
   const profitTimeline = computed(() => {
     const source = selectedSession.value ? sessionHands.value : hands.value
-    const recent = [...source].reverse().slice(-50)
+    // Hands are stored oldest-first: the last 50, in the order they were played
+    const recent = source.slice(-50)
     let running = 0
     return recent.map(h => { running += h.profit; return running })
   })
@@ -150,7 +179,7 @@ export function useStatsData() {
 
   const recentHands = computed(() => {
     const source = selectedSession.value ? hands.value.filter(h => h.session_id === selectedSession.value!.id) : hands.value
-    return source.slice(0, 20)
+    return source.slice(-20).reverse() // newest first
   })
 
   // ─── Helpers ───────────────────────────────────────────

@@ -11,16 +11,22 @@
  *    which deleted it from exactly the built artifact the game is normally
  *    played on. If this reaches a public deploy the dumps are visible to
  *    anyone who opens a console, so it comes out before that matters.
- *  - It prints ONE flat `console.log` per hand, as a single plain string.
+ *  - The hand dump is ONE flat `console.log` per hand, a single plain string.
  *    The first cut used `console.groupCollapsed` + `console.table`, which
  *    collapses to a line that is easy to miss among Vite/Pinia boot noise
  *    and, worse, cannot be copied out — a console table is a rendered
  *    widget, not text. Select the block and paste it; that is the point.
  *
- * What keeps it honest is WHEN it runs: only from the hand-end handler,
- * after the hand is decided. A bot's hole cards are never printed while a
- * decision is still pending, so an open console cannot be used to play the
- * hand in front of you.
+ * Two kinds of output, and what each may show:
+ *
+ *  - `logDecision` prints one line per decision AS IT HAPPENS, while the hand
+ *    is live. It shows only public information plus the hero's own cards; a
+ *    bot's hole cards are never on that line, so an open console cannot be
+ *    used to play the hand in front of you.
+ *  - `logHandToConsole` prints the full hand, every seat's hole cards
+ *    included, from the hand-end handler — after the hand is decided. To see
+ *    what a bot held when it made a decision, read its decision line against
+ *    its cards in that dump.
  *
  * Console helpers, available on `window`:
  *   holdemHands()      last 10 hands as one pasteable string
@@ -28,7 +34,9 @@
  *   holdemCopy()       same, copied straight to the clipboard
  *   holdemLog('off')   stop logging   ('on' resumes; persists in localStorage)
  *
- * Delete this file and its two call sites in pages/index.vue to remove it.
+ * To remove it, delete this file and its call sites: `noteHandStart`,
+ * `logHandToConsole` and `installHandLogHelpers` in pages/index.vue, and
+ * `logDecision` in composables/useGameEngine.ts.
  */
 import type { Card } from './cards'
 import { displayCard } from './cards'
@@ -113,10 +121,10 @@ export interface DecisionLogInput {
  * when it chose. Anything that commits a big share of a stack is flagged
  * with >>> so a weird shove can be found by eye or by grep.
  *
- * Note: this prints a bot's hole cards at the moment it acts, i.e. while the
- * hand is still live. That is unavoidable if the log is to explain the
- * decision, but it does mean an open console reveals the table. It is a
- * debugging build, not a shipping one.
+ * This runs while the hand is live and in every build, so it never prints a
+ * bot's hole cards — only the hero's own (the caller may pass any player's
+ * cards; they are dropped here). The bot's cards appear in the end-of-hand
+ * dump, once they can no longer inform a decision.
  */
 export function logDecision(d: DecisionLogInput): void {
   if (isOff()) return
@@ -150,7 +158,7 @@ export function logDecision(d: DecisionLogInput): void {
 
   console.log(
     `  #${handNo} ${pad(d.street, 8)}${pad(d.position, 4)}${pad(d.name + (d.isHero ? '*' : ''), 22)}`
-    + `${pad(cards(d.holeCards) || '--', 9)}| ${pad(cards(d.board) || '(preflop)', 18)}| `
+    + `${pad(cards(d.isHero ? d.holeCards : null) || '--', 9)}| ${pad(cards(d.board) || '(preflop)', 18)}| `
     + `${pad(`${stackBB}bb`, 6)}${pad(`pot $${d.pot}`, 10)}${pad(`SPR ${spr}`, 9)}`
     + `${pad(`to call $${d.toCall}${potOdds}`, 22)}=> ${verb}${commit}${flag}`,
   )

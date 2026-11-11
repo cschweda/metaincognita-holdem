@@ -97,8 +97,12 @@ describe('reads', () => {
     expect(reads.length).toBeGreaterThan(0)
     expect(reads.join(' ')).toMatch(/3-bet/i)
   })
-  it('never claims the fold-to-cbet exploit the engine does not apply', () => {
+  it('reports the fold-to-cbet read the engine now applies', () => {
     const m = play(100, { facedCbet: true, foldedToCbet: true })
+    expect(describeReads(m, cfg).join(' ')).toMatch(/c-betting you with more air/i)
+  })
+  it('stays quiet about c-bets until the hero has faced enough of them', () => {
+    const m = play(3, { facedCbet: true, foldedToCbet: true })
     expect(describeReads(m, cfg).join(' ')).not.toMatch(/c-bet/i)
   })
 })

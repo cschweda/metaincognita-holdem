@@ -34,7 +34,8 @@ const isRaiseLine = (a: string) => a.includes('raises') || a.includes('ALL-IN')
 export function parseHeroHandRecord(
   log: string[],
   heroName: string,
-  opts: { heroFolded: boolean; heroTotalWagered: number; bb: number },
+  // Kept for the call sites: the record is now derived from the log alone
+  _opts?: { heroFolded: boolean; heroTotalWagered: number; bb: number },
 ): HeroHandRecord {
   const byHero = (a: string) => actedInLine(a, heroName)
   const flopMarkIdx = log.findIndex(a => a.startsWith('--- FLOP'))
@@ -61,7 +62,12 @@ export function parseHeroHandRecord(
     && flopLog.some((a, i) => i > flopLeadIdx && byHero(a) && a.includes('folds'))
 
   return {
-    enteredPot: !opts.heroFolded || opts.heroTotalWagered > opts.bb,
+    // VPIP: a voluntary call or raise PREFLOP. Posting a blind is not
+    // voluntary, so a walk in the big blind, or checking the option and
+    // seeing a free flop, does not count — while completing the small blind
+    // does, even if the hero folds afterwards. (Blind posts are not logged
+    // as action lines, so any preflop call/raise line is voluntary.)
+    enteredPot: preflopLog.some(a => byHero(a) && (a.includes('calls') || isRaiseLine(a))),
     faced3Bet,
     foldedTo3Bet,
     facedCbet,

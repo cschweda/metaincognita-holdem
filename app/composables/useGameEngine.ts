@@ -559,7 +559,7 @@ function buildThinkingInsight(
     }
 
     // Draws
-    const draws = detectDraws(holeCards, visibleCommunity)
+    const draws = detectDraws(holeCards, visibleCommunity, { strict: true })
     if (draws.length > 0) {
       const drawDesc = draws.map(d => `${d.type} (${d.outs} outs)`).join(', ')
       factors.push(`Draws: ${drawDesc}`)
