@@ -43,6 +43,13 @@ export default defineNuxtConfig({
         { name: 'twitter:image', content: 'https://holdem.metaincognita.com/og-image.png' },
         { name: 'twitter:image:alt', content: 'No Limit Hold\'em Simulator — a poker table with the board and hole cards dealt' },
       ],
+      // Privacy-friendly analytics by Plausible (cookieless page-view counts,
+      // no game data). The CSP in netlify.toml allowlists plausible.io for
+      // script-src and connect-src — keep the two in step.
+      script: [
+        { src: 'https://plausible.io/js/pa-fGRv9XF6Jq0o-iG7cryzh.js', async: true },
+        { innerHTML: 'window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()' },
+      ],
     },
   },
 
