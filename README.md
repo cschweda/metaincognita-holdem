@@ -2,7 +2,7 @@
 
 **[Live Demo](https://holdem.metaincognita.com/)**
 
-> **This is a free, open-source, single-player educational tool** -- no real money, no gambling, no multiplayer. The simulator itself is serious: eight logged audit rounds, real-time equity calculations, an observed-stats opponent HUD, and 27 bots with distinct playing styles. It just happens to also have funny commentary. Think of it as a poker training tool that doesn't take itself too seriously.
+> **This is a free, open-source, single-player educational tool** -- no real money, no gambling, no multiplayer. The simulator itself is serious: nine logged audit rounds, real-time equity calculations, an observed-stats opponent HUD, and 27 bots with distinct playing styles. It just happens to also have funny commentary. Think of it as a poker training tool that doesn't take itself too seriously.
 
 ![No Limit Hold'em Simulator](public/og-image.png)
 
@@ -19,11 +19,11 @@ A browser-based No-Limit Texas Hold'em cash-game simulator with 27 heuristic bot
 
 - **Where it runs.** A static Nuxt 4 single-page app (`ssr: false`), built with `yarn generate` and served by Netlify. No backend, no accounts. The only outbound request the deployed site makes is a cookieless Plausible page-view ping.
 - **Where state lives.** The live table is a set of Vue refs in `app/composables/useGameState.ts` (players, pot, street, the full five-card runout, the action log). `app/pages/index.vue` owns the page flow (setup → table → timeout/busted), dealing, showdown, tilt and hand recording; `app/composables/useGameEngine.ts` runs the betting rounds. Three Pinia stores sit beside it: `heroProfile` (an in-memory 10-hand window on how you play), `nemesis` (the persistent book on you) and `career` (the bankroll ladder). The game page is kept alive across routes and its bots pause while you are on another page.
-- **One hand.** `dealNewHand` builds and Fisher-Yates-shuffles a deck with `Math.random`, deals two cards to each seat, burns and deals the whole board up front, and moves the button. `postBlindsAndStartBetting` posts the blinds, then `runBettingRound` walks the seats until nobody is left to act: a bot waits a random "thinking" delay and decides; the hero's turn stops the loop until you click or press a key. Every action goes through `applyEngineAction` in `app/utils/bettingEngine.ts`, which clamps raises to the legal minimum and to the stack. `advanceStreet` reveals the next street, or runs the board out when at most one player still has chips. At hand end the last player standing takes the pot; otherwise `calculateSidePots` and `awardPots` (`app/utils/sidePots.ts`) split it by each player's total investment over the five-card board. Bot tilt, your hero model and the hand record are updated, busted bots are removed from the table, and you click **Deal Next Hand**.
-- **One bot decision.** `index.vue` takes the seat's configured stats, applies tilt (`applyTilt`), looks up the persona's consistency, and builds a read on you (the session window, blended with the Nemesis book and scaled by that bot's familiarity when Nemesis is on). It passes those plus the bot's own two cards, the street-visible board, pot, bet to call, stack, position and table context to `decideBotAction()` in `app/utils/botDecision.ts`. That function re-slices the board to the current street, rolls for a misplay, applies hero adaptation and table flow to a copy of the profile, runs the preflop or postflop branch logic, and applies a stack-commitment rule to the result. It returns `fold`, `check`, `call` or `raise` with a raise-to amount. See [Preflop Decision Flow](#preflop-decision-flow) and [Postflop Decision Flow](#postflop-decision-flow).
+- **One hand.** `dealNewHand` builds and Fisher-Yates-shuffles a deck with `Math.random`, deals two cards to each seat, burns and deals the whole board up front, and moves the button. `postBlindsAndStartBetting` posts the blinds, then `runBettingRound` walks the seats until nobody is left to act: a bot waits a random "thinking" delay and decides; the hero's turn stops the loop until you click or press a key. Every action goes through `applyEngineAction` in `app/utils/bettingEngine.ts`, which clamps raises to the legal minimum and to the stack. When a street starts, `startBettingRound` decides who has to act: nobody, if at most one player has chips left and owes nothing to an all-in. `advanceStreet` reveals the next street, or runs the board out when at most one player still has chips. At hand end the last player standing takes the pot; otherwise `calculateSidePots` and `awardPots` (`app/utils/sidePots.ts`) split it by each player's total investment over the five-card board, with every chip that went in (folded players' included) paid out. Bot tilt, your hero model and the hand record are updated, and you click **Deal Next Hand**. A bot that is out of chips is marked eliminated: from the next deal its seat gets no cards, no blind and no button, and position labels are laid out for the players still in.
+- **One bot decision.** `index.vue` takes the seat's configured stats, applies tilt (`applyTilt`), looks up the persona's consistency by the seat's preset, and builds a read on you (the session window, blended with the Nemesis book and scaled by that bot's familiarity when Nemesis is on), which it passes only while you are still in the hand. It passes those plus the bot's own two cards, the street-visible board, pot, bet to call, stack, seat label, whether the bot acts last among the players who can still act, whether the bet it faces is yours, and table context to `decideBotAction()` in `app/utils/botDecision.ts`. That function re-slices the board to the current street, rolls for a misplay, applies hero adaptation and table flow to a copy of the profile, runs the preflop or postflop branch logic, and applies a stack-commitment rule to the result. It returns `fold`, `check`, `call` or `raise` with a raise-to amount. See [Preflop Decision Flow](#preflop-decision-flow) and [Postflop Decision Flow](#postflop-decision-flow).
 - **What is saved.** Only `localStorage`: the current session and its hands (`holdem-session-stats`), the career (`holdem-career-v1`), the Nemesis book (`holdem-nemesis-v1`), three commentary slider values, and the debug-log switch. See [Persistence](#persistence).
-- **How it is checked.** `yarn test` runs 53 Vitest files (1,132 tests). Two of them are regression gates on bot strength: the [exploit probe](#exploit-probe-adversarial-validation) plays nine degenerate scripted strategies against a pro lineup and fails if any wins 10 bb/100 or more, and the [composite probe](#composite-probe-round-8) measures single deviations from a solid baseline. GitHub Actions runs `yarn test` on every pull request and on pushes to `main`.
-- **Debug log.** Every build currently prints each decision and each finished hand to the browser console, including bot hole cards while the hand is live. See [Debug Hand Log](#debug-hand-log-browser-console).
+- **How it is checked.** `yarn test` runs 62 Vitest files (1,272 tests). Two of them are regression gates on bot strength: the [exploit probe](#exploit-probe-adversarial-validation) plays nine degenerate scripted strategies against a pro lineup and fails if any wins 10 bb/100 or more, and the [composite probe](#composite-probe-round-8) measures single deviations from a solid baseline. GitHub Actions runs `yarn test` on every pull request and on pushes to `main`.
+- **Debug log.** Every build currently prints each decision and each finished hand to the browser console. The live per-decision lines show only your own hole cards; bot cards appear in the block printed after the hand ends. See [Debug Hand Log](#debug-hand-log-browser-console).
 
 ### Bot AI
 - **Card-aware decisions** -- bots evaluate their actual hole cards and the visible board, not random probabilities
@@ -31,7 +31,8 @@ A browser-based No-Limit Texas Hold'em cash-game simulator with 27 heuristic bot
 - **Chen and Chen+ scores** -- shown in the stats panel and the bot-thinking pill; bots use them only as a fallback
 - **Board texture analysis** -- dry/wet, ace-high, low, paired, monotone — changes c-bet rates, barrel frequency, and bet sizing
 - **Kicker-aware hand strength** -- top pair scores 0.38 (deuce kicker) to 0.48 (ace kicker) on a 0–1 scale
-- **SPR awareness** -- facing a bet on the flop or turn with a top-pair-or-better hand and SPR under 2, the bot shoves; deep SPR lowers c-bet frequency
+- **SPR awareness** -- stack-to-pot ratio is measured against the pot before the bet being faced, so an overbet does not read as commitment. Facing a bet on the flop or turn with a top-pair-or-better hand and SPR under 2, the bot shoves; deep SPR lowers c-bet frequency
+- **Overbet defense** -- on the flop, top-pair-class hands fold more the further a bet goes past pot size; two pair mixes in folds against bets over 1.5x pot; trips and better never fold to size alone
 - **Check-raises** -- a bot that checked and is then bet into raises more often, scaled by board texture
 - **Position-aware 3-betting** -- 3.5x the open out of position, 3.0x in position, adjusted by aggression and the persona's size multiplier
 - **Street-aware barreling** -- turn card analysis (Q or higher helps the raiser, a third card of a suit slows the barrel), river scare-card discounts on bluffs
@@ -43,12 +44,12 @@ A browser-based No-Limit Texas Hold'em cash-game simulator with 27 heuristic bot
 - **Table reads** -- a calling-station table (check-heavy, most flops reach showdown) gets thinner river value bets and fewer river bluff-raises
 - **River polarization** -- on the river, bots bet monsters and air; top-pair-class hands either check or make a small thin-value bet; weaker made hands check
 - **Range-shape personalities** -- per-persona `styleBias` (Degreanu plays suited connectors wider, Phellmuth favors big cards), `limpFreq`, `betSizeMult` (small-ball vs big-bet), and `overbetFreq` (Twan's 1.2-1.5x pot river bets)
-- **Board-relative hand strength** -- "two pair" using a board pair, board trips, and played-the-board rivers are scored as the marginal hands they are, not monsters
+- **Board-relative hand strength** -- a pair that is entirely on the board is not the bot's pair; "two pair" using a board pair, board trips, and played-the-board rivers are scored as the marginal hands they are, not monsters; two pair, sets and straights are marked down on a four-flush board, and a one-card flush by how many higher cards of the suit are still out
 - **Size-aware turn and river defense** -- continuation against a bet is anchored to the defense frequency the bet size implies, split across multiway defenders
-- **Hero bet-sizing exploitation** -- after four strong and four weak showdowns, bots detect whether your big bets mean value or bluffs and adjust how often they continue
+- **Hero bet-sizing exploitation** -- after four strong and four weak showdowns, bots detect whether your big bets mean value or bluffs and adjust how often they continue against a bet you made
 - **Minimum raise** -- the betting engine raises an undersized raise to the legal minimum (current bet plus the last full raise increment, at least one big blind) unless the player is all-in for less
-- **Short all-in raises** -- an all-in below the minimum raise does not reopen the action for players who have already acted
-- **Explicit draw detection** -- hand classification uses actual flush and straight draw detection, so bottom pair is a made hand, not a draw
+- **Short all-in raises** -- an all-in below the minimum raise does not reopen the betting: players who have already acted must call the difference or fold, and may not raise
+- **Explicit draw detection** -- hand classification uses actual flush and straight draw detection, so bottom pair is a made hand, not a draw; a draw counts only when one of the bot's own cards takes part in it
 - **Per-persona tilt** -- Phellmuth (2.5x) tilts after one lost pot; Pvey (0.3x) needs ten in a row
 - **Consistency system** -- each decision has a 1–12% chance (by persona) of being an off-strategy misplay
 - **27 bot personas** (7 fictional + 20 pro) with VPIP/PFR/aggression/bluff/tilt/consistency profiles plus range-shape, limp, and sizing personalities
@@ -56,9 +57,10 @@ A browser-based No-Limit Texas Hold'em cash-game simulator with 27 heuristic bot
 ### Real-Time Analysis
 - **Expected Value (EV)** -- live +EV/-EV display when facing a bet, with pot odds integration
 - **Monte Carlo equity engine** -- 1,000 simulated runouts against random opponent hands, never against the bots' actual cards
-- **Pot odds** -- side-by-side percentage comparison (Your Equity vs Need), with pass/fail verdict
-- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability
-- **Authentic 6-max ranges** -- 169 hands ranked by EV, position-aware from UTG (15%) to BTN (42%)
+- **Equity against a bet** -- facing a postflop bet, the call is judged on equity discounted for the fact that a bettor does not hold a random hand
+- **Pot odds** -- side-by-side percentage comparison (Your Equity vs Need), with pass/fail verdict; the price is capped at your stack
+- **Real-time outs and draws** -- flush, OESD, gutshot, overcards, full house, trips draws with exact hit probability; only draws one of your own cards takes part in
+- **6-max range charts** -- 169 hands ranked by EV, position-aware from UTG (14.9% of dealt hands) to BTN (41.8%)
 - **Opponent HUD** -- live VPIP, PFR, Aggression Factor, WTSD with strategic reads
 - **Action recommendation** -- FOLD/CHECK/CALL/RAISE pinned at top of stats panel, always visible
 
@@ -93,41 +95,30 @@ A browser-based No-Limit Texas Hold'em cash-game simulator with 27 heuristic bot
 ### Tools & Export
 - **Full hand evaluator** -- all 9 ranks, wheel/steel wheel detection, kicker tie-breaking
 - **Fisher-Yates shuffle** with chi-squared verified uniformity across 10,000 deals
-- **PokerStars hand history export** -- compatible with PokerTracker, Hold'em Manager, Equilab
+- **PokerStars-style hand history export** -- text in the PokerStars layout, written for this app's own replay viewer. It is not a conforming PokerStars file and tracking software may not import it (see [Known Issues](#known-issues))
 - **Hand replay** -- two modes per hand: "Watch" (non-interactive step-through, all cards up, pause/study) and "Practice" (interactive, make different decisions, compare outcomes)
-- **Hand detail modal** -- click any hand for PokerStars history, copy to clipboard, replay, analyze
-- **Interactive bot analysis** (`/analysis`) -- run a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with metrics, bot stats, auto-selected interesting hands with insights (leaks, good plays, teaching moments), and downloadable PokerStars hand histories per table size
-- **Hand history replay viewer** (`/replay-hand`) -- paste any PokerStars hand history and watch it play out on the visual table. All cards face-up. Play/pause, speed control (0.5x-3x), step forward/back, keyboard shortcuts, action log. Click "Replay on Table" from analysis interesting hands.
-- **Local persistence** -- the current session and its hands are saved in your browser (localStorage); export them as JSON/CSV/PokerStars anytime. Starting a new session replaces the saved one. No accounts, no cloud, no serverless.
-- **Debug hand log** -- every decision and every finished hand is printed to the browser console, with `holdemHands()` / `holdemCopy()` / `holdemLog('off')` helpers. It shows bot hole cards during live hands; see [Debug Hand Log](#debug-hand-log-browser-console).
+- **Hand detail modal** -- click any hand for its PokerStars-style history, copy to clipboard, replay, analyze
+- **Interactive bot analysis** (`/analysis`) -- run a 3,000-hand browser-side simulation (heads-up + 6-player + 8-player, pro personas only) with metrics, bot stats, auto-selected interesting hands with insights (leaks, good plays, teaching moments), and downloadable PokerStars-style hand histories per table size
+- **Hand history replay viewer** (`/replay-hand`) -- paste a PokerStars cash-game hand history, or this app's own export, and watch it play out on the visual table. All cards face-up. Play/pause, speed control (0.5x-3x), step forward/back, keyboard shortcuts, action log. Click "Replay on Table" from analysis interesting hands.
+- **Local persistence** -- the current session and its hands are saved in your browser (localStorage); export them as JSON, CSV or PokerStars-style text anytime. Starting a new session replaces the saved one. No accounts, no cloud, no serverless.
+- **Debug hand log** -- every decision and every finished hand is printed to the browser console, with `holdemHands()` / `holdemCopy()` / `holdemLog('off')` helpers. Bot hole cards are printed only after the hand ends; see [Debug Hand Log](#debug-hand-log-browser-console).
 
 ## Known Issues
 
-Found in the 2026-11-11 whole-app review and **not yet fixed**. Each was reproduced by running the code, not just read. The feature list below describes what the code is built to do; these are the places where it currently does something else.
-
-**Engine (affects real chip counts)**
-
-- **Folded players' chips vanish at showdown.** `calculateSidePots` (`app/utils/sidePots.ts`) sizes each pot from the players who invested at least the live players' level, so a folder who put in less is not counted. Two players all-in for 100 each plus a folded 2-chip big blind: 202 goes in, 200 is paid out. Hands that end by everyone folding are unaffected. The simulators and both probes share this code, so their bb/100 figures slightly under-reward showdown winners.
-- **Your all-in is not answered when only one opponent has chips left.** The "nobody left to bet" shortcut in `useGameEngine.runBettingRound` also fires while that opponent still owes a call. Heads-up, shove 200: the bot is never asked, the board runs out, and your uncalled chips come back — the shove behaves like a free showdown. The simulators and probes use a different loop and do not have this bug.
-- **A short all-in raise is never called.** A bets 100, B calls, C is all-in for 150: the round ends with A and B still at 100 and C's extra 50 refunded. A and B should have to call 50 or fold.
-- **Busted bots keep their seat.** They stay in the position rotation and can post a blind from a refilled phantom stack.
-- **The All-In button can leave chips behind** when you already have chips in front of you (big blind with 198 behind: raises to 198, keeps 2).
+Open items after the 2026-11-11 whole-app review. Each was checked against the running code. The feature list below describes what the code is built to do; these are the places where it currently does something else. Everything else that review found is fixed and logged as Round 9 in the [Audit Log](#audit-log).
 
 **Bots**
 
-- **Bots stack off too light against big bets.** Stack-to-pot ratio is computed after your bet is in the pot, so any large overbet makes the bot read itself as pot-committed: on the flop and turn it calls a 16x-pot shove with top pair every time, and it never folds two pair or better on any board (a set on a four-flush, four-straight board calls a pot-size river shove 100% of the time). A hero who simply shoves the flop or turn whenever holding two pair or better gains about 18 bb/100 over the solid baseline (4 seeds × 30,000 hands).
-- **A paired board turns air into "a pair".** One-pair scoring does not check whether the pair is the board's. With 3-2 on K-K-7-4-9 a bot calls a pot-size river bet 47% of the time (1% on an unpaired board), never bluffs, and as the preflop raiser c-bets 6-5 on K-K-2 at 71% (25% on K-J-2).
-- **Position postflop is the seat label, not who acts last.** BTN and CO always count as in position, every other seat as out of position, whoever is actually left in the hand.
-- **The live table never tells a bot it checked earlier on the street,** so the check-raise boost the simulators and probes exercise does not fire in real play.
-- **The read on you is applied in every pot,** including hands you have folded, and the bet-sizing tell is applied to bets made by other bots. `foldToCbet` is tracked but nothing uses it.
+- **`creativeFreq` changes nothing.** Every persona carries it, tilt raises it and the configurator has a slider for it, but no branch of `decideBotAction` reads it.
+- **`/replay` looks opponents up by display name.** It rebuilds each opponent from the persona or preset whose name matches the bot's name in the hand record, so a bot whose sliders were moved, or whose seat was switched to a quick-select preset, is not replayed with the stats it had at the table. A name that matches nothing gets a generic 22/18 profile.
 
-**Coaching and stats**
+**Coaching, stats and export**
 
-- **Preflop advice ignores the action.** It is keyed on Chen score and position only: 7-2 offsuit in the big blind with a free check says FOLD; J-T suited facing a 4-bet shove says RAISE.
-- **Postflop advice uses equity against random hands even when facing a bet,** and pot odds are not capped at your stack.
-- **Per-hand profit on the stats page is not net profit** (whole pot when you win, zero when you fold, minus the whole pot when you lose). The session total, taken from your stack, is correct.
-- **Career mode's showdown-row "Buy More Chips" button rebuys without debiting the bankroll.**
-- **PokerStars export is not strict PokerStars format** and the importer rejects real PokerStars headers; tracker import is unverified.
+- **The export is PokerStars-style, not PokerStars.** Against a real hand history it differs in the header (ISO date, no currency code, small sequential hand number), deals every player's hole cards in, writes an opening postflop bet as `raises to $X` and any all-in as `bets $X and is all-in`, has no `Uncalled bet` line, writes one `collected` line for the whole pot (split and side pots are not itemised), always writes `*** SHOW DOWN ***`, and omits hand descriptions and fold streets. The full list is in the header of `app/utils/pokerStarsExport.ts`. Import into tracking software is unverified.
+- **Recorded hands store end-of-hand stacks.** Each player's `chips` in a hand record is the stack after the hand (plus the pot for the winner), although the field is documented as the stack at the deal. The export's seat lines and `/replay` both start from it.
+- **Three views still count the board's draws as a player's outs.** The coach panel, the bots and the bot-thinking pill count a flush or straight draw only when a hole card takes part. The TV commentary, the Hand Analysis modal and `/replay-hand` use the older count.
+- **The stats page says "Lifetime" for one session.** Only one session is stored (see [Stats Page](#stats-page-stats)).
+- **`session.autoSaveIntervalMs` is unused.** Saves happen on session start, after each hand and on tab close.
 
 ## Table of Contents
 
@@ -146,7 +137,7 @@ Found in the 2026-11-11 whole-app review and **not yet fixed**. Each was reprodu
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
-- [Test Suites](#test-suites) -- 1,132 tests across 53 files
+- [Test Suites](#test-suites) -- 1,272 tests across 62 files
 - [Poker Glossary](#poker-glossary)
 - [Security](#security) -- red/blue audit log
   - [Architecture & Threat Model](#architecture--threat-model) · [Audit Log](#audit-log) · [Security Headers](#security-headers) · [Accepted Risks](#accepted-risks)
@@ -170,19 +161,21 @@ Found in the 2026-11-11 whole-app review and **not yet fixed**. Each was reprodu
 - **Hand strength**: Chen score + Chen+ (position/style-adjusted), preflop tier (Premium/Strong/Playable/Marginal/Trash), contextual hand descriptions ("Top Pair, Ace-kicker", "Nut Flush Draw")
 - **Equity**: Monte Carlo simulation (1,000 iterations, about ±1.6% standard error at 50% equity) against random opponent hands, preflop and postflop alike (AA heads-up 85%, AKs 67%, AA 6-way 49%); on the river the board is complete, so only the opponents' hands are sampled
 - **Hand improvement probabilities**: Per-rank % chance of making each hand by the river (e.g., "Flush: 19.2%", "Two Pair: 32.4%")
-- **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river. Outs are counted as distinct cards — a card that completes both a flush and a straight is one out — and each draw lists the exact cards that complete it
-- **Pot odds**: Side-by-side percentage comparison (Your Equity vs Need), with ratio shown as secondary reference, pass/fail verdict
-- **Expected Value (EV)**: `equity x (pot + call) - call` -- green for +EV (profitable call), red for -EV
+- **Equity against a bet**: a player who bets is not holding a random hand, so when you face a postflop bet the recommendation, the pot-odds verdict and EV use a discounted figure: `e × (1 − d × (1 − e))`, where `e` is the vs-random equity and `d` is 25% plus 35% × (bet ÷ pot before the bet), capped at 60%. A 60% hand becomes 46% against a pot-size bet and 51% against a third-pot bet; a near-nut hand barely moves. The result never falls below your chance of completing a flush or straight draw. This is a simple correction, not a range model. The vs-random equity is still shown
+- **Draws and outs**: Flush draws, straight draws (OESD/gutshot), overcards, set draws with hit probability by next card and by river. Outs are counted as distinct cards — a card that completes both a flush and a straight is one out — and each draw lists the exact cards that complete it. A flush or straight draw counts only when one of your hole cards takes part (four of a suit on the board with none in your hand is everyone's draw, not yours). Trips count every card that fills them up, including the ones that pair your other hole card (K-5 on K-K-9 is 7 outs). A pocket pair above the board is labelled an overpair
+- **Pot odds**: Side-by-side percentage comparison (your equity vs the equity the call needs), with ratio shown as secondary reference, pass/fail verdict. The price is capped at your stack: facing a bet bigger than you can call, the call is your all-in amount and the part of the bet you cannot cover is taken out of the pot
+- **Expected Value (EV)**: `equity x (pot + call) - call`, with the same equity and capped call -- green for +EV (profitable call), red for -EV
 - **SPR**: Stack-to-Pot Ratio with strategic guidance (low/medium/high SPR advice)
 - **Rule of 2/4**: Quick mental math approximation alongside exact calculations — multiply outs by 4 on the flop (two cards to come) or by 2 on the turn (one card). A flush draw with 9 outs is ~36% on the flop, ~18% on the turn. Slightly overestimates with many outs.
-- **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street; facing a bet, the call is recommended only when your equity covers the price the pot is laying (strong draws get a little implied-odds slack), and the reasoning names both numbers. Color-coded: green (confident), yellow (marginal), red (fold). Pinned at top of stats panel so it's always visible without scrolling.
+- **Action recommendation**: FOLD / CHECK / CALL / RAISE with position-aware reasoning per street. Preflop it reads the action as well as the Chen score and position: with nothing to call it never says fold; facing a raise, premium hands re-raise, strong hands call, playable hands call in late position or from the big blind and otherwise fold, and a raise so large the call needs more than 45% equity is a call only with a premium hand. Postflop, facing a bet, the call is recommended only when your equity against a bet covers the price the pot is laying (strong draws get a little implied-odds slack), and the reasoning names both numbers. Color-coded: green (confident), yellow (marginal), red (fold). Pinned at top of stats panel so it's always visible without scrolling.
 
 ### Hand Ranges
-- Authentic 6-max cash game opening ranges by position (UTG 15% through BTN 42%)
+- 6-max cash game opening ranges by position, as shares of the 1,326 dealt combos: UTG 14.9%, UTG+1 17.0%, MP 22.0%, CO 29.9%, BTN 41.8%, SB 35.9%, BB defend 39.7%. Each is the strongest hands down to a cut-off, and each range shows its hand-type and combo counts
 - All 169 starting hands ranked by expected value
 - Expandable lists categorized by pairs, suited, and offsuit hands
 - In-range indicator showing whether your current hand falls within each range
-- Facing-aggression ranges: 3-bet (8%), call-vs-3-bet (12%), 4-bet (3.5%), call-vs-4-bet (5%), 5-bet (1.5%)
+- Facing-aggression ranges: 3-bet (8.3%), call-vs-3-bet (12.1%), 4-bet (3.8%), call-vs-4-bet (5.1%), 5-bet (1.4%, QQ+)
+- Each range's one-line description is generated from its hand list (`describeRange`), so the text and the highlighted hands cannot disagree
 - These charts are a study reference for the hero (`app/utils/ranges.ts`). Bots do not read the position charts; they use the same ranked 169-hand list with their own VPIP/PFR thresholds (see [Preflop Decision Flow](#preflop-decision-flow))
 
 ### Opponent Stats (HUD)
@@ -197,10 +190,11 @@ Found in the 2026-11-11 whole-app review and **not yet fixed**. Each was reprodu
 - Presets below min-raise are dimmed and disabled with tooltip explanation
 - Continuous slider from min-raise to all-in (steps by BB) with min-raise indicator
 - Custom exact-amount input with keyboard enter support
-- All amounts clamped: never below min-raise, never above your stack
+- Raise amounts are raise-to totals, clamped between the min-raise and all-in. All-in is your remaining stack plus the chips you already have in front of you this street (a big blind with 198 behind and 2 posted is all-in to 200)
+- When a short all-in raises over you after you have acted, the Raise button and sizing controls are hidden: you may only call the difference or fold
 - Prominent bankroll display with running P&L and +/- from starting stack
-- **Pre-action queuing**: "Pre-fold" and "Pre-check/call" buttons while bots are acting. Cancel anytime before your turn.
-- **Hotkeys on your turn**: `F` fold, `C` check or call, `R` raise to half the pot (raised to the legal minimum if that is smaller). They are bound only while the game page is the active route.
+- **Pre-action queuing**: "Pre-fold" and "Pre-check" / "Pre-call" buttons while bots are acting. A queued call is for the price shown when you queued it (the chip reads `CALL $X`): if a raise changes the price before your turn, the queue is dropped and you decide. A queued check is dropped as soon as there is something to call. A queued fold always goes through. Cancel anytime before your turn.
+- **Hotkeys on your turn**: `F` fold, `C` check or call, `R` raise to half the pot (raised to the legal minimum if that is smaller; applied as a call when a short all-in has closed your raise). Keys pressed with Cmd, Ctrl or Alt held are left to the browser. They are bound only while the game page is the active route.
 
 ### Bot Configurator
 
@@ -275,7 +269,7 @@ The setup screen shows your full table roster with inline controls. Each bot can
 | 3-Bet Frequency | 3-25% | Per-opportunity re-raise rate facing an open |
 
 **Dynamic features:**
-- **Auto-naming**: Bot names update when stats drift from the preset ("Loose Lucy" becomes "Aggro Lucy" if you crank aggression). Consistency and tilt multiplier are looked up by the bot's current name, so a renamed or preset bot plays at the defaults (95% consistency, 1.0x tilt)
+- **Auto-naming**: Bot names update when stats drift from the preset ("Loose Lucy" becomes "Aggro Lucy" if you crank aggression). Consistency and tilt multiplier are looked up by the seat's persona preset, not its display name, so a renamed bot keeps its persona's values. A quick-select preset has neither and plays at the defaults (95% consistency, 1.0x tilt)
 - **Plain-English summary**: Real-time description of what all sliders mean together
 
 ### Tilt System
@@ -299,10 +293,12 @@ The setup screen shows your full table roster with inline controls. Each bot can
 - **Inconsistent (0.88-0.91)**: Wild Wendy, Calling Carl, Bean-Robert Jellande, Mike the Mouth, Tennifer Jilly, Ncotty Sguyen
 
 ### Session Management
-- **5-minute hero timeout**: after five minutes without a hero action the current hand is abandoned (you are folded if it was your turn) and a pause screen offers "Resume Playing" (deals a fresh hand) or a return to setup. In career mode the timeout ends the session and banks your current stack.
-- **Bust-out**: showdown results display first, then "Buy More Chips" (re-buy) or "Cash Out"
-- **Re-buy**: starts a new session at the original starting stack with a fresh table. The new session replaces the saved one.
-- **Busted bots** are marked eliminated and do not rebuy; their seats stay in the position rotation for the rest of the session
+- **5-minute hero timeout**: after five minutes without a hero action the current hand is abandoned (you are folded if it was your turn) and recorded as a fold, so the chips you had put in are that hand's loss. A pause screen offers "Resume Playing" (deals a fresh hand) or a return to setup. In career mode the timeout ends the session and banks your current stack.
+- **Bust-out**: showdown results display first, then "Buy More Chips" (re-buy) or "Cash Out". In career mode there is no free re-buy: a felted hero gets only "Back to Career", which settles the session against the bankroll
+- **Re-buy** (quick play only): starts a new session at the original starting stack with a fresh table. The new session replaces the saved one.
+- **New Session** (Session tab) at a running table starts the new session from the stack in front of you, not from the original buy-in
+- **Hand result panel**: the profit shown after a hand is the change in your stack over that hand
+- **Busted bots** are marked eliminated and do not rebuy. Their seats leave the rotation: no cards, no blind, no button, no refilled stack, and the position labels are laid out for the number of players still in (two left is heads-up, D/SB and BB). When every bot is busted the table shows "You busted the whole table." with a **New Table** button; in career mode the only way on is **Leave table**
 - **Auto-save**: the session is written to localStorage when it starts, after every hand, and on tab close
 - **Speed after fold**: bot thinking delays drop from 0.8-2.0s to 0.15-0.35s once you have folded
 - **Stats navigation preserves game state**: the game page is kept alive, so you can open Stats mid-hand and come back to the same table. Bots pause while you are away.
@@ -331,7 +327,7 @@ The app is fully local — no accounts, no cloud, no serverless functions. Every
 - Nothing mid-hand is saved: a reload returns you to the setup screen, and a career session in progress is refunded
 - Career and Nemesis payloads are shape-validated on load and fall back to a fresh state if unusable; a session payload that fails its shape check is discarded
 - If the session outgrows the storage quota the game keeps running and logs one console warning; stats then stop surviving a reload
-- Export anytime: JSON, CSV, or PokerStars hand history format
+- Export anytime: JSON, CSV, or PokerStars-style hand history text
 - The stats page (`/stats`) and the replay page (`/replay`) read the same `holdem-session-stats` key
 - Future idea: browser-side SQLite (e.g. sql.js/OPFS) for cross-session hand-history queries — still with zero server code
 
@@ -339,9 +335,9 @@ The app is fully local — no accounts, no cloud, no serverless functions. Every
 
 `app/utils/devHandLog.ts` is a debugging aid its own source marks as temporary. It is not behind a dev flag: it runs in every build, including the deployed site.
 
-- **Per decision**: `useGameEngine.applyAction` prints one line for every action by every player as it happens: hand number, street, position, name, **hole cards**, visible board, stack in bb, pot, SPR, amount to call with pot odds, and the action with the share of stack and pot it commits. Lines are flagged `>>>` for an all-in, a bet that leaves under 6bb behind, a commitment of half the stack or more, or a tilted actor.
+- **Per decision**: `useGameEngine.applyAction` prints one line for every action by every player as it happens: hand number, street, position, name, hole cards (**the hero's only; a bot's line shows `--`**), visible board, stack in bb, pot, SPR, amount to call with pot odds, and the action with the share of stack and pot it commits. Lines are flagged `>>>` for an all-in, a bet that leaves under 6bb behind, a commitment of half the stack or more, or a tilted actor.
 - **Per hand**: at hand end `index.vue` prints one flat text block: stakes, pot, winner, board, every seat's position, cards, stack before and after, amount invested, result and tilt (raw and effective), then the full action log.
-- **This reveals hidden information.** The per-decision lines print each bot's hole cards while the hand is still being played, so an open console shows you the table. The per-hand block prints only after the hand is decided.
+- **Bot hole cards are printed only after the hand.** The per-decision lines run while the hand is live and never carry a bot's cards, so an open console cannot be used to play the hand in front of you. The per-hand block, which lists every seat's cards, prints once the hand is decided; to see what a bot held when it acted, read its decision line against that block.
 - **Helpers on `window`**: `holdemHands(n)` returns the last `n` hand blocks as text (default 10; up to 200 are kept in memory for the page's lifetime), `holdemCopy(n)` copies them to the clipboard (or prints them if the clipboard is blocked), `holdemLog('off')` stops all logging and `holdemLog('on')` resumes it. The switch persists in `localStorage` under `holdemHandLog`.
 - A banner reading `HOLDEM HAND LOG ACTIVE` is printed once when the game page mounts.
 
@@ -349,7 +345,7 @@ The app is fully local — no accounts, no cloud, no serverless functions. Every
 - Open a hand on the stats page and click **"Practice"** to replay it interactively (**"Watch"** sends the same hand to the `/replay-hand` step-through viewer instead)
 - Same hole cards, same board, same players and positions
 - Hero gets full bet controls at each decision point to try different lines
-- Bots run the same decision function again, so their actions can differ from the original (no misplay roll and no hero adaptation in replay)
+- Bots run the same decision function again, so their actions can differ from the original. An opponent whose name matches a persona or preset plays that persona's full strategy (sizing, style bias, limp and donk frequencies) with its consistency roll; there is no tilt and no hero adaptation in replay
 - **Comparison panel** at showdown: Original result vs Replay result with profit difference
 - **"Replay Again"** button to try the same hand multiple times
 
@@ -454,17 +450,18 @@ The sliders let you dial in your preferred experience: crank Chorman to max for 
 - Three-column desktop layout at `xl` breakpoint (1280px+): Commentary | Table | Stats
 
 ### Stats Page (`/stats`)
-The stats page reads the one session stored under `holdem-session-stats` — the session you are playing or the last one you played. Multi-session history came from the Supabase backend removed in v0.18.0 and has not been rebuilt locally: the page still labels its figures "Lifetime", but they cover that one session, the **Sessions** tab is always empty, and the per-session figures on the overview (hands per session, winning/losing session counts, best/worst session) stay at zero.
+The stats page reads the one session stored under `holdem-session-stats` — the session you are playing or the last one you played. Multi-session history came from the Supabase backend removed in v0.18.0 and has not been rebuilt locally: the page still labels its figures "Lifetime", but they cover that one session, and the **Sessions** tab lists that one session (or nothing).
 
-- **Overview**: hands, profit, won/lost/folded counts, avg pot, win rate, showdown rate, won-at-showdown %, biggest win and loss, profit trend sparkline, performance by position, recent hands (click to expand details with Watch/Practice/Analyze/Export)
-- **Per-hand profit as recorded**: a won hand is recorded as plus the whole pot, a hand lost at showdown as minus the whole pot, and a folded hand as zero, so profit figures summed from hands are not your net result. The session's own `totalProfit` (current stack minus starting stack) is the accurate number and is what the table's Session tab shows
-- **Hands**: Click any row to open a detail modal -- PokerStars-format hand history with color-coded streets, all players' hole cards, copy-to-clipboard, and per-hand export
+- **Overview**: hands, profit, won/lost/folded counts, avg pot, win rate, showdown rate, won-at-showdown %, biggest win and loss, profit trend sparkline (last 50 hands, in the order played), performance by position, recent hands (the newest 20, newest first; click to expand details with Watch/Practice/Analyze/Export)
+- **Per-hand profit** is your net for the hand: your stack after it minus your stack at the deal. A fold costs what you had put in, a split pot is the partial result, and the hands sum to the session's `totalProfit`
+- **VPIP** counts a hand when you call or raise preflop. A walk in the big blind or a checked option does not count; completing the small blind does
+- **Hands**: Click any row to open a detail modal -- PokerStars-style hand history with color-coded streets, all players' hole cards, copy-to-clipboard, and per-hand export
 - **Hand Analysis Modal**: Click "Analyze" on any hand for a detailed street-by-street instructional breakdown:
   - Player profiles with playstyle, stats, tilt, and leak descriptions
   - Per-action explanations referencing Chen/Chen+, board texture, hand strength, draws, and the specific bot's persona
   - Showdown summary and personalized key takeaway
-- **Export**: all stored hands as JSON, CSV, or PokerStars .txt, plus single-hand PokerStars export
-- **Delete**: a single hand or all stored data, with confirmation dialogs
+- **Export**: all stored hands as JSON, CSV, or PokerStars-style .txt, plus single-hand export
+- **Delete**: a single hand or all stored data, with confirmation dialogs. A hand deleted here stays deleted when you return to a table that is still running
 - **Winner shown at showdown** for every outcome (win, loss, fold) with cards and amount
 
 ### Authentic Deal Sequence
@@ -515,7 +512,7 @@ The idea that ties it all together: a percentage stat is turned into an action b
 **Pattern 1 — stat as a threshold (preflop hand selection).** The bot converts its two cards into one of the 169 starting-hand classes and looks them up in a fixed, EV-ranked list to get a **percentile**: AA ≈ top 0.5%, QJo ≈ top 16%, 72o = the very bottom. Because the list is *combo-weighted*, "`percentile < VPIP`" literally means "this hand is in the best VPIP% of all hands I could be dealt." So:
 
 - A bot with **VPIP 25%** plays the **top ~25% of hands — not a random 25%.**
-- **Position** shifts the percentile (Button −8 points, Cutoff −5, Big Blind −3, UTG +3, UTG+1 +2; the rest 0), because the same cards are worth more when you act last.
+- **Position** shifts the percentile (Button −15 points, Cutoff −8, Big Blind −3, UTG +5, UTG+1 +3; the rest 0; the heads-up button, which is also the small blind, −8), because the same cards are worth more when you act last. The full shift applies when opening or facing a single open; facing a 3-bet or more, half of it applies. Measured first in at a six-handed table, Solid Sam opens about 17% of hands under the gun, 22% from middle position, 30% from the cutoff and 37% on the button.
 - **Style Bias** shifts it per hand category, so two bots with the *same* VPIP still play *different* hands (Degreanu's suited connectors, Phellmuth's big cards). A small random jitter (at most ±2.5 points) is added last.
 - When nobody has raised, a non-blind bot raises the top `min(PFR × 1.6, VPIP)` and may limp the rest of its VPIP range at its `limpFreq`.
 
@@ -528,7 +525,7 @@ The idea that ties it all together: a percentage stat is turned into an action b
 
 Same two cards, opposite decisions — and the only thing that changed was one number in a config file. Now say Lucy gets called and the flop comes dry and King-high. As the preflop raiser she has a **range advantage**, so with top pair her c-bet rate starts at 0.85 (strong hand, dry board) and is multiplied by texture, opponent-count, SPR and position factors; the roll clears it and she bets roughly half the pot (dry boards use the smallest base size). Hold the same spot but give her air on a wet, draw-heavy board and the base rate drops to `0.15 + bluffFreq × 0.5` = 0.22 before the wet-board and multiway discounts — she mostly checks.
 
-**Postflop, in one breath.** After the flop the bot scores its *actual* hand on a 0–1 strength scale — made-hand rank, kicker quality, board-relative discounts (a "two pair" that's really one pair plus a pair on the board is marked down), and draw equity with blocker discounts — then buckets it: **monster ≥ 0.55, strong ≥ 0.35, weak-made 0.10–0.35, draw, or nothing < 0.10.** From there the same two patterns apply, filtered through board texture, position (in/out), SPR, who raised preflop, how many players are in, and a few opponent reads. Defensive rules sit on top: **size-aware defense** (on the turn and river, how often a made hand continues is tied to the defense frequency the bet size implies), **bet-size sensitivity** (top pair folds more often as a flop or turn bet grows past 0.7x pot), and **river polarization** (monsters and air bet; top-pair-class hands check or bet small for thin value; weaker made hands check). The full street-by-street version is in [How Bot Behavior Works](#how-bot-behavior-works).
+**Postflop, in one breath.** After the flop the bot scores its *actual* hand on a 0–1 strength scale — made-hand rank, kicker quality, board-relative discounts (a "two pair" that's really one pair plus a pair on the board is marked down), and draw equity with blocker discounts — then buckets it: **monster ≥ 0.55, strong ≥ 0.35, weak-made 0.10–0.35, draw, or nothing < 0.10.** From there the same two patterns apply, filtered through board texture, position (whether the bot acts last among the players who can still act), SPR, who raised preflop, how many players are in, and a few opponent reads. Defensive rules sit on top: **size-aware defense** (on the turn and river, how often a made hand continues is tied to the defense frequency the bet size implies), **overbet defense** (on the flop, a top-pair-class hand continues less often the further a bet goes past pot size; two pair starts mixing in folds past 1.5x pot; trips and better never fold to size alone), and **river polarization** (monsters and air bet; top-pair-class hands check or bet small for thin value; weaker made hands check). The full street-by-street version is in [How Bot Behavior Works](#how-bot-behavior-works).
 
 ### Why Do It This Way?
 
@@ -617,7 +614,7 @@ This simulator was designed to be **fun and fast** first, realistic second. It r
 | **Postflop decisions** | Heuristic: hand strength buckets + texture + position + SPR | Neural-net: continuous equity estimation | Exact: iterates to equilibrium (30s-5min per spot) |
 | **River play** | Polarized (monsters + bluffs bet, some thin value, medium checks) | GTO-balanced value/bluff ratios | Perfectly balanced by definition |
 | **MDF defense** | Heuristic: turn/river continuation scaled to bet size | Built into neural net | Exact calculation |
-| **Opponent adaptation** | Hero tendencies and sizing tell (session + Nemesis book), one table-wide read | Exploit mode adjusts to specific leaks | N/A (solvers compute vs. ranges, not opponents) |
+| **Opponent adaptation** | Hero tendencies, fold-to-c-bet and sizing tell (session + Nemesis book), one table-wide read | Exploit mode adjusts to specific leaks | N/A (solvers compute vs. ranges, not opponents) |
 | **Speed** | Instant | ~100ms per decision | 30 seconds to 5 minutes per decision |
 | **Fun factor** | High (commentary, personas, tilt, live HUD) | Medium (training focused) | Low (analysis tool, no gameplay) |
 | **Runs in browser** | Yes | No (desktop app) | No (desktop, heavy CPU/RAM) |
@@ -746,10 +743,10 @@ Chen+ is a display and teaching score. It appears in the stats panel next to the
 
 | Seat | Chen | Chen+ | Bot's percentile (12.1% + position shift) | What a bot does first in |
 |------|------|-------|-------------------------------------------|--------------------------|
-| UTG | 6 | 5 (−1) | 15.1% | Usually a fold for Tight Tony (opens top 14%; the jitter occasionally tips it in); an open for every other persona, whose `min(PFR × 1.6, VPIP)` is 17.6% or more |
+| UTG | 6 | 5 (−1) | 17.1% | A fold for Tight Tony (opens top 14%). An open for every other persona: the next-tightest opening range is Hill Phellmuth's 17.6%, and his big-card bias moves this hand to 13.1% |
 | MP | 6 | 6 (±0) | 12.1% | Opens for everyone |
-| CO | 6 | 7 (+1) | 7.1% | Opens for everyone |
-| BTN | 6 | 8 (+2) | 4.1% | Opens for everyone |
+| CO | 6 | 7 (+1) | 4.1% | Opens for everyone |
+| BTN | 6 | 8 (+2) | 0% (12.1% − 15 points, floored at zero) | Opens for everyone |
 
 Both the classic Chen score and the Chen+ score are shown in the stats panel during play so you can see the difference position makes.
 
@@ -791,7 +788,7 @@ Bots read the *table*, not you — that is Nemesis's job. A rolling 30-hand wind
 |---|---|---|
 | Calling stations (check-heavy, everything goes to showdown) | `passive && showdownHeavy` | River thin value ×1.4, river bluff-raises ×0.3 |
 
-Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker, so the read is measured end to end in CI: one `station` seat loses −1,142 bb/100 at 100bb (−1,080 before the read) and −565 at 25bb, and four station seats lose −669 per seat with the read firing in most windows.
+Every number lives in `config.strategy.tableReads`. With no read the multipliers are 1.0 and decisions are byte-identical. The exploit probe feeds the same tracker, so the read is measured end to end in CI. When the read shipped (September 2026) one `station` seat lost −1,142 bb/100 at 100bb against −1,080 before the read and −565 at 25bb, and four station seats lost −669 per seat with the read firing in most windows. On the Round 9 code the single-seat figures are −1,072 and −525 (see [Exploit Probe](#exploit-probe-adversarial-validation)).
 
 A second "weak-tight" read (`passive && showdownLight`, probe bets ×1.25) was designed, built and then removed the same day: multi-seat probe runs showed it never fires at any realistic table — fold-heavy seats make the table showdown-heavy, and the remaining pros' own bets keep passivity below threshold — and an adaptation nothing can trigger is complexity without difficulty.
 
@@ -809,9 +806,14 @@ With Nemesis on, the two are blended by sample size (the book's weight is its ha
 | **Folds to 3-bets a lot** | Fold-to-3-bet above 60% | 3-bet frequency × `1 + (rate − 0.60) × 1.5` (up to 1.6x, capped at 35%); 4-bet frequency gets half that boost (capped at 20%). |
 | **Very loose** | VPIP above 40% | Bluff frequency × `1 − (VPIP − 0.40)`. |
 | **Passive** | Raises ÷ calls below 0.5 | Bluff frequency × up to 1.25 (capped at 40%). |
-| **Bet-sizing tell** | At least 4 strong (two pair or better) and 4 weak hands shown down after you bet postflop, with average bet size differing by 0.15 pot or more | Facing a bet sized like your value bets, the bot's continue rates are multiplied by 0.70; sized like your bluffs, by 1.40. Needs familiarity of 0.4 or more when Nemesis is on. |
+| **Folds to c-bets a lot, or hardly ever** | At least 6 c-bets faced (`strategy.heroRead.minCbetsFaced`) | On the flop, a preflop-raiser bot's c-bet rate with nothing is multiplied by `1 + (fold-to-c-bet − 0.5) × 1.0 × familiarity` (familiarity is 1 when Nemesis is off), clamped to 0.6--1.5. A hero who folds 80% is c-bet with air 1.3x as often; one who folds 20%, 0.7x. C-bets with made hands and draws do not change. |
+| **Bet-sizing tell** | At least 4 strong (two pair or better) and 4 weak hands shown down after you bet postflop, with average bet size differing by 0.15 pot or more | Facing a bet **you** made that is sized like your value bets, the bot's continue rates are multiplied by 0.70; sized like your bluffs, by 1.40. Needs familiarity of 0.4 or more when Nemesis is on. |
 
-Two things to know: the adjusted profile and the sizing-tell factor are used for every decision that bot makes while the read holds, whoever it is playing against in that pot; and fold-to-c-bet is tracked but nothing acts on it yet.
+Three things to know:
+
+- **The read applies only to pots you are in.** The live table passes the read to a bot only while you have not folded; once you fold, the bots left in the hand play each other with their unadjusted profiles. While you are in, the first three rows adjust the bot's whole profile, so they also colour what it does against the other players in that pot.
+- **The sizing tell applies only to your bets.** The table tells the bot whether the bet it faces was made by you (`facingHeroBet`); another bot's bet is never read through your tell.
+- **The c-bet read mostly needs Nemesis.** The session window holds 10 hands, and six c-bets faced inside it is rare; the count that usually clears the threshold is the session's plus the Nemesis book's. The scouting report prints a fold-to-c-bet line once the book holds that sample and the rate is above 65% or below 35%.
 
 ### Preflop Decision Flow
 
@@ -821,19 +823,19 @@ Two things to know: the adjusted profile and the sizing-tell factor are used for
 
 2. **Consistency check**: roll against the persona's consistency (0.88--0.99). On a miss, return an off-strategy play (see [Consistency System](#consistency-system)) and stop.
 
-3. **Hero adaptation**: if a hero read with 10+ hands exists, adjust a copy of the profile (see [Hero Adaptation](#hero-adaptation)).
+3. **Hero adaptation**: if the caller passed a hero read with 10+ hands (the live table does so only while the hero is still in the hand), adjust a copy of the profile (see [Hero Adaptation](#hero-adaptation)).
 
 4. **Table Flow**: adjust the profile for table dynamics (hot/cold/dominated). Tilt has already been applied by the caller.
 
 5. **Short-stack check**: below 12 BB and facing any bet (including the blind), the bot only shoves or folds. The shove range is the top 35% from late position (BTN/CO) and 28% elsewhere under 10 BB, and 25% / 18% from 10 to 12 BB. That range is used in full when the price is one big blind or less, at 70% of its width to re-shove over a raise, and at 45% when the bet already commits 40% of the stack (calling a shove). From 12 BB to 25 BB the normal logic below runs, and any raise that would cost 40% or more of the stack is promoted to all-in.
 
-6. **Hand percentile**: look up the hole cards in the ranked 169-hand list and convert to a **combo-weighted percentile** (pairs = 6 combos, suited = 4, offsuit = 12 of 1,326 — so "percentile < VPIP" plays VPIP% of dealt hands). Two versions are kept: the **raw** percentile, and a **shifted** one with the position shift (BTN −8 points, CO −5, BB −3, SB/MP 0, UTG+1 +2, UTG +3), the persona's `styleBias` for the hand's category, and a jitter of up to ±2.5 points.
+6. **Hand percentile**: look up the hole cards in the ranked 169-hand list and convert to a **combo-weighted percentile** (pairs = 6 combos, suited = 4, offsuit = 12 of 1,326 — so "percentile < VPIP" plays VPIP% of dealt hands). Two versions are kept: the **raw** percentile, and a **shifted** one with the position shift (BTN −15 points, CO −8, BB −3, SB/MP 0, UTG+1 +3, UTG +5; heads-up button −8; multiplied by `posShiftVsReraise`, 0.5, when facing a 3-bet or more), the persona's `styleBias` for the hand's category, and a jitter of up to ±2.5 points.
 
 7. **Decision**, by situation:
    - **Nothing to call** (the big blind's option): raise if the shifted percentile is inside VPIP, by `(2.2 in late position | 2.5) + (aggression − 1) × 0.4` big blinds, times `betSizeMult`, on top of the blind already posted; otherwise check.
    - **Price is one big blind or less, pot not re-raised, not in a blind** (first in, or over limpers): raise the top `min(PFR × 1.6, VPIP)` to `current bet × (2.5 + (aggression − 1) × 0.5) × betSizeMult`. The open range runs wider than headline PFR because 3-bet spots are rarer. A hand inside VPIP but outside that range limps at the persona's `limpFreq`, otherwise folds.
    - **Price is one big blind or less, in a blind** (small blind completing, or the big blind facing a min-raise): play the top `VPIP` from the small blind, `min(VPIP × 1.25, 70%)` from the big blind, or `min(VPIP × 2.5, 85%)` when only two players are left in the hand. The top 70% of that range (SB) or 45% (BB) raises; the rest calls.
-   - **Facing a jam-like raise** (the call is 45% or more of the stack, or a first raise costing 15 BB or more): continue with a raw-percentile range of `max(fourBetFreq, 4%)` × a size factor, `(20 / jam size in BB)^1.1` capped at 1. Against a re-raise jam that factor is floored at `0.85 × sqrt(40 / jam size)`. Against a jam under 25 BB the range is at least 4% (25 BB) rising to 10% (12 BB or less). The top 40% of the range re-jams when the bot has chips behind; the rest calls. For a typical pro that is about the top 6% against a 20 BB shove, the top 2% (JJ+/AKs) against a 100 BB re-raise jam, and under 0.7% — aces only — against a 100 BB open-jam.
+   - **Facing a jam-like raise** (the call is 45% or more of the stack, or a first raise costing 15 BB or more): continue with a raw-percentile range of `max(fourBetFreq, 4%)` × a size factor, `(20 / jam size in BB)^1.1` capped at 1. Against a re-raise jam that factor is floored at `0.85 × sqrt(40 / jam size)`. Against a jam under 25 BB the range is at least 4% (25 BB) rising to 10% (12 BB or less). Whatever the size, the range is never narrower than 0.95% of hands (`jamPremiumFloor`), which is AA and KK. The top 40% of the range re-jams when the bot has chips behind; the rest calls. For a typical pro that is about the top 6% against a 20 BB shove, the top 2% (JJ+/AKs) against a 100 BB re-raise jam, and KK+ against a 100 BB open-jam (the size factor alone would leave under 0.7%, aces only; the floor adds kings).
    - **Facing an open** (a first raise, not jam-like): let `T` = `threeBetFreq`, and `S` = a size penalty of 1 for opens up to 3 BB and `(3 / open size)^0.85` above. Value 3-bet when the **raw** percentile is under `T × 0.55 × sqrt(S)`; bluff 3-bet a hand inside VPIP on a roll of `T × 0.45 / max(VPIP, 0.15) × S^1.5`; both shrink with callers already in (×0.6 per caller for bluffs, the square root of that for value) and at tables with more than five players in the hand, and both need a stack over three times the bet. The 3-bet size is `current bet × (3.0 in position | 3.5 out of position, + (aggression − 1) × 0.3) × betSizeMult`. Otherwise flat-call when the shifted percentile is under the cold-call range: `VPIP × (0.40 + 0.55 × (VPIP − PFR)/VPIP + 1.5 × max(0, VPIP − 0.30))` in position, 65% of that out of position, or `min(VPIP × 1.5, 65%)` when only two players are left, all × `S`. The big blind's cold-call range is doubled against opens of 3 BB or less, fading linearly to no boost at 6 BB (not applied two-handed; capped at 90%). Otherwise fold.
    - **Facing a 3-bet**: value 4-bet when the raw percentile is under `fourBetFreq × 0.6 × sqrt(P)`; bluff 4-bet a hand inside VPIP on a roll of `fourBetFreq × 0.4 / max(VPIP, 0.15) × P^1.5`; 4-bets are 2.5x the 3-bet. Flat-call when the shifted percentile is under `VPIP × 0.45 × P`. `P` is 1 up to a reference size (9 BB, or 3.5x what the bot already put in, whichever is larger) and `(reference / 3-bet size)^0.85` above it.
    - **Facing a 4-bet**: shove when the raw percentile is under `fiveBetFreq`; call when it is under `fiveBetFreq + VPIP × 0.20 × P` (reference 25 BB or 2.5x the bot's own bet); otherwise fold.
@@ -845,11 +847,17 @@ Two things to know: the adjusted profile and the sizing-tell factor are used for
 
 `decidePostflopCore()` scores the hand, reads the board, and branches on whether there is a bet to call.
 
-**Hand strength (0--1).** One pair 0.30, two pair 0.55, trips 0.70, straight 0.80, flush 0.85, full house 0.92, quads 0.97, straight flush 1.00, then adjusted: top pair 0.38--0.48 by kicker, second or third pair 0.28--0.35, overpairs up to 0.53 (aces); one or two overcards 0.15 / 0.22--0.25 (flop and turn only); "two pair" or trips made mostly by the board are marked down to one-pair or kicker values; a river hand that just plays the board is capped at 0.12; a straight or flush on a paired board is multiplied by 0.82 (0.62 on a double-paired or trips board). Before the river, a flush draw lifts strength to at least 0.31, an open-ender 0.25, a gutshot 0.15.
+**Hand strength (0--1).** One pair 0.30, two pair 0.55, trips 0.70, straight 0.80, flush 0.85, full house 0.92, quads 0.97, straight flush 1.00, then adjusted: top pair 0.38--0.48 by kicker, second or third pair 0.28--0.35, overpairs up to 0.53 (aces); one or two overcards 0.15 / 0.22--0.25 (flop and turn only); "two pair" or trips made mostly by the board are marked down to one-pair or kicker values; a river hand that just plays the board is capped at 0.12; a straight or flush on a paired board is multiplied by 0.82 (0.62 on a double-paired or trips board). Before the river, a flush draw lifts strength to at least 0.31, an open-ender 0.25, a gutshot 0.15; a draw counts only when one of the bot's hole cards takes part in it, so four of a suit on the board with none in hand is not a flush draw.
+
+Three board-reading rules sit on top of that:
+
+- **A pair that is entirely on the board is not the bot's pair.** With neither hole card paired on a paired board, the hand is scored by its top card: ace 0.22, king 0.16, queen 0.13, jack 0.11, ten 0.10, anything lower 0.08. Before the river the overcard values above still apply if they are higher. So ace-high down to ten-high is a weak made hand (a bluff-catcher) and nine-high or worse is nothing.
+- **Four to a flush on the board**: two pair, trips, a set or a straight is multiplied by 0.55, which takes a set from 0.70 to 0.385 (strong, no longer a monster). A flush made on that board is scored by how many higher cards of the suit are not on the board: none ×1.0 (the nut flush), one ×0.90, two or three ×0.75, four or more ×0.60.
+- **Four to a straight on the board** (and no four-flush): two pair and trips are multiplied by 0.70.
 
 **Buckets.** Monster: 0.55 or more. Strong: 0.35 or more. Draw: a flush or straight draw without a strong hand (flop and turn only). Weak made: 0.10 to 0.35 with no draw. Nothing: under 0.10 with no draw. On the river an unpaired hand or a busted draw is nothing.
 
-**Shared modifiers.** Position: betting rates are multiplied by **1.25 in position** (BTN/CO) and **0.85 otherwise**, except the probe and lead branches, which are split by position instead. SPR under 4 is shallow, over 12 is deep. Bet sizes are pot fractions times `betSizeMult`, never less than one big blind.
+**Shared modifiers.** Position: betting rates are multiplied by **1.25 in position** and **0.85 otherwise**, except the probe and lead branches, which are split by position instead. In position means the bot acts last among the players who can still act (`actsLastPostflop` in `bettingEngine.ts`): a button with a live player behind it is out of position, and a big blind closing the action is in position. The live table, `/replay`, both simulators and both probes pass that fact; a caller that does not gets the old seat-label rule (button and cutoff count as in position). SPR is the bot's stack, including what it has already bet this street, divided by the pot **before** the bet it is facing, so an overbet does not make the bot look committed. Under 4 is shallow, over 12 is deep. Bet sizes are pot fractions times `betSizeMult`, never less than one big blind.
 
 **When not facing a bet** (the first matching branch decides):
 
@@ -869,10 +877,13 @@ Two things to know: the adjusted profile and the sizing-tell factor are used for
 
 **When facing a bet** (in this order):
 
-- **Shallow commit**: with SPR under 2 and a strong-or-better hand on the flop or turn, shove. Not on the river.
-- **Monster**: with SPR under 4 and a stack no bigger than 1.5x the pot, shove. Otherwise raise to 2.2--3.0x the bet at `(0.20 + aggression × 0.30 + check-raise boost) × position`. The check-raise boost is 0.25 × texture (dry ×1.4, wet ×0.6, paired ×1.3) when the bot checked earlier on this street. A monster that does not raise here can still raise through the strong-hand rules below, and otherwise calls; it never folds.
+- **Shallow commit**: with SPR under 2 and a strong-or-better hand on the flop or turn, shove. Not on the river. Because SPR uses the pot before the bet, this fires when the pot really is at least half the stack, not because the bet being faced is large.
+- **Monster**:
+  - *Two pair against a big overbet*: a monster scoring under 0.70 (two pair) facing a bet of more than 1.5x the pot it was made into continues with probability `min(1, D × 2.5 + 0.15)` and otherwise folds. Heads-up that is 98% against a 2x-pot bet, 78% against 3x pot and 38% against 10x pot. Trips, sets and better (0.70 or more) never fold to size alone.
+  - With SPR under 4 and a stack no bigger than 1.5x the pot (the pot including the bet), shove. Otherwise raise to 2.2--3.0x the bet at `(0.20 + aggression × 0.30 + check-raise boost) × position`. The check-raise boost is 0.25 × texture (dry ×1.4, wet ×0.6, paired ×1.3) when the bot checked earlier on this street. A monster that does not raise here can still raise through the strong-hand rules below, and otherwise calls.
 - **Strong** (top-pair class, not a monster):
-  - *Flop or turn, bet over 0.7x pot*: fold with probability `size pressure × (1 − 0.65 × strength shield)` (×0.8 on the flop), capped at 92%. Size pressure runs from 0 at 0.7x pot to 1 at 2x pot; the shield runs from 0 at strength 0.30 to 1 at 0.55.
+  - *Flop, bet over pot size*: continue with probability `D × (2.0 + 0.5 × class position) × passive boost × sizing-tell factor`, at least 10% and at most 100%. Heads-up, before the last two factors, that is 100% at a pot-size bet, 67--83% at 2x pot, 40--50% at 4x pot and 18--23% at 10x pot.
+  - *Flop or turn, very large bets*: an older rule adds a fold with probability `size pressure × (1 − 0.65 × strength shield)` (×0.8 on the flop). Size pressure is `(ratio − 0.7) / 1.3`, where the ratio is the amount to call over the pot including the bet, so it starts at a bet of about 2.3x the pot and cannot exceed 0.23; the shield runs from 0 at strength 0.30 to 1 at 0.55.
   - *Turn*: continue with probability `D × (1.20 + 0.45 × class position) × passive boost × sizing-tell factor`, clamped to 30%--97%. Class position runs from 0 at strength 0.35 to 1 at 0.55.
   - *River*: the same formula, clamped to 25%--97%.
   - *Flop with three or more players in the hand*: continue with probability `(0.72 + 0.28 × class position) × passive boost`.
@@ -886,8 +897,8 @@ Two things to know: the adjusted profile and the sizing-tell factor are used for
 
 Terms used above:
 
-- **Bet size relative to the pot**: in these rules it is the amount to call divided by the current pot, which already includes the bet being faced.
-- **`D`, the size-aware defense frequency** (turn and river): `(pot before the bet) ÷ (pot including the bet)`, divided by the number of other players still in the hand. Heads-up that is 75% against a third-pot bet, 50% against a pot-sized bet and 40% against a 1.5x-pot bet. Every constant is in `config.strategy.turn` and `config.strategy.river`.
+- **Bet size relative to the pot**: the two overbet rules (flop strong hands, two pair) measure the bet against the pot it was made into. Every other size threshold in these rules ("under 0.4x pot", "under half pot") is the amount to call divided by the current pot, which already includes the bet being faced.
+- **`D`, the size-aware defense frequency**: `(pot before the bet) ÷ (pot including the bet)`, divided by the number of other players still in the hand. Heads-up that is 75% against a third-pot bet, 50% against a pot-sized bet, 40% against a 1.5x-pot bet and 9% against a 10x-pot bet. The constants are in `config.strategy.turn`, `config.strategy.river` and `config.strategy.overbet`.
 - **Flop/turn defense range**: an older, shallower measure still used by the draw, flop weak-made and air rules: the hand is "inside" when `1 − min(strength / 0.70, 1)` is at most `(1 − pot odds) ÷ other players`.
 - **Passive boost**: `max(0.8, 1.6 − aggression × 0.6)`. Calling Carl (0.60) continues 1.24x as often; anyone at 1.33 aggression or above 0.8x.
 - **Street factor**: 1.0 on the flop, 0.75 on the turn, times the passive boost and the sizing-tell factor.
@@ -909,52 +920,57 @@ yarn probe station 10000 20260712 100 4   # four scripted seats (bb/100 per seat
 
 | Probe strategy | What it tests | 100bb | 25bb |
 |---|---|---|---|
-| open-jam (any two) | jam-call discipline | **−301.6** | **−80.2** |
-| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **−300.1** | **−45.7** |
-| overbet-spam (1.5x pot every street) | fold discipline | **−1,288.0** | **−265.1** |
-| minraise-spam | over-folding to min bets | **−1,101.1** | **−197.6** |
-| station (call everything) | thin value betting | **−1,156.0** | **−561.8** |
-| nit-value (jam only QQ+/AK) | paying off too light | **−8.0** | **−8.3** |
-| steal-fold (open CO/BTN any two, fold to 3-bets, one c-bet) | blind defense, c-bet folding | **−20.7** | **−20.7** |
-| donk-33 (call opens, bet ⅓ pot whenever checked to) | small-bet fold discipline | **−132.0** | **−147.1** |
-| fit-or-fold (call opens, continue only with any pair, including a board pair) | fold-heavy postflop line | **−464.4** | **−160.8** |
+| open-jam (any two) | jam-call discipline | **−353.8** (−388.8 to −318.1) | **−57.8** (−69.1 to −48.5) |
+| 3bet-jam (any two over opens) | fold-to-3-bet exploitability | **−281.3** (−320.0 to −266.2) | **−27.6** (−35.8 to −16.8) |
+| overbet-spam (1.5x pot every street) | fold discipline | **−972.1** (−1,054.7 to −910.5) | **−183.9** (−201.9 to −163.8) |
+| minraise-spam | over-folding to min bets | **−1,064.6** (−1,103.9 to −1,008.9) | **−145.0** (−149.3 to −140.8) |
+| station (call everything) | thin value betting | **−1,072.3** (−1,096.1 to −1,043.8) | **−524.8** (−537.9 to −507.6) |
+| nit-value (jam only QQ+/AK) | paying off too light | **−8.4** (−10.5 to −3.8) | **−8.3** (−11.1 to −6.7) |
+| steal-fold (open CO/BTN any two, fold to 3-bets, one c-bet) | blind defense, c-bet folding | **−19.6** (−20.5 to −18.9) | **−19.5** (−20.5 to −18.8) |
+| donk-33 (call opens, bet ⅓ pot whenever checked to) | small-bet fold discipline | **−76.9** (−82.0 to −71.6) | **−89.5** (−94.5 to −82.2) |
+| fit-or-fold (call opens, continue only with any pair, including a board pair) | fold-heavy postflop line | **−455.1** (−468.3 to −416.8) | **−105.2** (−114.3 to −98.2) |
 
-Numbers (recorded during Round 8; not re-run for this revision of the README): mean bb/100 over 8 seeds (20260712, 999, 7, 4242, 55555, 111, 222, 333) × 30,000 hands per cell, `$1/$2` — this round's own measurement standard, replacing the earlier single-seed/10,000-hand reading. Stacks reset to the column's depth every hand. Seed-to-seed spread is small relative to the +10 bb/100 gate for every strategy here (standard deviation across the 8 seeds runs roughly 0.5–32 depending on strategy, tightest for `nit-value` and `steal-fold`) — this is the pure-degenerate battery; the newer composite cells below are considerably noisier (see that table's own note).
+Numbers: bb/100, `$1/$2`, stacks reset to the column's depth every hand, measured on the Round 9 code (commit `005860b`). The bold figure is the mean over 8 seeds (20260712, 999, 7, 4242, 55555, 111, 222, 333) × 30,000 hands; the bracket is the lowest and highest single seed. No seed of any strategy comes near the +10 bb/100 gate. The figures recorded in Round 8 (same seeds and sample) were taken before the Round 9 engine and bot fixes, and several have since moved toward zero: `overbet-spam` was −1,288 at 100bb and −265 at 25bb, `donk-33` −132 and −147, `open-jam` −80 at 25bb. The composite cells below are considerably noisier (see that table's own note).
 
-**Multi-seat mode.** A sixth argument seats that many copies of the strategy (the pro lineup fills the rest, so the table stays eight-handed) and reports bb/100 *per seat*. One hero cannot make an eight-handed table abnormal; four can, so this is how the table read is measured end to end. Recorded readings at 100bb, 10,000 hands (the CI gate runs the same two cells at 5,000 hands): `station` ×4 **−669 bb/100 per seat** (the station read fires in most windows and the bots value-bet it thinner), `fit-or-fold` ×4 **−563**. The same sweep is what retired the weak-tight read: `fit-or-fold` seats fold or go to showdown, so the table reads showdown-*heavy* at five-plus seats, and even six check-fold seats leave passivity at 13% of windows because the remaining pros' bets dominate the count.
+**Multi-seat mode.** A sixth argument seats that many copies of the strategy (the pro lineup fills the rest, so the table stays eight-handed) and reports bb/100 *per seat*. One hero cannot make an eight-handed table abnormal; four can, so this is how the table read is measured end to end. Single-seed readings on the Round 9 code at 100bb (seed 20260712, 10,000 hands; the CI gate runs the same two cells at 5,000 hands): `station` ×4 **−687 bb/100 per seat** (the station read fires in most windows and the bots value-bet it thinner), `fit-or-fold` ×4 **−409**. Before the Round 9 fixes the same cells read −669 and −563. The same sweep is what retired the weak-tight read: `fit-or-fold` seats fold or go to showdown, so the table reads showdown-*heavy* at five-plus seats, and even six check-fold seats leave passivity at 13% of windows because the remaining pros' bets dominate the count.
 
-The suite runs in CI as a regression gate (`tests/exploit-probe.test.ts`): seeded, 5,000 hands per strategy, every strategy must stay below +10 bb/100 at 100bb, 25bb and, since Round 8, 20bb — added because the 12–25bb short-stack commit-rule band (see [Preflop Decision Flow](#preflop-decision-flow)) fell inside neither of the original two depths. An earlier version of this table waved off nit-value at +64 bb/100 as "mildly +EV, as in real life" — the gate proved that wrong; the reraise-jam defense floor ignored jam size (bots called 100bb 3-bet jams with top ~3.4% hands — TT/AQ — paying off premium-only jammers) and the old refill-when-felted harness let stacks balloon past 1,000bb, so a handful of monster coolers dominated the metric. The floor now decays with jam size (full defense against re-raise jams of 40bb or less, about the top 2% — JJ+/AKs for a typical pro — against a 100bb one, narrower beyond that) and the harness resets stacks every hand. `nit-value` stayed a deliberate near-zero knife-edge at short stacks for several rounds after that fix (worst reading +9.5 bb/100 at 24bb, just before Round 8's short-stack fix below) — it is now solidly negative at every depth including the new 20bb column, confirming that fix holds.
+The suite runs in CI as a regression gate (`tests/exploit-probe.test.ts`): seeded, 5,000 hands per strategy (20,000 for `nit-value`, which plays so few pots that 5,000 hands has a per-run standard deviation about as wide as the bound), every strategy must stay below +10 bb/100 at 100bb, 25bb and, since Round 8, 20bb — added because the 12–25bb short-stack commit-rule band (see [Preflop Decision Flow](#preflop-decision-flow)) fell inside neither of the original two depths. An earlier version of this table waved off nit-value at +64 bb/100 as "mildly +EV, as in real life" — the gate proved that wrong; the reraise-jam defense floor ignored jam size (bots called 100bb 3-bet jams with top ~3.4% hands — TT/AQ — paying off premium-only jammers) and the old refill-when-felted harness let stacks balloon past 1,000bb, so a handful of monster coolers dominated the metric. The floor now decays with jam size (full defense against re-raise jams of 40bb or less, about the top 2% — JJ+/AKs for a typical pro — against a 100bb one, narrower beyond that) and the harness resets stacks every hand. `nit-value` stayed a deliberate near-zero knife-edge at short stacks for several rounds after that fix (worst reading +9.5 bb/100 at 24bb, just before Round 8's short-stack fix below) — it is now solidly negative at every depth including the new 20bb column, confirming that fix holds.
 
 ### Composite Probe (Round 8)
 
 The battery above can't see a pure postflop leak on its own: a hero who jams any two cards pays so much blind tax that a real +18 bb/100 river leak vanishes inside a −300 bb/100 line. `scripts/composite-probe.ts` instead plays a scripted hero on Solid Sam's own SOLID baseline logic, deviating in exactly one way per run — the delta against the untouched baseline *is* that one deviation's EV:
 
 ```bash
-yarn probe:composite all 30000 20260712,999,7,4242   # all 16 cells, 4-seed mean
+yarn probe:composite all 30000 20260712,999,7,4242   # all 19 cells, 4-seed mean
 yarn probe:composite river-33 30000 20260712 100     # one cell, one seed, one depth
 yarn probe:composite pf-exploit 30000 20260712 24    # short-stack cells need a <25bb depth
 ```
 
-| Cell | What it tests | Δ before fix | Δ after fix (final code) | CI gate status |
-|---|---|---|---|---|
-| `river-33` | river defense vs a 1/3-pot bet | +17.8 | roughly +3.0 to +17.2 | responded, stayed under bound (NOT DEMONSTRATED) |
-| `river-50` | river defense vs a 1/2-pot bet — original motivating leak | +19.2 | roughly +5.9 to +13.6 | **TRIPPED** on revert |
-| `river-66` | river defense, size-sweep coverage | ~+16 | roughly +4.3 to +10.4 | **TRIPPED** on revert |
-| `river-100` | river defense vs a pot-sized bet | ~+6 | roughly +4.1 to +12.4 | responded, stayed under bound (NOT DEMONSTRATED) |
-| `river-value-150` | river value overbet — documented residual, reduced not eliminated | +14.1 | roughly +5.4 to +11.3 | responded, stayed under bound (NOT DEMONSTRATED) |
-| `river-call-tp` | opposite-direction control (over-calling with only top pair) | control cell, not a leak | roughly −8.5 to +3.8 | not tested for tripping (control) |
-| `turn-river-33` | 1/3-pot bet on turn *and* river (cross-street) | roughly +11.9 (a mid-round +19.0 reading did not reproduce — see note below) | roughly +5.5 to +11.7 | did not respond meaningfully (NOT RESPONSIVE) |
-| `turn-33` | isolated turn defense vs a 1/3-pot bet | −4.7 (retroactive reading; not a leak in isolation even before) | roughly −9.1 to +10.0 | did not respond meaningfully (NOT RESPONSIVE) |
-| `turn-value-150` | turn value-direction check — documented residual | n/a — cell created after the fix, to check the new turn constants' value-direction safety | roughly +0.8 to +14.6 (the canonical 8-seed batch alone read +2.3 at ship time, before the 4-batch spread was run) | did not respond meaningfully (NOT RESPONSIVE) |
-| `prem3bet-25-fj` | flat continue rate vs a 3-bet | +8.1 to +8.3 | roughly −4.0 to −1.9 | **TRIPPED** on revert |
-| `prem3bet-50-fj` | flat continue rate vs a bigger 3-bet | +5.3 to +6.1 | roughly −10.2 to +1.0 | **TRIPPED** on revert |
-| `wide5-3bet-50-fj` | flat continue rate — original motivating leak | +16.2 | roughly −16.5 to −4.8 | **TRIPPED** on revert |
-| `reraise-cliff-bluff` | jam-like handoff discontinuity — documented residual, not closed | n/a, documents an unfixed seam rather than a measured-then-fixed leak | roughly −254.7 to −244.2 | not tested for tripping (targets a different mechanism) |
-| `pf-exploit` (@24bb) | short-stack push/fold leak | +22.9 | roughly −2.6 to +0.3 | **TRIPPED** on config neutralization |
+| Cell | What it tests | Δ before fix | Δ after the Round 8 fix | Δ on Round 9 code, 8 seeds | Same, 32 seeds (± SE) | CI gate status |
+|---|---|---|---|---|---|---|
+| `river-33` | river defense vs a 1/3-pot bet | +17.8 | roughly +3.0 to +17.2 | +11.7 | +6.7 ± 1.8 | responded, stayed under bound (NOT DEMONSTRATED) |
+| `river-50` | river defense vs a 1/2-pot bet — original motivating leak | +19.2 | roughly +5.9 to +13.6 | +6.8 | — | **TRIPPED** on revert |
+| `river-66` | river defense, size-sweep coverage | ~+16 | roughly +4.3 to +10.4 | +9.5 | +2.2 ± 1.6 | **TRIPPED** on revert |
+| `river-100` | river defense vs a pot-sized bet | ~+6 | roughly +4.1 to +12.4 | +9.3 | +3.6 ± 2.2 | responded, stayed under bound (NOT DEMONSTRATED) |
+| `river-value-150` | river value overbet — documented residual, reduced not eliminated | +14.1 | roughly +5.4 to +11.3 | +2.1 | +4.9 ± 2.0 | responded, stayed under bound (NOT DEMONSTRATED) |
+| `river-call-tp` | opposite-direction control (over-calling with only top pair) | control cell, not a leak | roughly −8.5 to +3.8 | −5.8 | — | not tested for tripping (control) |
+| `turn-river-33` | 1/3-pot bet on turn *and* river (cross-street) | roughly +11.9 (a mid-round +19.0 reading did not reproduce — see note below) | roughly +5.5 to +11.7 | +8.2 | — | did not respond meaningfully (NOT RESPONSIVE) |
+| `turn-33` | isolated turn defense vs a 1/3-pot bet | −4.7 (retroactive reading; not a leak in isolation even before) | roughly −9.1 to +10.0 | −3.5 | — | did not respond meaningfully (NOT RESPONSIVE) |
+| `turn-value-150` | turn value-direction check — documented residual | n/a — cell created after the fix, to check the new turn constants' value-direction safety | roughly +0.8 to +14.6 (the canonical 8-seed batch alone read +2.3 at ship time, before the 4-batch spread was run) | −2.5 | — | did not respond meaningfully (NOT RESPONSIVE) |
+| `prem3bet-25-fj` | flat continue rate vs a 3-bet | +8.1 to +8.3 | roughly −4.0 to −1.9 | −2.0 | −2.6 ± 1.8 | **TRIPPED** on revert |
+| `prem3bet-50-fj` | flat continue rate vs a bigger 3-bet | +5.3 to +6.1 | roughly −10.2 to +1.0 | −4.2 | −6.3 ± 2.1 | **TRIPPED** on revert |
+| `wide5-3bet-50-fj` | flat continue rate — original motivating leak | +16.2 | roughly −16.5 to −4.8 | −9.1 | — | **TRIPPED** on revert |
+| `reraise-cliff-bluff` | jam-like handoff discontinuity — documented residual, not closed | n/a, documents an unfixed seam rather than a measured-then-fixed leak | roughly −254.7 to −244.2 | −239.6 | — | not tested for tripping (targets a different mechanism) |
+| `pf-exploit` (@24bb) | short-stack push/fold leak | +22.9 | roughly −2.6 to +0.3 | not re-measured | — | **TRIPPED** on config neutralization |
+| `value-jam-ft` | shove the flop or turn, whatever the pot, with two pair or better that the board did not hand out | +18.5 (4 seeds × 30,000 hands) | n/a — cell added in Round 9 | −4.3 | — | **TRIPPED** before its fix (+18.5 against a bound of 6) |
+| `air-jam-flop` | opposite-direction control for `value-jam-ft`: shove any two cards on every flop the baseline checks | control cell, not a leak | n/a — cell added in Round 9 | −14.6 | — | not tested for tripping (control; its bound is 0) |
+| `3bet-light` | opposite-direction control for the three 3-bet cells: 3-bet any two cards to 3.2x over every open the baseline would fold to | control cell, not a leak | n/a — cell added in Round 9 | −107.2 | −110.6 ± 2.6 | not tested for tripping (control; its bound is −50) |
 
-Every "after" figure is a **range across four independently-seeded 8-seed × 30,000-hand batches, not a point estimate** — this protocol's per-cell distribution is genuinely heavy right-tailed (confirmed by per-seed inspection, not just aggregate variance; a single seed's own trajectory can swing an 8-seed mean by 10+ bb/100). Read every number above as "somewhere in this range," never as the precise value — the single canonical reading quoted in this round's own task-by-task notes is just one of the four batches. The `river-66` and `river-100` "before" figures (marked `~`) come from that fix's own working notes, measured once rather than across four batches — looser than the other "before" figures, which task 12's own final measurement report restates directly. The `turn-river-33` correction: a mid-round status brief cited +19.0 bb/100 for this cell; a clean re-measurement does not reproduce that figure and reads +11.9 instead. The gap traces to timing, not a determinism bug — the +19.0 reading was taken while the BB-defense fix's *first* version (later corrected, see the Audit Log) was still live, and that first version had over-widened BB calling ranges enough to let more hands reach the turn and river than either the corrected version or final code does, inflating how often this cross-street cell could fire; turn itself was unfixed at both readings.
+The two Round 9 columns are measured on commit `005860b` at 100bb, each as a delta against the untouched baseline on the same seeds. The 8-seed column is one run of the gate's own sample (the canonical 8 seeds × 30,000 hands; the baseline itself read +7.8 bb/100), and all 17 gated cells are under their bounds. **The 8-seed mean of a cell has a standard error of roughly 2–4 bb/100, so that column moves by that much from one run or one small code change to the next**; a single 8-seed reading of +9 and one of +4 are not different results. The 32-seed column (32 seeds × 30,000 hands, delta ± standard error) was taken for the cells where 8 seeds is too noisy to read, and is the better estimate where both are given. `open-any-late`, the one ungated deviation, read +1.2 on 8 seeds. `pf-exploit` runs at 24bb and was not re-measured outside the gate, which it passes. The baseline was −2.8 bb/100 before the Round 9 engine fixes, +8.6 with the engine fixes alone and +7.8 on the final code (same 8 seeds): the side-pot fix stopped chips leaking out of every showdown. `value-jam-ft` before its fix is from 4 seeds × 30,000 hands.
 
-`tests/composite-probe.test.ts` gates 14 of these 16 cells in CI (`base` is the reference every delta above is measured against, not a deviation; `open-any-late` is already covered far more tightly by `steal-fold` in the battery above) and adds roughly 4 seconds to the suite's wall-clock (most of the cost overlaps with Vitest's file-level parallelism). **It is a secondary, coarse net — not the primary regression guard.** That role belongs to the deterministic static-sweep suites — `tests/river-defense.test.ts`, `tests/turn-defense.test.ts`, `tests/short-stack.test.ts`, `tests/reraise-size.test.ts` — each independently shown to fail when its own fix is neutralized. A cell with no `TRIPPED` status above is not evidence its corresponding fix is unsafe: it means this specific noisy cell hasn't been shown to catch that fix's removal, most visibly for the turn family, where a flat-heads-up-shaped test value lands above the size-aware formula's current output in some multiway spots and below it in others, and the two effects wash out at an 8-handed table. Where a deterministic suite exists for the mechanism, that suite is the real guard; see `tests/composite-probe.test.ts`'s own header comment for the full account.
+Every "after the Round 8 fix" figure is a **range across four independently-seeded 8-seed × 30,000-hand batches, not a point estimate** — this protocol's per-cell distribution is genuinely heavy right-tailed (confirmed by per-seed inspection, not just aggregate variance; a single seed's own trajectory can swing an 8-seed mean by 10+ bb/100). Read every number above as "somewhere in this range," never as the precise value — the single canonical reading quoted in this round's own task-by-task notes is just one of the four batches. The `river-66` and `river-100` "before" figures (marked `~`) come from that fix's own working notes, measured once rather than across four batches — looser than the other "before" figures, which task 12's own final measurement report restates directly. The `turn-river-33` correction: a mid-round status brief cited +19.0 bb/100 for this cell; a clean re-measurement does not reproduce that figure and reads +11.9 instead. The gap traces to timing, not a determinism bug — the +19.0 reading was taken while the BB-defense fix's *first* version (later corrected, see the Audit Log) was still live, and that first version had over-widened BB calling ranges enough to let more hands reach the turn and river than either the corrected version or final code does, inflating how often this cross-street cell could fire; turn itself was unfixed at both readings.
+
+`scripts/composite-probe.ts` defines 19 cells and `tests/composite-probe.test.ts` gates 17 of them in CI (`base` is the reference every delta above is measured against, not a deviation; `open-any-late` is already covered far more tightly by `steal-fold` in the battery above). Run by themselves the two probe gate files take about 100 seconds; most of that overlaps with Vitest's file-level parallelism in a full `yarn test`. **It is a secondary, coarse net — not the primary regression guard.** That role belongs to the deterministic static-sweep suites — `tests/river-defense.test.ts`, `tests/turn-defense.test.ts`, `tests/short-stack.test.ts`, `tests/reraise-size.test.ts` — each independently shown to fail when its own fix is neutralized. A cell with no `TRIPPED` status above is not evidence its corresponding fix is unsafe: it means this specific noisy cell hasn't been shown to catch that fix's removal, most visibly for the turn family, where a flat-heads-up-shaped test value lands above the size-aware formula's current output in some multiway spots and below it in others, and the two effects wash out at an 8-handed table. Where a deterministic suite exists for the mechanism, that suite is the real guard; see `tests/composite-probe.test.ts`'s own header comment for the full account.
 
 ### Exploitable Leak Audit (historical — pre-v0.18 configs)
 
@@ -1022,8 +1038,9 @@ Bot behavior is checked at several levels:
 | **Stat alignment** (`phase4-bot-behavior`, `phase4-all-personas`) | 100K--500K simulated decisions per case via `simulateBotStats()` (real dealt cards, one preflop and one flop decision per hand) | Observed VPIP/PFR and relative ordering against config for every persona |
 | **Realistic pipeline** (`phase4-realistic-sim`) | 50K hands per persona | Real cards, hand evaluator, position rotation, tilt lifecycle |
 | **Escalation** (`phase6-escalation`) | 50K--100K | 3-bet/4-bet/5-bet rates and fold-to-3-bet per persona via `simulateEscalationStats()` |
-| **Static sweeps** (`river-defense`, `turn-defense`, `short-stack`, `reraise-size`, `river-bluff-discipline`, `position-commit-discipline`) | Seeded | One mechanism each, measured directly on `decideBotAction` |
-| **Probes** (`exploit-probe`, `composite-probe`) | 5,000 hands × 9 strategies × 3 depths; 14 cells × 8 seeds × 30,000 hands | Whole-table play: no scripted exploit may win |
+| **Static sweeps** (`river-defense`, `turn-defense`, `short-stack`, `reraise-size`, `river-bluff-discipline`, `position-commit-discipline`, `bot-leak-fixes`) | Seeded | One mechanism each, measured directly on `decideBotAction` |
+| **Engine rules** (`betting-engine`, `engine-chip-integrity`, `split-pots`) | Deterministic | Min-raise, short all-in raises, who acts on a fresh street, side pots that pay out every chip, busted seats, the All-In amount |
+| **Probes** (`exploit-probe`, `composite-probe`) | 5,000 hands (20,000 for `nit-value`) × 9 strategies × 3 depths; 17 cells × 8 seeds × 30,000 hands | Whole-table play: no scripted exploit may win |
 
 ## Tech Stack
 
@@ -1039,7 +1056,7 @@ Bot behavior is checked at several levels:
 | Runtime for build/tests | Node 22 (`.nvmrc` pins 22.22.2; CI uses Node 22) |
 | Web deploy | Netlify (static SPA, `netlify.toml`) |
 | Analytics | Plausible (cookieless page views only) |
-| Testing | Vitest (1,132 tests across 53 files) |
+| Testing | Vitest (1,272 tests across 62 files) |
 | CI | GitHub Actions: `yarn test` on pull requests and pushes to `main` |
 
 ## Bot Simulation Script
@@ -1048,7 +1065,7 @@ The simulator includes a headless bot-vs-bot simulation script (`scripts/simulat
 
 ### Analysis Report
 
-The live report lives at `/analysis`: it runs the browser simulator (`app/utils/simulateBrowser.ts`) for 1,000 hands each at 2-, 6- and 8-player tables in your tab, pro personas only, and shows observed vs configured stats, metrics, chip counts and auto-selected interesting hands. A downloadable PokerStars-format sample (`/sample-hands.txt`) ships with the site; to refresh it, run the CLI simulator below and copy its newest output:
+The live report lives at `/analysis`: it runs the browser simulator (`app/utils/simulateBrowser.ts`) for 1,000 hands each at 2-, 6- and 8-player tables in your tab, pro personas only, and shows observed vs configured stats, metrics, chip counts and auto-selected interesting hands. A downloadable PokerStars-style sample (`/sample-hands.txt`) ships with the site; to refresh it, run the CLI simulator below and copy its newest output:
 
 ```bash
 cp "$(ls -t scripts/output/*.txt | head -1)" public/sample-hands.txt
@@ -1109,7 +1126,7 @@ yarn vite-node scripts/simulate.ts 100 4
 
 ### Output
 
-Each run generates a PokerStars-format `.txt` file in `scripts/output/` (gitignored). The format is intended for import into trackers such as PokerTracker 4 and Hold'em Manager 3, and for equity tools such as Equilab.
+Each run generates a PokerStars-style `.txt` file in `scripts/output/` (gitignored), written by the same exporter as the live game. It loads in this app's `/replay-hand` viewer; it is not a conforming PokerStars file, so import into trackers is not assured.
 
 ### Interpreting Results
 
@@ -1147,7 +1164,7 @@ yarn install
 # Start dev server
 yarn dev
 
-# Run tests (53 files, 1,132 tests; includes both probe gates)
+# Run tests (62 files, 1,272 tests; includes both probe gates)
 yarn test
 
 # Type-check
@@ -1206,13 +1223,13 @@ metaincognita-holdem/
 │   │   ├── heroProfile.ts         # Pinia: in-session hero window (VPIP, fold-to-3-bet, sizing tell)
 │   │   └── nemesis.ts             # Pinia: persistent hero book + familiarity, bound to localStorage
 │   └── utils/
-│       ├── bettingEngine.ts       # Shared betting rules: min-raise, short all-in reopen rule, loop termination
+│       ├── bettingEngine.ts       # Shared betting rules: min-raise, short all-in rule, who acts on a street, postflop position, loop termination
 │       ├── botConfig.ts           # One persona/preset → bot strategy mapping for the setup screen
 │       ├── botDecision.ts         # Bot decision engine, hand strength, board texture, tilt, stat simulators
 │       ├── botDescriptions.ts     # Bot playstyle descriptions and auto-naming for UI
 │       ├── cardParser.ts          # Parse display-format card strings back into Card objects
 │       ├── cards.ts               # Card types, suit symbols, pip layouts
-│       ├── careerRules.ts         # Pure career rules: buy-in, settle, promote/demote, bust, sanitize
+│       ├── careerRules.ts         # Pure career rules: buy-in, settle, promote/demote, bust, sanitize, no free re-buy
 │       ├── chips.ts               # Chip denomination breakdowns by stake tier
 │       ├── commentaryQuips.ts     # Static TV-Broadcast quip pools
 │       ├── commentaryStrategic.ts # Context-aware strategic commentary generators, foreshadow gate
@@ -1220,16 +1237,17 @@ metaincognita-holdem/
 │       ├── downloadFile.ts        # Client-side file download via Blob URL
 │       ├── gameSimulation.ts      # Shared simulation helpers (deck, table-flow dynamics)
 │       ├── handAnalysis.ts        # Hand evaluator, Chen/Chen+, draws and outs, equity, recommendation
+│       ├── heroInput.ts           # Hero input guards: hotkey filter, queued pre-action resolution
 │       ├── heroModel.ts           # Nemesis book: decay, familiarity, blending, scouting-report text
 │       ├── heroRecord.ts          # Parses the hero's hand record from the action log
 │       ├── observedStats.ts       # Observed per-bot VPIP/PFR/AF/WTSD for the HUD
-│       ├── pokerStarsExport.ts    # PokerStars hand history format converter
-│       ├── pokerStarsParser.ts    # PokerStars hand history parser (for replay)
-│       ├── ranges.ts              # Ranked 169 hands, combo-weighted percentile, position range charts
+│       ├── pokerStarsExport.ts    # PokerStars-style hand history text export
+│       ├── pokerStarsParser.ts    # Parser for the app's export and genuine PokerStars cash hands (for replay)
+│       ├── ranges.ts              # Ranked 169 hands, combo-weighted percentile, range charts and their generated descriptions
 │       ├── rng.ts                 # Seedable RNG (mulberry32) for tests, simulators and probes
-│       ├── seats.ts               # Position assignment + polar coordinate layout
+│       ├── seats.ts               # Position assignment (full table and with busted seats) + polar coordinate layout
 │       ├── shuffle.ts             # Generic Fisher-Yates shuffle with injectable RNG
-│       ├── sidePots.ts            # Side pot construction and pot awards
+│       ├── sidePots.ts            # Side pot construction (every chip invested is paid out) and pot awards
 │       ├── simulateBrowser.ts     # Browser-side bot-vs-bot simulation engine
 │       ├── tableReads.ts          # Rolling-window table reads (passive, showdown-heavy)
 │       └── thinkingInsight.ts     # Gate for the bot-thinking pill
@@ -1242,7 +1260,7 @@ metaincognita-holdem/
 │   ├── composite-probe.ts         # Solid baseline + one deviation — isolates a single leak's EV
 │   ├── exploit-probe.ts           # Adversarial hero strategies vs pros — reports EV in bb/100
 │   └── simulate.ts                # Headless bot-vs-bot simulation with stats
-├── tests/                         # 53 Vitest files (1,132 tests) + vitest.setup.ts
+├── tests/                         # 62 Vitest files (1,272 tests) + vitest.setup.ts
 ├── holdem.config.ts               # Game parameters: stakes, personas, strategy constants, career, nemesis, tilt
 ├── nuxt.config.ts                 # Nuxt 4 config — head meta, Plausible snippet, icon client-bundle
 ├── netlify.toml                   # Static deploy config — SPA redirect + security headers
@@ -1262,7 +1280,12 @@ Game parameters live in `holdem.config.ts` (project root). Blocks the code reads
 - **`personas`**: 27 characters (7 fictional + 20 pro) with vpip, pfr, aggression, bluffFreq, creativeFreq, threeBetFreq, fourBetFreq, fiveBetFreq, donkBetFreq, tiltMultiplier, consistency, and optional limpFreq, styleBias, betSizeMult, overbetFreq
 - **`botPresets`**: 6 quick-select templates (Nit through Maniac)
 - **`botCustomRanges`**: min/max/step for the bot sliders
-- **`strategy`**: the bot engine's tunable constants — position shifts, preflop size penalties, jam defense, short-stack band, big-blind defense boost, postflop strength cutoffs and dust rule, c-bet and turn-barrel base rates, river and turn defense, table reads. Changing any of these calls for a `yarn probe` re-run
+- **`strategy`**: the bot engine's tunable constants — position shifts, preflop size penalties, jam defense, short-stack band, big-blind defense boost, postflop strength cutoffs and dust rule, c-bet and turn-barrel base rates, river and turn defense, overbet defense, hero reads, table reads. Changing any of these calls for a `yarn probe` re-run. The blocks added or changed in the 2026-11-11 round:
+  - **`strategy.posShift`**: BTN / D / D/BTN −0.15, CO −0.08, BB −0.03, SB / MP / MP+1 0, UTG+1 +0.03, UTG +0.05; D/SB (the heads-up button) −0.08
+  - **`strategy.posShiftVsReraise`** (0.5): the share of the position shift that applies when facing a 3-bet or more. At 1.0 the button called large 3-bets too light; at 0 its defence of a standard 9bb 3-bet fell under the floor in `tests/reraise-size.test.ts`
+  - **`strategy.preflop.jamPremiumFloor`** (0.0095): the jam-continue range is never narrower than this share of hands, which is AA and KK
+  - **`strategy.overbet`**: `flopStrongBase` 2.0, `flopStrongShield` 0.5 and `flopStrongMin` 0.10 (top-pair class against a flop bet over pot size); `monsterFromFrac` 1.5, `monsterMdfMult` 2.5 and `monsterFloor` 0.15 (two pair against a bet over 1.5x pot); `neverFoldStrength` 0.70 (trips and better are exempt)
+  - **`strategy.heroRead`**: `minCbetsFaced` 6, `cbetBluffSlope` 1.0, `cbetBluffMin` 0.6, `cbetBluffMax` 1.5 (the fold-to-c-bet read)
 - **`career`**: starting bankroll, buy-in size, promotion/demotion thresholds, per-tier rosters
 - **`nemesis`**: half-life, minimum sample, familiarity curve, blend weights
 - **`tilt`**: consecutive-loss trigger, big-loss threshold, mild/full thresholds, per-stat boosts, decay duration
@@ -1270,7 +1293,7 @@ Game parameters live in `holdem.config.ts` (project root). Blocks the code reads
 - **`sessionMemory.windowSize`**: size of the in-session hero window (10)
 - **`session.heroTimeoutMs`**: hero inactivity timeout (5 minutes); **`session.rebuyEnabled`**; **`betting.defaultHeroName`**
 
-Declared but not read by any code today, so editing them changes nothing: `monte`, `handRanks`, `deviation`, `animation`, `stats`, `storage`, `betting.raisePresets`, `betting.heroShotClock`, `session.autoSaveIntervalMs`, `sessionMemory.threeBetAdjustThreshold`, `sessionMemory.deepStackThreshold`, and the `tableFlow` window and threshold values (the engine uses its own constants: a 20-hand window and the 28% / 10% / 25% thresholds in `botDecision.ts`). A number of postflop rates also remain literals in `botDecision.ts` rather than config.
+Declared but not read by any code today, so editing them changes nothing: `monte`, `handRanks`, `deviation`, `animation`, `stats`, `betting.raisePresets`, `betting.heroShotClock`, `session.autoSaveIntervalMs`, `sessionMemory.threeBetAdjustThreshold`, `sessionMemory.deepStackThreshold`, and the `tableFlow` window and threshold values (the engine uses its own constants: a 20-hand window and the 28% / 10% / 25% thresholds in `botDecision.ts`). A number of postflop rates also remain literals in `botDecision.ts` rather than config.
 
 ### Persistence Model
 
@@ -1278,7 +1301,7 @@ All data lives in the browser. There is no backend, no database, no serverless f
 
 ## Test Suites
 
-Run all tests: `yarn test` (1,132 tests in 53 files). `tests/composite-probe.test.ts` accounts for 16 of them; without it the suite is 1,116 tests in 52 files.
+Run all tests: `yarn test` (1,272 tests in 62 files). `tests/composite-probe.test.ts` accounts for 19 of them; without it the suite is 1,253 tests in 61 files.
 
 ### Phase 1 -- Seats (`phase1-seats.test.ts`)
 - Position labels correct for all table sizes: heads-up (2) through full ring (8)
@@ -1376,23 +1399,31 @@ Every file under `tests/` not described above, with its test count:
 
 | File | Tests | What it pins |
 |------|-------|--------------|
-| `betting-engine` | 10 | Shared betting rules: min-raise clamp, short all-in reopen rule, loop termination |
+| `betting-engine` | 10 | Shared betting rules: min-raise clamp, short all-in rule, loop termination |
 | `bitmask-evaluator` | 3 | Fast evaluator matches the brute-force reference over random hands |
 | `bot-config` | 4 | Preset/persona → bot strategy mapping clears every field on a switch |
 | `bot-decision-seeded` | 6 | Bot decisions and Monte Carlo analysis repeat exactly with a seeded RNG |
+| `bot-leak-fixes` | 25 | Overbets do not read as commitment; a board pair is not the bot's pair; four-flush boards; position is who acts last; hero reads apply to the hero; KK+ call a 100bb jam; opening ranges widen toward the button; a draw needs one of the bot's own cards |
 | `career-rules` | 16 | Buy-in, settlement, promotion/demotion, bust, refund |
-| `composite-probe` | 16 | Composite probe gate |
+| `coach-advice` | 18 | Preflop advice reads the action; equity against a betting range; pot odds capped at the stack |
+| `composite-probe` | 19 | Composite probe gate: 17 cells, coverage check, determinism |
+| `dev-hand-log` | 6 | The live per-decision console line never prints a bot's hole cards; removed config leftovers stay removed |
+| `engine-chip-integrity` | 18 | Side pots conserve chips; an all-in is answered; a short all-in raise must be called but cannot be re-raised; busted seats leave the rotation; All-In commits the whole stack |
 | `exploit-probe` | 37 | Exploit probe gate: 9 strategies at 100/25/20bb, multi-seat cells, determinism |
-| `hero-model` | 10 | Nemesis book: decay, familiarity, blending, scouting-report text |
-| `hero-record` | 9 | Hero action-log parsing without name collisions |
+| `hero-input` | 15 | Hotkeys ignore modifier keys; a queued call holds its price; career mode has no free re-buy |
+| `hero-model` | 11 | Nemesis book: decay, familiarity, blending, scouting-report text |
+| `hero-record` | 14 | Hero action-log parsing without name collisions; VPIP is a preflop call or raise |
 | `hub-exit` | 13 | The hub link exists on every route and behaves as specified |
 | `information-hygiene` | 3 | A bot's decision cannot depend on undealt board cards |
 | `links` | 7 | No stale repository URLs; changelog link definitions |
+| `outs-labels` | 11 | Board-only draws are not the hero's outs; trips count full-house outs; a pocket pair above the board is an overpair |
 | `persistence-guards` | 14 | Tampered or corrupt localStorage payloads load to a safe state |
 | `phase6-escalation` | 62 | 3-bet/4-bet/5-bet rates per persona |
 | `phase6-hero-adaptation` | 9 | Bots adjust to hero fold-to-3-bet, loose and passive tendencies |
-| `pokerstars-export` | 4 | Fractional amounts survive the PokerStars export |
+| `pokerstars-export` | 4 | Fractional amounts survive the PokerStars-style export |
+| `pokerstars-format` | 7 | A genuine PokerStars hand imports; the export is labelled PokerStars-style |
 | `position-commit-discipline` | 56 | River bluffs respect position; postflop bets do not leave dust stacks (every persona) |
+| `range-chart` | 13 | Range percentages are shares of 1,326 combos; descriptions come from the hand list |
 | `realism-fixes` | 24 | Combo-weighted percentile, played-hand tilt, raise-size-aware defense, bet-size sensitivity |
 | `regression-score-field` | 35 | Hand-result ordering, parser, kicker descriptions, range lookup |
 | `reraise-size` | 12 | Defense against 3-bets/4-bets scales with size; big-blind defense boost and its ceiling |
@@ -1403,6 +1434,7 @@ Every file under `tests/` not described above, with its test count:
 | `shuffle-seeded` | 5 | Seeded shuffles repeat exactly |
 | `split-pots` | 13 | Identical hands split; kickers break ties |
 | `static-report-retired` | 4 | The old static analysis page and its generator stay deleted |
+| `stats-data` | 18 | Hand deletion by position, the one-session list, per-hand net profit, hand order, deletions respected by a running table |
 | `table-dynamics` | 2 | Table-flow window calculation |
 | `table-reads`, `table-reads-effects`, `table-reads-wiring` | 7 / 5 / 3 | Read thresholds, the two multipliers, and that every engine feeds the tracker |
 | `thinking-insight-gate` | 3 | Bot-thinking pill hidden until the hero folds or study mode is on |
@@ -1441,7 +1473,7 @@ Every file under `tests/` not described above, with its test count:
 
 ## Security
 
-The codebase has been through eight logged rounds of red/blue team audits, covering security and, in later rounds, bot fairness and exploitability. This section is the running audit log: the most recent round is expanded, older rounds are collapsed below it. Each round documents findings, remediations, and accepted risks.
+The codebase has been through nine logged rounds of red/blue team audits, covering security and, in later rounds, bot fairness and exploitability. This section is the running audit log: the most recent round is expanded, older rounds are collapsed below it. Each round documents findings, remediations, and accepted risks.
 
 ### Architecture & Threat Model
 
@@ -1450,14 +1482,49 @@ The app is a **client-side SPA** (Vue/Nuxt, `ssr: false`) deployed as a static s
 There is no server-side code anywhere — no database, no serverless functions, no accounts, no cloud sync. All game logic runs locally; `localStorage` is the only persistence layer. The one third-party script is the Plausible analytics snippet added in `nuxt.config.ts`, which sends cookieless page-view pings to `plausible.io`. The realistic attack surface:
 
 - **Client-side code** — Vue/Nuxt SPA; all dynamic values render through Vue's auto-escaping (no `v-html` / `innerHTML` / `eval` in `app/`; the only inline script is the static Plausible bootstrap string in `nuxt.config.ts`)
-- **Browser console** — the debug hand log (`app/utils/devHandLog.ts`) prints bot hole cards to the console during live hands in every build. It exposes nothing beyond what is already in client memory, but it is hidden game information in plain view; see [Debug Hand Log](#debug-hand-log-browser-console)
+- **Browser console** — the debug hand log (`app/utils/devHandLog.ts`) runs in every build. During a live hand it prints public information and the hero's own cards only; every seat's hole cards are printed after the hand is decided. See [Debug Hand Log](#debug-hand-log-browser-console)
 - **localStorage** — the user's own poker hands (fake money)
 - **Netlify** — static hosting with security headers
 - **GitHub Actions** — the CI workflow (`.github/workflows/ci.yml`): `yarn test` (unit suites + both probe gates) on pull requests and pushes to `main`, with read-only token permissions and SHA-pinned actions
 
 ### Audit Log
 
-#### Round 8 — Exploitable bot leaks: river, turn, short-stack and blind defense (September 2026) — current
+#### Round 9 — Whole-app review: chip integrity, overbet defense, coaching and stats accuracy (November 2026) — current
+
+Scope: the whole-app review of 2026-11-11, in which every defect was reproduced by running the code before it was logged. Findings 1–5 are engine defects that moved chips wrongly on the live table; 6–16 are bot leaks, wiring faults and the probe gates; 17–25 are places where the coaching panel, the stats page, the controls or the console told the player something untrue or showed too much. All but the PokerStars export (24, partly fixed) are Fixed; what remains open is under [Known Issues](#known-issues).
+
+| # | Severity | Finding | Status |
+|---|----------|---------|--------|
+| 1 | High | **Folded players' chips vanished at showdown** — `calculateSidePots` sized each pot by counting the players who had invested at least that pot's level, so a folder who put in less was not counted at all. Two players all-in for 100 each plus a folded 2-chip big blind: 202 went in, 200 was paid out. Hands that ended by everyone folding were unaffected. Both simulators and both probes share the code, so every showdown at their tables leaked chips too. | **Fixed** — every contributor, folded or not, pays into each slice up to what they invested, and money a folder put in above the highest live level goes to the last pot. The composite probe's untouched baseline moved from −2.8 to +8.6 bb/100 with the engine fixes alone (8 seeds × 30,000 hands); the probe gates compare each cell against that baseline, so their bounds did not need to move. Pinned by `tests/engine-chip-integrity.test.ts`. |
+| 2 | High | **An all-in was not answered when only one opponent had chips left** — the live loop's "nobody left to bet" shortcut ran on every resume, including while that opponent still owed a call. Heads-up, shove 200: the bot was never asked, the board ran out and the uncalled chips came back, so a shove was a free showdown. The simulators and probes use a different loop and did not have the bug. | **Fixed** — the decision is made once, when a street starts, by the shared engine (`startBettingRound`): nobody acts if at most one player has chips and owes nothing to an all-in. The live loop no longer re-decides it mid-round, so the remaining stack calls or folds. Pinned by `tests/engine-chip-integrity.test.ts` (heads-up and three-way, through the live engine). |
+| 3 | High | **A short all-in raise was never called** — A bets 100, B calls, C is all-in for 150: the round ended with A and B still at 100 and C's extra 50 refunded. The half-raise rule was implemented as "does not put anyone back on the clock" instead of "does not reopen the betting", and Round 5's shared engine had carried that reading into the simulators and probes as well. | **Fixed** — players who had already acted are put back on the clock but may only call the difference or fold (`raiseClosed`); a raise from one of them is applied as a call, and the hero's Raise button is hidden. A player who has not yet acted may still raise, and a later full raise lifts the restriction. |
+| 4 | Medium | **Busted bots kept their seat** — they stayed in the position rotation and could post a blind from a refilled phantom stack. | **Fixed** — a busted seat gets no button, blind, cards or chips; the button skips it and position labels are laid out for the players still in (`assignLivePositions`, `nextLiveSeat`). With every bot busted the table says so and offers a new table (or, in career mode, leaving). Bots still do not rebuy. |
+| 5 | Low | **The All-In button could leave chips behind** — it raised to the remaining stack, ignoring chips already in front of the hero (big blind with 198 behind: raised to 198, kept 2). | **Fixed** — every raise control tops out at stack plus chips already bet this street. |
+| 6 | High | **Bots stacked off too light against big bets** — stack-to-pot ratio was computed with the bet being faced already in the pot, so any large overbet made the bot read itself as pot-committed: on the flop and turn it called a 16x-pot shove with top pair every time. Two pair or better never folded on any board (a set on a four-flush, four-straight board called a pot-size river shove 100% of the time). A hero who shoved the flop or turn with two pair or better gained +18.5 bb/100 over the solid baseline (4 seeds × 30,000 hands). | **Fixed** — SPR uses the pot before the bet. A new overbet rule set (`strategy.overbet`) makes top-pair-class hands on the flop continue at a rate that falls with the size past pot, and two pair mix in folds past 1.5x pot; trips and better still never fold to size alone. Two pair, sets and straights are marked down on four-flush boards (two pair and trips on four-straight boards), and a flush on a four-flush board by how many higher cards of the suit are out. New composite cell `value-jam-ft` reads −4.3 on the final code (8 seeds × 30,000 hands); its opposite-direction control `air-jam-flop` (shove any two cards on every flop the baseline checks) reads −14.6, so the bots are not now folding too much. Both are gated. Pinned by `tests/bot-leak-fixes.test.ts`. |
+| 7 | Medium | **A paired board turned air into "a pair"** — one-pair scoring did not check whether the pair was the board's. With 3-2 on K-K-7-4-9 a bot called a pot-size river bet 47% of the time (1% on an unpaired board) and never bluffed, and as the preflop raiser it c-bet 6-5 on K-K-2 at 71% (25% on K-J-2). | **Fixed** — a pair entirely on the board leaves the hand scored by its top card (ace-high to ten-high are bluff-catchers, lower is air). Pinned by `tests/bot-leak-fixes.test.ts`: that 3-2 continues under 8% and bluffs when checked to. |
+| 8 | Medium | **Postflop position was the seat label, not who acts last** — BTN and CO always counted as in position and every other seat as out, whoever was left in the hand. | **Fixed** — `actsLastPostflop` (`bettingEngine.ts`) answers it from the players who can still act, and the live table, `/replay`, both simulators and both probes pass the result. The seat-label rule remains only as a fallback for callers that do not. |
+| 9 | Low | **The live table never told a bot it had checked earlier on the street**, so the check-raise boost the simulators and probes exercised did not fire in real play. | **Fixed** — `index.vue` and `replay.vue` pass `checkedThisStreet`. |
+| 10 | Medium | **The read on the hero was applied in every pot** — including hands the hero had folded, and the bet-sizing tell was applied to bets made by other bots. `foldToCbet` was tracked and never used. | **Fixed** — the read is passed only while the hero is in the hand; the sizing tell applies only to a bet the hero made (`facingHeroBet`); and fold-to-c-bet now scales a preflop-raiser bot's c-bet rate with nothing (`strategy.heroRead`, at least six c-bets faced). The scouting report prints the matching line. |
+| 11 | Low | **Kings folded to a 100bb open-jam** — the size shrink on the jam-continue range took it under 0.7% of hands at 100bb, which is aces only. | **Fixed** — `strategy.preflop.jamPremiumFloor` (0.0095) keeps the range at KK+ whatever the size. Queens still fold. `nit-value` (jam only QQ+/AK) stays negative: −8.4 bb/100 at 100bb and −8.3 at 25bb (8 seeds × 30,000 hands; worst single seed −3.8). |
+| 12 | Low | **Opening ranges barely moved with position** — the percentile shift ran from +3 points under the gun to −8 on the button, an 11-point spread; for Solid Sam's 22% opening range that works out to about 19% of hands under the gun and 30% on the button. | **Fixed** — `strategy.posShift` now runs from +5 (UTG) to −15 (button), with the cutoff at −8. Measured first in, six-handed: Solid Sam opens about 17% under the gun, 30% from the cutoff and 37% on the button. |
+| 13 | Low | **The steeper shifts, applied to every preflop decision, made the button call big 3-bets too light** — found while measuring finding 12. Composite `prem3bet-25-fj` over 32 seeds × 30,000 hands read −9.0 ± 2.4 before the new shifts and +1.6 ± 1.9 with them applied in full. | **Fixed** — `strategy.posShiftVsReraise` (0.5): the full shift applies when opening or facing a single open, half of it when facing a 3-bet or more. The same cell reads −2.6 ± 1.8. Zero was tried (−2.2 ± 1.9) and rejected because it dropped the button's defence of a standard 9bb 3-bet under the floor in `tests/reraise-size.test.ts`. |
+| 14 | Low | **A renamed bot lost its temperament, and `/replay` played a cut-down opponent** — consistency and the tilt multiplier were looked up by display name, so a bot auto-renamed after a slider change played at the defaults; `/replay` rebuilt each persona from eight of its fields and never rolled for a misplay. | **Fixed** — both lookups use the seat's preset; `/replay` uses the shared `botStrategyFromPreset` mapping and the persona's consistency. `/replay` still finds the persona by the name in the hand record (see [Known Issues](#known-issues)). |
+| 15 | Low | **Bots counted the board's draws as their own** — four cards of a suit on the board with none in hand was scored and called as a flush draw, although the card that completes it completes it for everyone; the same went for a straight draw the board held by itself. | **Fixed** — bots, and the bot-thinking pill, ask `detectDraws` for strict draws: a flush or straight draw counts only when one of the bot's hole cards takes part. Pinned by `tests/bot-leak-fixes.test.ts`. |
+| 16 | Info | **Probe gates** — the composite probe gained `value-jam-ft` and `air-jam-flop` (bounds +6 and 0) and a third cell, `3bet-light` (bound −50), a control that 3-bets any two cards to 3.2x over every open the baseline would fold to (−107.2 on 8 seeds, −110.6 ± 2.6 on 32), so it gates 17 of 19 cells. In the exploit-probe gate `nit-value` now runs 20,000 hands instead of 5,000 (one 5,000-hand seed read +10.8 after the chip-conservation fixes shifted the random stream, against a true rate near −10), and the fold-everything table-read calibration runs 12,000 hands instead of 3,000. | **Confirmed** — both gate files pass on the final code. Composite and battery numbers measured after the fixes are in the [Exploit Probe](#exploit-probe-adversarial-validation) and [Composite Probe](#composite-probe-round-8) tables. |
+| 17 | Medium | **Preflop advice ignored the action** — it was keyed on Chen score and position only: 7-2 offsuit in the big blind with a free check said FOLD; J-T suited facing a 4-bet shove said RAISE. | **Fixed** — `recommend()` is told whether the chips to call are a raise. Nothing to call is never a fold; facing a raise, only premium hands re-raise, and a raise that needs more than 45% equity is a call only with a premium. Pinned by `tests/coach-advice.test.ts`. |
+| 18 | Medium | **Postflop advice used equity against random hands even when facing a bet, and pot odds were not capped at the hero's stack.** | **Fixed** — facing a postflop bet, the recommendation, the pot-odds verdict and EV use `equityVsBettingRange` (a size-scaled discount with a floor at the chance of completing a flush or straight draw; a correction, not a range model), and `callPrice` prices a call for less than the bet at the all-in amount. The vs-random equity is still shown. Pinned by `tests/coach-advice.test.ts`. |
+| 19 | Low | **Outs and labels were wrong in three spots** — a draw made entirely by the board was counted as the hero's, trips were not given the outs that pair the hero's other hole card, and a pocket pair above the board was labelled top pair. | **Fixed** in the coach panel (`detectDraws` strict mode): board-only draws are skipped, trips count every card that fills them up (K-5 on K-K-9 is 7), and the pair is labelled an overpair. The TV commentary, the Hand Analysis modal and `/replay-hand` still use the older count (Known Issues). Pinned by `tests/outs-labels.test.ts`. |
+| 20 | Low | **Range-chart percentages were shares of the 169 hand classes, not of dealt hands**, and each range's description was hand-written text that could disagree with the hands it lit. | **Fixed** — percentages are shares of the 1,326 combos (UTG 14.9%, 4-bet 3.8%, 5-bet 1.4%) and descriptions are generated from the hand list. Pinned by `tests/range-chart.test.ts`. |
+| 21 | Medium | **Input guards** — a queued "Pre-call" called whatever the price had become by the hero's turn; `R`, `F` and `C` fired with Cmd or Ctrl held, so Cmd+R raised instead of reloading; and with the hero's raise closed by a short all-in, `R` was recorded as a hero bet size. | **Fixed** — a queued call holds its price and is dropped if the price changes; hotkeys ignore Cmd, Ctrl and Alt; a closed raise is applied as a call and not recorded as a sizing. Pinned by `tests/hero-input.test.ts`. |
+| 22 | Medium | **Per-hand results were not net results** — a recorded hand's profit was plus the whole pot on a win, zero on a fold and minus the whole pot on a loss; the post-hand panel assumed a winning hero took the whole pot; a hand abandoned by the inactivity timeout was not recorded, so its chips surfaced in the next hand; the hero's VPIP counted a big-blind walk. On the stats page, deleting a hand after an earlier deletion removed the wrong one, a running table restored deleted hands on its next save, Recent Hands showed the oldest 20, the profit sparkline ran backwards, the Sessions tab was always empty and the delete dialog spoke of "the cloud". | **Fixed** — `recordHand` derives profit as stack after minus stack before; the panel shows the stack change; a timed-out hand is recorded as a fold; VPIP is a preflop call or raise; deletion goes by current position and the game page adopts the stored hand list when it is shown again; Recent Hands is the newest 20, newest first; the Sessions tab lists the stored session; "New Session" starts from the current stack. Pinned by `tests/stats-data.test.ts` and `tests/hero-record.test.ts`. |
+| 23 | Medium | **Career mode's "Buy More Chips" re-bought without debiting the bankroll.** | **Fixed** — `freeRebuyAllowed`: no free re-buy in career mode. A felted hero gets only "Back to Career", which settles the session. Pinned by `tests/hero-input.test.ts`. |
+| 24 | Low | **The PokerStars export claimed compatibility it does not have, and the importer rejected real PokerStars headers.** | **Partly fixed** — the UI and this README now say "PokerStars-style" and make no tracker claim; the parser accepts the real `($1/$2 USD)` header. The export still differs from the real format (Known Issues). Pinned by `tests/pokerstars-format.test.ts`. |
+| 25 | Medium | **The debug console log printed bot hole cards during live hands** — the per-decision line carried the acting bot's cards, so an open console showed the table. This had been recorded in the README as a known property of the log. | **Fixed** — the live line prints `--` for any seat but the hero's; all cards appear in the block printed after the hand. Pinned by `tests/dev-hand-log.test.ts`. |
+
+New suites: `engine-chip-integrity`, `bot-leak-fixes`, `coach-advice`, `outs-labels`, `range-chart`, `hero-input`, `stats-data`, `pokerstars-format`, `dev-hand-log`. Suite: 53 → 62 files, 1,132 → 1,272 tests.
+
+<details>
+<summary><strong>Round 8 — Exploitable bot leaks: river, turn, short-stack and blind defense (September 2026)</strong></summary>
 
 Scope: the bot decision engine's preflop and postflop defense logic, red-teamed with a new technique introduced this round — a scripted hero who plays the baseline bot logic (Solid Sam's own) with exactly one deviation, isolating that deviation's own EV from the noise a jam-any-two hero buries it in (see [Composite Probe](#composite-probe-round-8)). Four findings were scoped from the outset; a fifth (turn defense) was added mid-round once fixing the first uncovered it as the largest remaining leak. All five below are Fixed; two are documented residuals, reduced but not eliminated, not closed.
 
@@ -1471,6 +1538,8 @@ Scope: the bot decision engine's preflop and postflop defense logic, red-teamed 
 | 6 | Info | **Three non-exploit correctness bugs, plus a documentation trail.** A preset switch in the bot configurator copied only 7 of a bot's 12 strategy fields, so switching a seat away from a persona with a donk-bet or limp tendency left that tendency attached to the new persona. The hero's own VPIP / fold-to-3-bet / fold-to-c-bet / aggression read was derived by scanning the hand log for `line.includes(heroName)`, so a hero named e.g. "Sam" absorbed every "Solid Sam …" line — and, in the mirror direction, a hero named e.g. "Wild" or "Mike" would have absorbed a longer bot name starting the same way. Separately: every GitHub link in the changelog and the in-app footer pointed at this project's old, 404ing repository name, and 20 changelog version headings had never had a link definition at all. | **Fixed** — one shared `botStrategyFromPreset` mapping (`app/utils/botConfig.ts`) now backs both the initial roster and the preset dropdown, assigning every field — including `undefined` for one the new preset doesn't define — so nothing can leak across a switch. Hero-log parsing (`app/utils/heroRecord.ts`) now anchors on the actor at the start of the line followed immediately by one of the engine's five action verbs, closing both name-collision directions; the setup screen also rejects a blank or whitespace-only hero name. Every stale link now points at `cschweda/metaincognita-holdem`, and every changelog version has a working compare link. Pinned by `tests/bot-config.test.ts`, `tests/hero-record.test.ts` and `tests/links.test.ts`. |
 
 The new composite-probe CI gate (`tests/composite-probe.test.ts`) covers 14 of 16 composite cells at 8 seeds × 30,000 hands and is a **secondary, coarse net, not the primary regression guard** — that role belongs to the deterministic static-sweep suites named in the findings above, each independently shown to fail when its own fix is undone. The gate itself was shown (by reverting or config-neutralizing each fix in turn) to trip cleanly for the whole 3-bet/4-bet family, `river-50`, `river-66` and the short-stack cell; three river cells moved hard in the same direction but landed inside a bound widened by their own measurement noise; the three turn cells did not respond meaningfully to an equivalent test. This is a property of the probe's statistics for those specific cells, discovered and documented while building the gate, not a defect glossed over — see [Composite Probe](#composite-probe-round-8) for the full per-cell table, every "before"/"after" number in this section restated as the range it actually is, and the reasoning behind the turn cells' insensitivity. Suite: 43 → 53 files, 983 → 1,132 tests.
+
+</details>
 
 <details>
 <summary><strong>Round 7 — Whole-app analysis: bot leaks, analysis correctness, efficiency, security (September 2026)</strong></summary>
@@ -1634,7 +1703,7 @@ This project draws inspiration from the poker software, online sites, books, and
 
 ### Online Poker Sites
 
-- **PokerStars** -- The hand history format used throughout this app is the PokerStars standard. The look, feel, and pace of online poker as popularized by PokerStars influenced the table design, blind structure, and overall game flow.
+- **PokerStars** -- The hand history text this app writes is modelled on the PokerStars format. The look, feel, and pace of online poker as popularized by PokerStars influenced the table design, blind structure, and overall game flow.
 - **Full Tilt Poker** -- Full Tilt's pro roster and the era of "learn from the pros" shaped the pro-inspired bot personas. The idea that you could sit at a table with recognizable playstyles and learn by observation comes directly from Full Tilt's DNA.
 - **Doyle's Room** -- Doyle Brunson's online poker room was foundational to the bot personality system. The concept of distinct player archetypes (tight-aggressive, loose-passive, etc.) that this simulator models comes from the Brunson school of poker thinking.
 - **Two Plus Two Forums** (2+2) -- The poker strategy community that shaped modern poker thinking. Chen scoring, hand range charts, pot odds math, GTO concepts, and the idea that poker can be studied systematically -- all of this lives in the 2+2 DNA. The hand analysis panel, equity calculations, and range displays in this app owe a debt to thousands of 2+2 strategy posts.
@@ -1669,7 +1738,7 @@ Most poker trainers are either too simple (random bots, no personality) or too s
 - **Chorman is actually smart** -- slide from pure comedy to genuine strategic analysis. "That's an overbet — very strong hand or big bluff" mixed with "I've made better decisions at 3 AM at a Waffle House."
 - **Real cards, real math** -- actual hand evaluation, Monte Carlo equity, blocker-adjusted draw math, position-aware 3-bet sizing, kicker differentiation, SPR awareness, river polarization, size-aware turn and river defense, and a CI gate that fails if a scripted exploit beats the bots.
 - **Paste and replay** -- drop any PokerStars hand history into `/replay-hand` and watch it play out on the felt. Step through action by action. Pause and study.
-- **Run 3,000 hands in your browser** -- the `/analysis` page simulates heads-up, 6-max, and 8-max tables with pro bots, auto-selects the most interesting hands, and lets you download the hand histories in PokerStars format.
+- **Run 3,000 hands in your browser** -- the `/analysis` page simulates heads-up, 6-max, and 8-max tables with pro bots, auto-selects the most interesting hands, and lets you download the hand histories as PokerStars-style text.
 - **Learn from every hand** -- real-time equity, pot odds (percentage vs percentage for easy comparison), draws with outs, action recommendations pinned at the top of the stats panel. Board texture analysis in the Hero commentary.
 - **Zero install** -- runs in any modern browser. No download, no account, no backend. Your data stays in your browser.
 
