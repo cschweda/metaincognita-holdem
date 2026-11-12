@@ -58,6 +58,7 @@ export interface HeroProfile {
   vpip: number           // hero's observed VPIP (0–1)
   foldTo3Bet: number     // how often hero folds to 3-bets (0–1)
   foldToCbet: number     // how often hero folds to c-bets (0–1)
+  cbetsFaced?: number    // sample behind foldToCbet; the read is ignored below 6
   aggression: number     // hero's observed aggression factor
   handsTracked: number   // total hands in the tracking window
   readStrength?: number  // 0..1 — how much of the adaptation this bot has earned (nemesis familiarity); absent = 1
@@ -256,6 +257,13 @@ export interface DecisionContext {
   wasPreflopRaiser?: boolean  // was this bot the last preflop aggressor?
   preflopCallers?: number     // how many players called preflop (multiway pot?)
   checkedThisStreet?: boolean // did this bot already check this street? (for check-raise detection)
+  // Postflop: does this bot act last among the players still in the hand?
+  // When absent, falls back to the seat label (button/cutoff = in position),
+  // which is wrong whenever the label's owner is not actually last to act.
+  inPosition?: boolean
+  // Was the bet being faced made by the hero? Hero-specific reads (the
+  // bet-sizing tell) apply only then. Absent = assume yes (legacy callers).
+  facingHeroBet?: boolean
   streetHistory?: {           // this bot's action on each prior street
     flop?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
     turn?: 'bet' | 'call' | 'check' | 'raise' | 'fold'
@@ -492,8 +500,27 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[], knownD
     }
   }
 
+  // A pair that sits entirely on the board is not our pair: we hold high
+  // cards. (It used to score as "top pair" — 3-2 on K-K-7-4-9 called a
+  // pot-size river bet half the time and never bluffed.)
+  const pairOnBoard = result.rank === 1
+    && community.filter(c => c.rank === result.score[1]).length >= 2
+  if (pairOnBoard) {
+    // With the pair shared by everyone, the best unpaired hands are the
+    // bluff-catchers: ace-high down to ten-high still beat every bluff, and
+    // a range has to defend with something. Below that it is air.
+    const hi = Math.max(holeCards[0].rank, holeCards[1].rank)
+    strength = hi === 14 ? 0.22 : hi === 13 ? 0.16 : hi === 12 ? 0.13 : hi === 11 ? 0.11 : hi === 10 ? 0.10 : 0.08
+    if (community.length < 5) {
+      const boardMax = Math.max(...community.map(c => c.rank))
+      const overcards = holeCards.filter(c => c.rank > boardMax).length
+      if (overcards === 1) strength = Math.max(strength, 0.15)
+      if (overcards === 2) strength = holeCards[0].suit === holeCards[1].suit ? 0.25 : 0.22
+    }
+  }
+
   // Kicker-aware pair strength (Fix 4: top pair ace kicker vs top pair deuce kicker)
-  if (result.rank === 1) {
+  if (result.rank === 1 && !pairOnBoard) {
     const boardRanks = community.map(c => c.rank)
     const boardMax = Math.max(...boardRanks)
     const pairRank = result.score[1]
@@ -579,11 +606,39 @@ function postflopHandStrength(holeCards: [Card, Card], community: Card[], knownD
     }
   }
 
+  // Four to a flush / four to a straight on the board: any one card of that
+  // suit (or the one missing rank) beats two pair, trips and a set, and a
+  // one-card flush is only as good as its card. Without this a set on
+  // 7-8-9-T-2 with four clubs was a "monster" that never folded.
+  const suitCounts = new Map<string, number>()
+  for (const bc of community) suitCounts.set(bc.suit, (suitCounts.get(bc.suit) ?? 0) + 1)
+  let flushSuit: string | null = null
+  for (const [suit, n] of suitCounts) if (n >= 4) flushSuit = suit
+  const boardUnique = [...new Set(community.map(c => c.rank))]
+  if (boardUnique.includes(14)) boardUnique.push(1) // wheel
+  let fourStraight = false
+  for (let lo = 1; lo <= 10 && !fourStraight; lo++) {
+    if (boardUnique.filter(r => r >= lo && r <= lo + 4).length >= 4) fourStraight = true
+  }
+  if (result.rank >= 2 && result.rank <= 4) {
+    // two pair, trips/set or a straight under a four-flush board
+    if (flushSuit) strength *= 0.55
+    else if (fourStraight && result.rank <= 3) strength *= 0.70
+  }
+  if (result.rank === 5 && flushSuit) {
+    // One-card flush: count the higher cards of the suit that are still out
+    const ours = Math.max(0, ...holeCards.filter(c => c.suit === flushSuit).map(c => c.rank))
+    const boardSuited = new Set(community.filter(c => c.suit === flushSuit).map(c => c.rank))
+    let higherOut = 0
+    for (let r = ours + 1; r <= 14; r++) if (!boardSuited.has(r)) higherOut++
+    if (ours > 0) strength *= higherOut === 0 ? 1 : higherOut === 1 ? 0.90 : higherOut <= 3 ? 0.75 : 0.60
+  }
+
   // Add draw equity with draw-type-specific blocker discounts
   // Flush draws: 9 outs, ~5% blocked on average → 0.95 discount
   // OESD: 8 outs, ~10% blocked → 0.90 discount
   // Gutshot: 4 outs, ~15-20% blocked → 0.82 discount (fewer outs = blockers matter more)
-  const draws = knownDraws ?? detectDraws(holeCards, community)
+  const draws = knownDraws ?? detectDraws(holeCards, community, { strict: true })
   for (const draw of draws) {
     if (draw.type.includes('Flush draw')) strength = Math.max(strength, 0.33 * 0.95)
     if (draw.type.includes('Open-ended')) strength = Math.max(strength, 0.28 * 0.90)
@@ -742,7 +797,12 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
       rawHandPct = handPct
       // Position shift: late position makes hands more playable
       // D/SB = button in heads-up; table lives in config.strategy.posShift
-      handPct = Math.max(0, Math.min(1, handPct + (STRAT.posShift[ctx.position ?? ''] ?? 0)))
+      // The shift is for entering a pot — opening, and defending against an
+      // open. Facing a 3-bet or more only part of it applies
+      // (posShiftVsReraise): the button defends a 3-bet a little wider, but
+      // does not turn J8s into a call of a 25bb one.
+      const posScale = (ctx.raiseLevel ?? 1) >= 2 ? STRAT.posShiftVsReraise : 1
+      handPct = Math.max(0, Math.min(1, handPct + (STRAT.posShift[ctx.position ?? ''] ?? 0) * posScale))
       // Per-persona range shape: Negreanu's suited connectors, Hellmuth's big cards
       if (profile.styleBias) {
         const bias = profile.styleBias[handCategory(holeCardsToNotation(ctx.holeCards))] ?? 0
@@ -896,6 +956,9 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
         + (STRAT.preflop.shortJamCallCeil - STRAT.preflop.shortJamCallFloor) * t
       continueRange = Math.max(continueRange, shortRange)
     }
+    // However deep the jam, kings and aces continue: the shrink above took
+    // the range below KK at 100bb (aces only), which no jamming range justifies.
+    continueRange = Math.max(continueRange, STRAT.preflop.jamPremiumFloor)
     if (rawHandPct < continueRange * STRAT.preflop.jamRaisePortion && chips > toCall) {
       return { type: 'raise', amount: chips + playerBet }
     }
@@ -1132,7 +1195,7 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
   // air, and treating it as a made hand kept it out of the bluffing bucket
   // and made it call rivers it should fold (Round 8 #2).
   const decisionDraws: DrawInfo[] = cardAware && ctx.street !== 'river'
-    ? detectDraws(ctx.holeCards!, ctx.community!)
+    ? detectDraws(ctx.holeCards!, ctx.community!, { strict: true }) // only draws a hole card takes part in
     : []
   const strength = cardAware
     ? postflopHandStrength(ctx.holeCards!, ctx.community!, decisionDraws)
@@ -1178,14 +1241,21 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
   // ─── Card-aware postflop logic with street awareness ──
 
   // Position awareness — acting last is the biggest postflop advantage
+  // — and it is about who is left, not the seat label: a cutoff with the
+  // button still in the hand is out of position, a big blind heads-up against
+  // the small blind is in position. Callers that know pass ctx.inPosition.
   const ipPositionsPost = ['BTN', 'D', 'D/BTN', 'D/SB', 'CO']
-  const isInPosition = ipPositionsPost.includes(ctx.position ?? '')
+  const isInPosition = ctx.inPosition ?? ipPositionsPost.includes(ctx.position ?? '')
   // IP multiplier: bet/raise more in position, check/call more OOP
   const ipAggBoost = isInPosition ? 1.25 : 0.85
 
   // SPR (stack-to-pot ratio) — affects commitment decisions
+  // Measured against the pot BEFORE the bet being faced. Counting that bet as
+  // pot made every big overbet look like commitment (a 10x-pot shove gave an
+  // "SPR" under 1), so the stronger the overbet, the more surely it was called.
   const effectiveStack = chips + playerBet
-  const spr = pot > 0 ? effectiveStack / pot : 10
+  const potBeforeBet = Math.max(pot - Math.max(toCall, 0), 0)
+  const spr = potBeforeBet > 0 ? effectiveStack / potBeforeBet : 10
   const isShallowSPR = spr < 4   // committed — play straightforward, bet/fold
   const isDeepSPR = spr > 12     // deep — be cautious committing, more positional play
 
@@ -1220,6 +1290,14 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
     // Board texture matters: bet more on dry ace-high boards (range advantage),
     // less on wet low boards (opponent has more sets/straights/flushes)
     if (isPreflopRaiser && ctx.street === 'flop') {
+      // Hero read: a hero who folds to c-bets gets bluffed more, one who
+      // never folds gets bluffed less. Needs a real sample, and is scaled by
+      // how well this bot knows the hero (readStrength).
+      let cbetBluffExploit = 1.0
+      if (heroProfile && (heroProfile.cbetsFaced ?? 0) >= STRAT.heroRead.minCbetsFaced) {
+        const lean = (heroProfile.foldToCbet - 0.5) * STRAT.heroRead.cbetBluffSlope * (heroProfile.readStrength ?? 1)
+        cbetBluffExploit = Math.max(STRAT.heroRead.cbetBluffMin, Math.min(1 + lean, STRAT.heroRead.cbetBluffMax))
+      }
       const textureMod = board
         ? (board.isDry ? 1.15 : 1.0)         // dry boards = bet more (fewer draws to give free cards)
           * (board.isAceHigh ? 1.15 : 1.0)    // ace-high = raiser range advantage
@@ -1247,7 +1325,7 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
       const cbetRate = (hasStrongHand ? (board?.isDry ? STRAT.cbet.strongDry : board?.isWet ? STRAT.cbet.strongWet : STRAT.cbet.strongNeutral)
         : hasDraw ? STRAT.cbet.drawBase + profile.aggression * 0.10
         : hasWeakMade ? (board?.isDry ? STRAT.cbet.weakMadeDry : STRAT.cbet.weakMadeOther)
-        : (STRAT.cbet.airBase + profile.bluffFreq * 0.5)) * textureMod * multiDiscount * pairedMod * sprMod * ipAggBoost
+        : (STRAT.cbet.airBase + profile.bluffFreq * 0.5) * cbetBluffExploit) * textureMod * multiDiscount * pairedMod * sprMod * ipAggBoost
       if (rng() < cbetRate) {
         // Size based on texture: bigger on wet boards (charge draws), smaller on dry
         const sizeMult = board?.isWet ? 0.65 : board?.isDry ? 0.35 : 0.50
@@ -1502,7 +1580,7 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
   // Carl (agg 0.60): boost 1.24x — calls down more. Twan (agg 1.50): boost 0.80x — folds or raises.
   // Hero bet-sizing exploitation: if hero has a sizing tell, adjust call/raise willingness
   let sizingExploit = 1.0
-  if (heroProfile?.betSizingTell?.hasTell && (heroProfile.readStrength ?? 1) >= 0.4) {
+  if (ctx.facingHeroBet !== false && heroProfile?.betSizingTell?.hasTell && (heroProfile.readStrength ?? 1) >= 0.4) {
     const currentSizing = toCall / Math.max(pot, 1)
     const tell = heroProfile.betSizingTell
     if (tell.bigWithValue) {
@@ -1533,6 +1611,20 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
     : 1.0
   const checkRaiseBoost = ctx.checkedThisStreet ? 0.25 * crTextureMod : 0
 
+  // The bet as a fraction of the pot it was made into, and the defense
+  // frequency that size implies (same derivation as riverMdf/turnMdf above).
+  const betFrac = toCall / Math.max(pot - toCall - playerBet, 1)
+  const sizeMdf = (Math.max(pot - toCall - playerBet, 0) / Math.max(pot, 1)) / mdfDefenders
+
+  // Two pair is the bottom of the monster class. Against a normal bet it
+  // never folds; against a bet several times the pot it is a bluff-catcher
+  // and continues at a rate that falls with the size. Trips and better
+  // (strength >= overbetNeverFold) always continue.
+  if (hasMonster && strength < STRAT.overbet.neverFoldStrength && betFrac > STRAT.overbet.monsterFromFrac) {
+    const continueProb = Math.min(1, sizeMdf * STRAT.overbet.monsterMdfMult + STRAT.overbet.monsterFloor)
+    if (rng() > continueProb) return { type: 'fold' }
+  }
+
   // Monster hands — raise for value (very likely if check-raising on dry board)
   if (hasMonster) {
     const monsterRaiseRate = (0.20 + profile.aggression * 0.30 + checkRaiseBoost) * ipAggBoost
@@ -1551,12 +1643,25 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
     // Bet-size sensitivity: non-monster made hands fold to big bets at a rate
     // rising with size and falling with strength. Top pair calls normal bets
     // but folds to overbet shoves most of the time. Monsters and river handled elsewhere.
+    // (betToPotRatio is bet / (pot + bet), so 0.7 is a bet of 2.3x pot and
+    // the pressure tops out only as the bet grows without limit.)
     if (!hasMonster && (ctx.street === 'flop' || ctx.street === 'turn') && betToPotRatio > 0.7) {
-      const sizePressure = Math.min((betToPotRatio - 0.7) / 1.3, 1)        // 1.0 at 2x pot
+      const sizePressure = Math.min((betToPotRatio - 0.7) / 1.3, 1)
       const strengthShield = Math.max(0, Math.min((strength - 0.30) / 0.25, 1))
       const streetWeight = ctx.street === 'turn' ? 1.0 : 0.8
       const foldProb = Math.min(sizePressure * (1 - strengthShield * 0.65) * streetWeight, 0.92)
       if (rng() < foldProb) return { type: 'fold' }
+    }
+
+    // Flop overbets: the turn and river rules below are anchored to the
+    // defense frequency the bet size implies; the flop had no such rule, so
+    // top pair called any size. Above a pot-size bet, continue at a rate
+    // that starts at 100% (pot) and falls with the size.
+    if (!hasMonster && toCall > 0 && ctx.street === 'flop' && betFrac > 1) {
+      const shield = Math.max(0, Math.min((strength - STRAT.postflop.strongStrength) / 0.20, 1))
+      const continueProb = Math.max(STRAT.overbet.flopStrongMin, Math.min(
+        sizeMdf * (STRAT.overbet.flopStrongBase + shield * STRAT.overbet.flopStrongShield) * passiveBoost * sizingExploit, 1))
+      if (rng() > continueProb) return { type: 'fold' }
     }
 
     // Turn call-down discipline: anchored to the true defense frequency this

@@ -6,7 +6,10 @@
  *  - Minimum raise: currentBet + max(lastRaiseIncrement, bb); sub-min raises
  *    are clamped up (which may put the player all-in).
  *  - Half-raise rule: an all-in raise below the minimum does NOT reopen
- *    action for players who already acted at the current bet level.
+ *    the betting for players who already acted — they must still call the
+ *    difference or fold, but may not raise (raiseClosed).
+ *  - A street with at most one player able to act has no betting unless
+ *    that player still owes chips to an all-in (startBettingRound).
  *  - Termination: needsToAct empties; a skip-guard breaks only if a full
  *    orbit passes with nobody able to act (never a lap-count cap, which
  *    can truncate legitimate multi-raise rounds).
@@ -28,6 +31,12 @@ export interface BettingRound {
   pot: number
   bb: number
   needsToAct: Set<number>
+  /**
+   * Players who face only an incomplete (short all-in) raise since they last
+   * acted: they may call or fold, not raise. Managed by the engine; callers
+   * that rebuild the round object per action must pass the same Set back in.
+   */
+  raiseClosed?: Set<number>
 }
 
 export type EngineAction =
@@ -44,9 +53,36 @@ export interface AppliedAction {
 const canAct = (p: EnginePlayer) => !p.folded && !p.eliminated && p.chips > 0
 const inHand = (p: EnginePlayer) => !p.folded && !p.eliminated
 
+/**
+ * Postflop position: does this seat act last among the players who can still
+ * act? Postflop action runs clockwise from the seat after the button, so the
+ * first able seat found walking BACK from the button closes the action.
+ * Position is a fact about who is left, not about the seat's label.
+ */
+export function actsLastPostflop(players: EnginePlayer[], dealerSeat: number, seatId: number): boolean {
+  const n = players.length
+  for (let i = 0; i < n; i++) {
+    const p = players[(dealerSeat - i + n * 2) % n]!
+    if (p.id === seatId) return true
+    if (canAct(p)) return false
+  }
+  return false
+}
+
 /** Reset needsToAct to everyone who can still act. Call at the start of each street. */
 export function startBettingRound(round: BettingRound): void {
-  round.needsToAct = new Set(round.players.filter(canAct).map(p => p.id))
+  round.raiseClosed?.clear()
+  const able = round.players.filter(canAct)
+  // One player with chips against all-in opponents: there is nobody to bet
+  // into, so they act only if an all-in bet (e.g. a blind) is still bigger
+  // than their own.
+  if (able.length === 1) {
+    const lone = able[0]!
+    const owed = Math.max(0, ...round.players.filter(p => inHand(p) && p !== lone).map(p => p.betThisRound))
+    round.needsToAct = new Set(lone.betThisRound < owed ? [lone.id] : [])
+    return
+  }
+  round.needsToAct = new Set(able.map(p => p.id))
 }
 
 /**
@@ -77,6 +113,11 @@ export function applyEngineAction(round: BettingRound, seatId: number, action: E
     return { type: 'call', amount: callAmt, isAllIn: p.chips <= 0, reopened: false }
   }
 
+  // A raise from a player the betting is closed to is just a call.
+  if (round.raiseClosed?.has(p.id)) {
+    return applyEngineAction(round, seatId, { type: 'call' })
+  }
+
   // raise
   const prevBet = round.currentBet
   const minRaiseAmt = prevBet === 0
@@ -104,8 +145,20 @@ export function applyEngineAction(round: BettingRound, seatId: number, action: E
 
   round.needsToAct.delete(p.id)
   if (isFullRaise) {
+    round.raiseClosed?.clear()
     for (const ap of round.players) {
       if (ap.id !== p.id && canAct(ap)) round.needsToAct.add(ap.id)
+    }
+  } else {
+    // Incomplete raise: players who already acted still owe the difference,
+    // but the betting is not reopened to them — call or fold only.
+    const closed = (round.raiseClosed ??= new Set())
+    for (const ap of round.players) {
+      if (ap.id === p.id || !canAct(ap) || ap.betThisRound >= round.currentBet) continue
+      if (!round.needsToAct.has(ap.id)) {
+        round.needsToAct.add(ap.id)
+        closed.add(ap.id)
+      }
     }
   }
 

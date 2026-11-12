@@ -5,7 +5,6 @@
  */
 import { displayCard } from '~/utils/cards'
 import type { Card } from '~/utils/cards'
-import { assignPositions } from '~/utils/seats'
 import { chenScore, chenPlusScore, bestHand, detectDraws, HAND_RANK_NAMES } from '~/utils/handAnalysis'
 import config from '@config'
 import { getTableDynamics as sharedTableDynamics } from '~/utils/gameSimulation'
@@ -167,6 +166,7 @@ export function useGameEngine(options: GameEngineOptions) {
       pot: gs.pot.value,
       bb: bb.value,
       needsToAct: gs.needsToAct.value,
+      raiseClosed: gs.raiseClosed.value,
     }
   }
   function writeBack(r: BettingRound) {
@@ -229,7 +229,7 @@ export function useGameEngine(options: GameEngineOptions) {
     logDecision({
       street: gs.street.value,
       name: p.name,
-      position: assignPositions(gs.playerStates.value.length, gs.dealerSeat.value)[p.id] ?? '',
+      position: positions.value[p.id] ?? '',
       isHero: p.isHero,
       holeCards: p.holeCards,
       board: gs.visibleCommunity.value,
@@ -248,16 +248,16 @@ export function useGameEngine(options: GameEngineOptions) {
 
     // Track street actions for awareness
     const street = gs.street.value
-    if (street === 'preflop' && (action.type === 'call')) {
+    if (street === 'preflop' && (result.type === 'call')) {
       preflopCallerCount++
     }
     if (street !== 'preflop' && street !== 'showdown') {
       const existing = playerStreetActions.get(p.id) || {}
       const streetKey = street as 'flop' | 'turn' | 'river'
-      if (action.type === 'raise') {
-        existing[streetKey] = gs.currentBet.value <= 0 ? 'bet' : 'raise'
+      if (result.type === 'raise') {
+        existing[streetKey] = toCallBefore <= 0 && betBefore === 0 ? 'bet' : 'raise'
       } else {
-        existing[streetKey] = action.type as any
+        existing[streetKey] = result.type
       }
       playerStreetActions.set(p.id, existing)
     }
@@ -282,15 +282,12 @@ export function useGameEngine(options: GameEngineOptions) {
     const gen = epoch // cleanup() during an awaited sleep invalidates this loop
     const count = gs.playerStates.value.length
 
-    // All-in check: if fewer than 2 players have chips, skip betting entirely
-    if (gs.activeNonAllIn.value.length <= 1 && gs.activePlayers.value.length >= 2) {
-      gs.activeSeat.value = -1
-      gs.waitingForHero.value = false
-      const delay = gs.playerStates.value[0]?.folded ? 200 : 800
-      scheduleTimeout(() => advanceStreet(), delay)
-      return
-    }
-
+    // A fresh street asks the shared engine who has to act. It returns nobody
+    // when there is no one left to bet into (an all-in runout), in which case
+    // the loop below falls straight through to the next street. This must NOT
+    // be re-decided on resume: mid-round, a lone player with chips may still
+    // owe an answer to the all-in that was just made (it used to be skipped,
+    // so a shove against one remaining stack was never called or folded).
     if (!resume) {
       const r = engineRound()
       startBettingRound(r)
@@ -562,7 +559,7 @@ function buildThinkingInsight(
     }
 
     // Draws
-    const draws = detectDraws(holeCards, visibleCommunity)
+    const draws = detectDraws(holeCards, visibleCommunity, { strict: true })
     if (draws.length > 0) {
       const drawDesc = draws.map(d => `${d.type} (${d.outs} outs)`).join(', ')
       factors.push(`Draws: ${drawDesc}`)

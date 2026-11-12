@@ -9,7 +9,7 @@ import { decideBotAction, applyTilt, updateTilt, decayTilt, createTiltState } fr
 import type { BotProfile, TiltState } from './botDecision'
 import { bestHand, chenScore, HAND_RANK_NAMES, HAND_RANKS } from './handAnalysis'
 import { calculateSidePots, awardPots } from './sidePots'
-import { startBettingRound, runBettingRound } from './bettingEngine'
+import { startBettingRound, runBettingRound, actsLastPostflop } from './bettingEngine'
 import type { BettingRound, EngineAction } from './bettingEngine'
 import { mulberry32 } from './rng'
 import type { Rng } from './rng'
@@ -183,6 +183,7 @@ export async function runSimulation(
           chips: p.chips, bb: BB, numActivePlayers: active().length,
           raiseLevel: street === 'preflop' ? preflopRaiseLevel : 0,
           position: positions[p.id] || '', holeCards: p.holeCards ?? undefined,
+          inPosition: actsLastPostflop(players, dealerSeat, p.id),
           // Bots see only the cards dealt so far — the old code leaked the full
           // 5-card runout into flop/turn decisions (clairvoyance bug)
           community: street === 'preflop' ? []

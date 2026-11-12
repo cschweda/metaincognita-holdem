@@ -7,8 +7,9 @@
  */
 import type { Card } from '~/utils/cards'
 import { displayCard, RANK_DISPLAY, SUIT_SYMBOLS } from '~/utils/cards'
-import { HAND_RANK_NAMES, type HandAnalysis, analyzeHand } from '~/utils/handAnalysis'
-import { getRelevantRanges, categorizeHands, type RangeInfo } from '~/utils/ranges'
+import config from '@config'
+import { HAND_RANK_NAMES, type HandAnalysis, analyzeHand, callPrice } from '~/utils/handAnalysis'
+import { getRelevantRanges, getActionRange, categorizeHands } from '~/utils/ranges'
 
 interface PlayerStat {
   name: string
@@ -28,6 +29,7 @@ const props = defineProps<{
   pot?: number
   toCall?: number
   heroChips?: number
+  bb?: number // big blind; falls back to the session's stake level
   playerStats?: PlayerStat[]
   heroTurn?: boolean
   heroFolded?: boolean
@@ -49,6 +51,7 @@ const props = defineProps<{
     startingStack: number
     peakStack: number
     startedAt?: string
+    stakeLevel?: number
   } | null
   milestones?: { label: string; hand: number }[]
 }>()
@@ -76,6 +79,10 @@ const isClickableAction = computed(() => {
 })
 
 // ─── Hand Analysis ─────────────────────────────────────────────
+// The big blind tells a preflop raise from a limp
+const bigBlind = computed(() =>
+  props.bb ?? config.stakes.find(s => s.level === props.sessionStats?.stakeLevel)?.bb)
+
 const analysis = computed<HandAnalysis | null>(() => {
   if (!props.holeCards) return null
   // Real pot and call amounts: the recommendation compares equity to the
@@ -90,6 +97,7 @@ const analysis = computed<HandAnalysis | null>(() => {
     props.toCall ?? 0,
     undefined,
     props.pot ?? 0,
+    { heroChips: props.heroChips, bb: bigBlind.value },
   )
 })
 
@@ -106,6 +114,11 @@ const outCards = computed<Map<number, string[]>>(() => {
 
 // ─── Ranges ────────────────────────────────────────────────────
 const ranges = computed(() => getRelevantRanges(props.position, props.street))
+// Same generator as the expandable ranges above, so the summary cannot drift from them
+const facingAggression = (['3-bet', 'call-3bet', '4-bet', '5-bet'] as const).map((action, i) => ({
+  ...getActionRange(action),
+  color: ['text-green-400', 'text-yellow-400', 'text-orange-400', 'text-red-400'][i],
+}))
 const expandedRange = ref<number | null>(null)
 
 function toggleRange(index: number) {
@@ -113,18 +126,19 @@ function toggleRange(index: number) {
 }
 
 // ─── Pot Odds ──────────────────────────────────────────────────
+// The price is capped at the hero's stack: a call for less than the bet is
+// priced at the all-in amount (see callPrice).
 const potOdds = computed(() => {
-  const pot = props.pot || 0
-  const toCall = props.toCall || 0
-  if (toCall === 0) return null
-  const ratio = pot / toCall
-  const pct = (toCall / (pot + toCall)) * 100
-  return { ratio: ratio.toFixed(1), percentage: pct.toFixed(1) }
+  const price = callPrice(props.pot || 0, props.toCall || 0, props.heroChips)
+  if (!price) return null
+  return { ratio: price.ratio.toFixed(1), percentage: price.neededPct.toFixed(1), call: price.call, pot: price.pot }
 })
 
+// Facing a bet, the call is judged on equity against a betting range — the
+// same figure the recommendation uses, so the two cannot disagree.
 const potOddsVerdict = computed(() => {
   if (!potOdds.value || !analysis.value) return null
-  const equity = analysis.value.equity
+  const equity = analysis.value.equityVsRange
   const needed = parseFloat(potOdds.value.percentage)
   if (equity >= needed) return { pass: true, text: 'Odds justify a call' }
   return { pass: false, text: 'Fold — odds don\'t justify' }
@@ -137,8 +151,8 @@ const potOddsVerdict = computed(() => {
 // board runout, and whether opponents will pay off when you hit.
 const impliedOdds = computed(() => {
   if (!analysis.value || !potOdds.value) return null
-  const pot = props.pot || 0
-  const toCall = props.toCall || 0
+  const pot = potOdds.value.pot
+  const toCall = potOdds.value.call
   const stack = props.heroChips || 0
   const street = props.street
   if (toCall === 0 || street === 'river') return null // no implied odds on the river (no more cards)
@@ -175,7 +189,7 @@ const impliedOdds = computed(() => {
   const impliedPct = (toCall / (pot + toCall + effectiveFuture)) * 100
 
   // Does hitting the draw justify the call with implied odds?
-  const directEquity = analysis.value.equity
+  const directEquity = analysis.value.equityVsRange
   const impliedEquity = hitProb * 100
   const directlyProfitable = directEquity >= parseFloat(potOdds.value.percentage)
   const impliedProfitable = !directlyProfitable && impliedEquity >= impliedPct
@@ -193,11 +207,10 @@ const impliedOdds = computed(() => {
 
 // ─── Expected Value (EV) ──────────────────────────────────────
 const expectedValue = computed<number | null>(() => {
-  if (!analysis.value) return null
-  const pot = props.pot || 0
-  const toCall = props.toCall || 0
-  if (toCall === 0) return null // nothing to evaluate when not facing a bet
-  const equity = analysis.value.equity / 100 // convert from 0-100 to 0-1
+  if (!analysis.value || !potOdds.value) return null // nothing to evaluate when not facing a bet
+  const pot = potOdds.value.pot
+  const toCall = potOdds.value.call
+  const equity = analysis.value.equityVsRange / 100 // convert from 0-100 to 0-1
   // EV = (equity × total pot after calling) - call amount
   const ev = equity * (pot + toCall) - toCall
   return ev
@@ -455,14 +468,14 @@ function afLabel(af: number): string {
 
           <!-- Pot Odds -->
           <div v-if="potOdds" class="border-t border-gray-700/50 pt-3">
-            <UTooltip text="Compare your equity to the pot odds. If your equity % exceeds the required %, calling is mathematically profitable.">
+            <UTooltip text="Compare your equity to the pot odds. If your equity % exceeds the required %, calling is mathematically profitable. Facing a postflop bet, equity is discounted from the vs-random figure above, because a player who bets holds a stronger range than random hands. A call for more than your stack is priced at your all-in amount.">
               <div class="text-xs text-gray-400 mb-2 border-b border-dotted border-gray-600 cursor-help inline-block">Pot Odds</div>
             </UTooltip>
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="bg-gray-800/50 rounded px-2 py-1.5">
-                <div class="text-gray-500 mb-0.5">Your Equity</div>
-                <div class="font-mono tabular-nums text-base font-bold" :class="analysis && analysis.equity >= parseFloat(potOdds.percentage) ? 'text-green-400' : 'text-red-400'">
-                  {{ analysis ? analysis.equity : '—' }}%
+                <div class="text-gray-500 mb-0.5">{{ analysis && analysis.equityVsRange < analysis.equity ? 'Equity vs a bet' : 'Your Equity' }}</div>
+                <div class="font-mono tabular-nums text-base font-bold" :class="analysis && analysis.equityVsRange >= parseFloat(potOdds.percentage) ? 'text-green-400' : 'text-red-400'">
+                  {{ analysis ? analysis.equityVsRange : '—' }}%
                 </div>
               </div>
               <div class="bg-gray-800/50 rounded px-2 py-1.5">
@@ -475,7 +488,7 @@ function afLabel(af: number): string {
                 :class="potOddsVerdict.pass ? 'text-green-400' : 'text-red-400'">
                 {{ potOddsVerdict.pass ? '✓' : '✗' }} {{ potOddsVerdict.text }}
               </span>
-              <span class="text-[0.6rem] text-gray-600 font-mono tabular-nums">{{ potOdds.ratio }} : 1</span>
+              <span class="text-[0.6rem] text-gray-600 font-mono tabular-nums">{{ potOdds.call < (toCall || 0) ? `all-in $${potOdds.call} · ` : '' }}{{ potOdds.ratio }} : 1</span>
             </div>
           </div>
 
@@ -696,7 +709,7 @@ function afLabel(af: number): string {
           <!-- Expanded hand list -->
           <div v-if="expandedRange === i" class="mt-2 bg-gray-800/50 rounded-lg p-2">
             <div class="mb-1.5">
-              <span class="text-[0.6rem] text-gray-500">{{ range.hands.length }} combos</span>
+              <span class="text-[0.6rem] text-gray-500">{{ range.hands.length }} hand types · {{ range.combos }} of 1,326 combos</span>
             </div>
             <!-- Pairs -->
             <div v-if="categorizeHands(range.hands).pairs.length" class="mb-1">
@@ -734,21 +747,9 @@ function afLabel(af: number): string {
         <div class="border-t border-gray-700/50 pt-3 mt-2">
           <div class="text-xs font-semibold text-gray-300 mb-2">Facing Aggression</div>
           <div class="space-y-1.5 text-xs">
-            <div class="flex justify-between bg-gray-800/50 rounded px-2 py-1">
-              <span class="text-gray-300">3-Bet range</span>
-              <span class="text-green-400 font-mono">~8%</span>
-            </div>
-            <div class="flex justify-between bg-gray-800/50 rounded px-2 py-1">
-              <span class="text-gray-300">Call vs 3-Bet</span>
-              <span class="text-yellow-400 font-mono">~12%</span>
-            </div>
-            <div class="flex justify-between bg-gray-800/50 rounded px-2 py-1">
-              <span class="text-gray-300">4-Bet range</span>
-              <span class="text-orange-400 font-mono">~3.5%</span>
-            </div>
-            <div class="flex justify-between bg-gray-800/50 rounded px-2 py-1">
-              <span class="text-gray-300">5-Bet range</span>
-              <span class="text-red-400 font-mono">~1.5%</span>
+            <div v-for="r in facingAggression" :key="r.action" class="flex justify-between bg-gray-800/50 rounded px-2 py-1">
+              <span class="text-gray-300">{{ r.action }}</span>
+              <span class="font-mono" :class="r.color">~{{ r.percentage }}%</span>
             </div>
           </div>
         </div>

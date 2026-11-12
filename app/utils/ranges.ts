@@ -6,7 +6,11 @@
  * ranges for the hero's current position and street.
  *
  * Format: "AKs" = Ace-King suited, "AKo" = offsuit, "AA" = pair.
- * Percentages approximate standard 6-max NL Hold'em cash game ranges.
+ * Percentages approximate standard 6-max NL Hold'em cash game ranges and are
+ * shares of the 1,326 dealt combos (a pair is 6 combos, a suited hand 4, an
+ * offsuit hand 12), not of the 169 hand classes. Every range here is LINEAR:
+ * the strongest hands down to a cut-off. Its description is generated from
+ * the hand list (describeRange), so the text and the lit hands cannot differ.
  */
 
 // All 169 distinct starting hands, ranked roughly by expected value.
@@ -126,77 +130,109 @@ export function handCategory(notation: string): HandCategory {
 export interface RangeInfo {
   position: string
   action: string
-  percentage: number
+  percentage: number   // share of the 1,326 combos the listed hands make up, one decimal
+  combos: number       // combos in the listed hands
   hands: string[]
-  description: string
+  description: string  // describeRange(hands)
+}
+
+/** Dealt combos in a list of hand classes. */
+export function rangeCombos(hands: string[]): number {
+  return hands.reduce((n, h) => n + combosFor(h), 0)
 }
 
 /**
- * Position-based opening ranges (RFI — raise first in).
- * Percentages and hands reflect standard 6-max NL Hold'em.
+ * Plain-text summary of a hand list, built from the list itself: the pair
+ * floor, then how many suited and offsuit hands and the weakest of each (the
+ * list is in strength order, so the last one in is the weakest).
  */
-const OPEN_RANGES: Record<string, { pct: number; desc: string }> = {
-  'UTG':    { pct: 15, desc: 'Very tight — only premium and strong hands' },
-  'UTG+1':  { pct: 17, desc: 'Slightly wider than UTG, still mostly premiums' },
-  'MP':     { pct: 22, desc: 'Adding suited broadways and medium pairs' },
-  'MP+1':   { pct: 22, desc: 'Similar to MP — suited broadways and medium pairs' },
-  'CO':     { pct: 30, desc: 'Wide — suited connectors, more offsuit broadways' },
-  'BTN':    { pct: 42, desc: 'Widest open — suited gappers, weak suited aces, most broadways' },
-  'D':      { pct: 42, desc: 'Widest open — suited gappers, weak suited aces, most broadways' },
-  'D/BTN':  { pct: 42, desc: 'Widest open — suited gappers, weak suited aces, most broadways' },
-  'D/SB':   { pct: 42, desc: 'Heads-up dealer — wide opening range' },
-  'SB':     { pct: 36, desc: 'Wide but out of position — strong hands + some steals' },
-  'BB':     { pct: 40, desc: 'Defending range vs steal — wide calling range' },
+export function describeRange(hands: string[]): string {
+  if (hands.length === 0) return 'No hands'
+  const { pairs, suited, offsuit } = categorizeHands(hands)
+  const parts: string[] = []
+  if (pairs.length > 0) {
+    const lowest = Math.min(...pairs.map(p => RANK_VALS[p[0]!]!))
+    // "77+" only when every pair from aces down to it is present
+    const run = pairs.length === 14 - lowest + 1
+    const low = pairs.find(p => RANK_VALS[p[0]!] === lowest)!
+    parts.push(`Pairs ${run ? (lowest === 14 ? low : `${low}+`) : pairs.join(' ')}`)
+  }
+  if (suited.length > 0) parts.push(`${suited.length} suited (weakest ${suited[suited.length - 1]})`)
+  if (offsuit.length > 0) parts.push(`${offsuit.length} offsuit (weakest ${offsuit[offsuit.length - 1]})`)
+  return parts.join(' · ')
 }
 
 /**
- * Action-based ranges (how the range narrows when facing aggression).
+ * Position-based opening ranges (RFI — raise first in), as the share of
+ * dealt hands opened. Approximate standard 6-max NL Hold'em.
  */
-const ACTION_RANGES: Record<string, { pct: number; desc: string }> = {
-  'open':      { pct: -1, desc: 'Position-dependent opening range' }, // use position range
-  '3-bet':     { pct: 8,  desc: 'Value: QQ+, AKs. Bluffs: A5s-A2s type blockers' },
-  'call-3bet': { pct: 12, desc: 'Suited broadways, TT-JJ, AQo — hands too strong to fold but not 4-bet' },
-  '4-bet':     { pct: 3.5, desc: 'KK+, AKs for value. Rare bluffs with suited aces' },
-  'call-4bet': { pct: 5,  desc: 'QQ, AKo, JJ — calling but not 5-betting' },
-  '5-bet':     { pct: 1.5, desc: 'Almost always AA/KK. Very rare bluff' },
+const OPEN_RANGES: Record<string, number> = {
+  'UTG': 15,
+  'UTG+1': 17,
+  'MP': 22,
+  'MP+1': 22,
+  'CO': 30,
+  'BTN': 42,
+  'D': 42,
+  'D/BTN': 42,
+  'D/SB': 42,   // heads-up dealer
+  'SB': 36,
+  'BB': 40,     // defending range vs a steal
 }
 
+/**
+ * Action-based ranges (how the range narrows when facing aggression), as the
+ * share of dealt hands. -1 = position-dependent (use the opening range).
+ */
+const ACTION_RANGES: Record<string, number> = {
+  'open': -1,
+  '3-bet': 8,
+  'call-3bet': 12,
+  '4-bet': 3.5,
+  'call-4bet': 5,
+  '5-bet': 1.5,
+}
+
+/**
+ * The strongest hands making up `pct` percent of the 1,326 dealt combos —
+ * the cut-off lands on whichever hand boundary is nearest the target.
+ */
 function getHandsForPercentage(pct: number): string[] {
-  const count = Math.round((pct / 100) * ALL_HANDS.length)
-  return ALL_HANDS.slice(0, Math.min(count, ALL_HANDS.length))
+  const target = pct / 100
+  let n = 0
+  while (n < ALL_HANDS.length
+    && Math.abs(HAND_PERCENTILE[n]! - target) <= Math.abs((n > 0 ? HAND_PERCENTILE[n - 1]! : 0) - target)) n++
+  return ALL_HANDS.slice(0, n)
+}
+
+function rangeInfo(position: string, action: string, hands: string[]): RangeInfo {
+  const combos = rangeCombos(hands)
+  return {
+    position,
+    action,
+    percentage: Math.round((combos / TOTAL_COMBOS) * 1000) / 10,
+    combos,
+    hands,
+    description: describeRange(hands),
+  }
 }
 
 /**
  * Returns the opening range for a position.
  */
 export function getOpenRange(position: string): RangeInfo {
-  const info = OPEN_RANGES[position] || OPEN_RANGES['MP']
-  const hands = getHandsForPercentage(info.pct)
-  return {
-    position,
-    action: 'Open raise',
-    percentage: info.pct,
-    hands,
-    description: info.desc,
-  }
+  return rangeInfo(position, 'Open raise', getHandsForPercentage(OPEN_RANGES[position] ?? OPEN_RANGES['MP']!))
 }
 
 /**
  * Returns a range for a specific action (3-bet, 4-bet, etc.)
  */
 export function getActionRange(action: string): RangeInfo {
-  const info = ACTION_RANGES[action] || ACTION_RANGES['open']
-  if (info.pct < 0) {
-    return { position: '', action, percentage: 0, hands: [], description: info.desc }
+  const pct = ACTION_RANGES[action] ?? -1
+  if (pct < 0) {
+    return { position: '', action, percentage: 0, combos: 0, hands: [], description: 'Position-dependent opening range' }
   }
-  const hands = getHandsForPercentage(info.pct)
-  return {
-    position: '',
-    action: formatActionLabel(action),
-    percentage: info.pct,
-    hands,
-    description: info.desc,
-  }
+  return rangeInfo('', formatActionLabel(action), getHandsForPercentage(pct))
 }
 
 function formatActionLabel(action: string): string {

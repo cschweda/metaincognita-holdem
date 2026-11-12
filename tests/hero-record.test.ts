@@ -79,4 +79,37 @@ describe('parseHeroHandRecord', () => {
     const r = parseHeroHandRecord(log, 'Hero', { heroFolded: true, heroTotalWagered: 2, bb: 2 })
     expect(r.enteredPot).toBe(false)
   })
+
+  // VPIP is "voluntarily put chips in PREFLOP". The old test was "did not
+  // fold, or wagered more than a blind", which counted every walk and every
+  // free flop from the big blind as a voluntary entry.
+  it('a walk in the big blind is not a voluntary entry', () => {
+    const log = ['Tight Tony folds', 'Solid Sam folds', 'Wild Wendy folds']
+    const r = parseHeroHandRecord(log, 'Hero', { heroFolded: false, heroTotalWagered: 2, bb: 2 })
+    expect(r.enteredPot).toBe(false)
+  })
+
+  it('checking the big blind option and seeing a flop is not a voluntary entry', () => {
+    const log = ['Solid Sam calls $2', 'Hero checks', '--- FLOP: A♠ K♦ 2♣ ---', 'Hero checks', 'Solid Sam checks']
+    const r = parseHeroHandRecord(log, 'Hero', { heroFolded: false, heroTotalWagered: 2, bb: 2 })
+    expect(r.enteredPot).toBe(false)
+  })
+
+  it('a free flop from the big blind stays out of VPIP even if the hero bets later', () => {
+    const log = ['Solid Sam calls $2', 'Hero checks', '--- FLOP: A♠ K♦ 2♣ ---', 'Hero raises to $4', 'Solid Sam folds']
+    const r = parseHeroHandRecord(log, 'Hero', { heroFolded: false, heroTotalWagered: 6, bb: 2 })
+    expect(r.enteredPot).toBe(false)
+    expect(r.raiseCount).toBe(1)
+  })
+
+  it('completing the small blind and then folding is a voluntary entry', () => {
+    const log = ['Hero calls $1', 'Solid Sam raises to $8', 'Hero folds']
+    const r = parseHeroHandRecord(log, 'Hero', { heroFolded: true, heroTotalWagered: 2, bb: 2 })
+    expect(r.enteredPot).toBe(true)
+  })
+
+  it('calling or raising preflop is a voluntary entry', () => {
+    expect(parseHeroHandRecord(['Solid Sam raises to $6', 'Hero calls $6'], 'Hero', opts).enteredPot).toBe(true)
+    expect(parseHeroHandRecord(['Hero goes ALL-IN $200'], 'Hero', opts).enteredPot).toBe(true)
+  })
 })

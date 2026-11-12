@@ -4,6 +4,7 @@
  * familiarity ledger. Pure functions; the Pinia store binds storage.
  * Storage is O(1) regardless of hands played.
  */
+import config from '../../holdem.config'
 import type { HeroProfile } from './botDecision'
 import type { HeroHandRecord } from '~/stores/heroProfile'
 
@@ -150,6 +151,7 @@ export function modelToHeroProfile(model: PersistentHeroModel, cfg: NemesisConfi
     vpip: rate(model.vpip),
     foldTo3Bet: rate(model.foldTo3Bet),
     foldToCbet: rate(model.foldToCbet),
+    cbetsFaced: model.foldToCbet.den,
     aggression: calls > 0 ? raises / calls : raises > 0 ? 2.0 : 0,
     handsTracked: Math.round(model.effectiveHands),
     betSizingTell: sizingTell(model),
@@ -180,6 +182,7 @@ export function blendProfiles(
     vpip: mix(session.vpip, book.vpip),
     foldTo3Bet: mix(session.foldTo3Bet, book.foldTo3Bet),
     foldToCbet: mix(session.foldToCbet, book.foldToCbet),
+    cbetsFaced: (session.cbetsFaced ?? 0) + (book.cbetsFaced ?? 0),
     aggression: mix(session.aggression, book.aggression),
     handsTracked: Math.max(session.handsTracked, book.handsTracked),
     // The sharper read wins the tell: session tell if present, else the book's
@@ -191,9 +194,9 @@ export function blendProfiles(
  * Human-readable scouting report. Triggers on the SAME thresholds
  * applyHeroAdaptation acts on (fold-to-3bet > 0.60, VPIP > 0.40,
  * aggression < 0.5, sizing tell) — the panel never claims an exploit the
- * engine isn't applying. foldToCbet is tracked in the model for the
- * coaching pillar but the engine has no c-bet counter-exploit yet, so no
- * read line for it.
+ * engine isn't applying. The fold-to-c-bet line appears once the sample
+ * the engine requires (strategy.heroRead.minCbetsFaced) is in and the rate
+ * is far enough from 50% to move the bots' bluff c-bet frequency visibly.
  */
 export function describeReads(model: PersistentHeroModel, cfg: NemesisConfig): string[] {
   const p = modelToHeroProfile(model, cfg)
@@ -201,6 +204,13 @@ export function describeReads(model: PersistentHeroModel, cfg: NemesisConfig): s
   const reads: string[] = []
   if (p.foldTo3Bet > 0.60) {
     reads.push(`Folds to 3-bets ${(p.foldTo3Bet * 100).toFixed(0)}% → 3-betting you wider`)
+  }
+  if ((p.cbetsFaced ?? 0) >= config.strategy.heroRead.minCbetsFaced) {
+    if (p.foldToCbet > 0.65) {
+      reads.push(`Folds to c-bets ${(p.foldToCbet * 100).toFixed(0)}% → c-betting you with more air`)
+    } else if (p.foldToCbet < 0.35) {
+      reads.push(`Folds to c-bets only ${(p.foldToCbet * 100).toFixed(0)}% → c-bet bluffing you less`)
+    }
   }
   if (p.vpip > 0.40) {
     reads.push(`Plays ${(p.vpip * 100).toFixed(0)}% of hands → bluffing you less, value-betting thinner`)

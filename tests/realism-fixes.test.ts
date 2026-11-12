@@ -129,7 +129,8 @@ describe('F3 — made hands respect bet size postflop', () => {
         ? [c(13, 'clubs'), c(7, 'spades'), c(2, 'diamonds')]
         : [c(13, 'clubs'), c(7, 'spades'), c(2, 'diamonds'), c(9, 'hearts')]
       const ctx: DecisionContext = {
-        street, toCall: Math.round(pot * betToPot), pot, currentBet: Math.round(pot * betToPot),
+        // engine convention: `pot` includes the bet being faced
+        street, toCall: Math.round(pot * betToPot), pot: pot + Math.round(pot * betToPot), currentBet: Math.round(pot * betToPot),
         playerBet: 0, chips: 2000, bb: 2, numActivePlayers: 2, position: 'BB',
         holeCards: [c(13, 'hearts'), c(12, 'diamonds')],
         community,
@@ -205,7 +206,8 @@ describe('Board-relative strength — board pairs/trips are not monsters', () =>
     let raises = 0
     for (let i = 0; i < trials; i++) {
       const ctx: DecisionContext = {
-        street: 'river', toCall: 50, pot: 50, currentBet: 50, playerBet: 0, chips: 400, bb: 2,
+        // a pot-size bet: 50 into 50 (`pot` includes the bet being faced)
+        street: 'river', toCall: 50, pot: 100, currentBet: 50, playerBet: 0, chips: 400, bb: 2,
         numActivePlayers: 2, position: 'BB', holeCards: hole, community,
       }
       if (decideBotAction(profile, ctx).type === 'raise') raises++

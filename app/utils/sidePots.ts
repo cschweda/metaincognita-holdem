@@ -42,9 +42,14 @@ export function calculateSidePots(contributors: PotContributor[]): SidePot[] {
     const increment = level - prevLevel
     if (increment <= 0) continue
 
-    // Count how many players (including folded) invested at least this much
-    const contributorsAtLevel = contributors.filter(c => c.totalInvested >= level).length
-    const amount = increment * contributorsAtLevel
+    // Every contributor — folded or not — pays into this slice up to what
+    // they actually invested. A folded blind smaller than the level still
+    // counts for the part it covers (counting only players who reached the
+    // level made those chips vanish from the table).
+    let amount = 0
+    for (const c of contributors) {
+      amount += Math.min(c.totalInvested, level) - Math.min(c.totalInvested, prevLevel)
+    }
 
     // Only non-folded players who invested at least this level are eligible to win
     const eligible = active
@@ -56,6 +61,13 @@ export function calculateSidePots(contributors: PotContributor[]): SidePot[] {
     }
 
     prevLevel = level
+  }
+
+  // Dead money above the highest live level (a player who folded after
+  // putting in more than anyone still in) belongs to the last pot.
+  const last = pots[pots.length - 1]
+  if (last) {
+    for (const c of contributors) last.amount += Math.max(0, c.totalInvested - prevLevel)
   }
 
   return pots

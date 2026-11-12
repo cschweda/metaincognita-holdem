@@ -66,14 +66,19 @@ export interface HandAnalysis {
   probNextCard: number  // % to improve by next card
   probByRiver: number   // % to improve by river (from flop)
 
-  // Equity estimate (Monte Carlo)
+  // Equity estimate (Monte Carlo) vs random hands
   equity: number // 0-100
+  // Equity to judge a call by. Equal to `equity` unless facing a postflop bet,
+  // where it is discounted for the bettor's range (see equityVsBettingRange).
+  equityVsRange: number // 0-100
 
   // Hand improvement probabilities (% chance of making each hand by river)
   handProbabilities: HandProbability[]
 
   // Pot odds — % equity the current call needs (0 when not facing a bet)
   potOddsNeeded: number
+  // What calling actually costs: the bet, capped at the hero's stack
+  callAmount: number
 
   // Recommendation
   action: 'FOLD' | 'CHECK' | 'CALL' | 'RAISE'
@@ -466,8 +471,26 @@ export function bestHand(holeCards: Card[], community: Card[]): HandResult | nul
 }
 
 // ─── Draw Detection ────────────────────────────────────────────
-export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
+export interface DrawOptions {
+  /**
+   * Count only outs that are the hero's own. Off by default.
+   *
+   *  - A flush or straight draw the board holds by itself (four to it on the
+   *    board, no hole card taking part) is skipped: the card that completes it
+   *    completes it for everyone.
+   *  - Trips count every card that fills them up, including the three that
+   *    pair the hero's other hole card (K5 on K-K-9 is 7 outs, not 4).
+   *
+   * The coach panel and the bots both ask for this (the bots since the
+   * 2026-11-11 review, re-measured against both probes). The default stays
+   * the legacy count for the display-only callers that have not moved.
+   */
+  strict?: boolean
+}
+
+export function detectDraws(holeCards: Card[], community: Card[], opts: DrawOptions = {}): DrawInfo[] {
   if (community.length === 0) return []
+  const strict = !!opts.strict
   const all = [...holeCards, ...community]
   const draws: DrawInfo[] = []
   const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
@@ -486,6 +509,8 @@ export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
     for (const c of all) suitCounts.set(c.suit, (suitCounts.get(c.suit) || 0) + 1)
     for (const [suit, count] of suitCounts) {
       if (count === 4) {
+        // Four of a suit all on the board is the board's draw, not the hero's
+        if (strict && !holeCards.some(c => c.suit === suit)) continue
         const outCards: Card[] = []
         for (let rank = 2; rank <= 14; rank++) outCards.push(...unseen(rank, suit))
         push(`${SUIT_SYMBOLS[suit]} Flush draw`, outCards, all.filter(c => c.suit === suit).map(c => c.rank))
@@ -499,12 +524,16 @@ export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
   if (madeRank < HAND_RANKS.STRAIGHT) {
     const ranks = new Set(all.map(c => c.rank))
     const has = (r: number) => ranks.has(r === 1 ? 14 : r)
+    const boardRankSet = new Set(community.map(c => c.rank))
+    const onBoard = (r: number) => boardRankSet.has(r === 1 ? 14 : r)
     const missing = new Set<number>()
     const have = new Set<number>()
     for (let low = 1; low <= 10; low++) {
       const window = [low, low + 1, low + 2, low + 3, low + 4]
       const need = window.filter(r => !has(r))
-      if (need.length === 1) {
+      // A window the board fills four of by itself is the board's draw
+      const usesHoleCard = window.some(r => has(r) && !onBoard(r))
+      if (need.length === 1 && (!strict || usesHoleCard)) {
         missing.add(need[0] === 1 ? 14 : need[0]!)
         for (const r of window) if (has(r)) have.add(r === 1 ? 14 : r)
       }
@@ -549,7 +578,14 @@ export function detectDraws(holeCards: Card[], community: Card[]): DrawInfo[] {
 
   // Trips (using a hole card) → quads (the last card) or a full house (board pairs)
   const heroTripRanks = tripRanks.filter(r => holeRanks.includes(r))
-  if (heroTripRanks.length > 0) {
+  if (heroTripRanks.length > 0 && strict) {
+    // Any other card in play that pairs makes the boat — the board's cards
+    // and the hero's own kicker alike. Already full: only quads improve it.
+    const full = madeRank >= HAND_RANKS.FULL_HOUSE
+    const kickerRanks = full ? [] : [...rankCounts.entries()].filter(([, n]) => n === 1).map(([r]) => r)
+    push(full ? 'Quads draw' : 'Quads/full house draw',
+      [...heroTripRanks.flatMap(r => unseen(r)), ...kickerRanks.flatMap(r => unseen(r))], heroTripRanks)
+  } else if (heroTripRanks.length > 0) {
     const nonTripBoardRanks = [...new Set(boardRanks.filter(r => !tripRanks.includes(r)))]
     push('Quads/full house draw',
       [...heroTripRanks.flatMap(r => unseen(r)), ...nonTripBoardRanks.flatMap(r => unseen(r))], heroTripRanks)
@@ -691,6 +727,8 @@ export function describeHand(holeCards: [Card, Card], community: Card[]): string
     const pairRank = result.score[1]
     const boardMax = Math.max(...boardRanks)
     if (holeRanks.includes(pairRank)) {
+      // A pocket pair above every board card is an overpair, not top pair
+      if (holeRanks[0] === holeRanks[1] && pairRank > boardMax) return `Overpair, pocket ${RANK_DISPLAY[pairRank]}s`
       if (pairRank === boardMax || pairRank > boardMax) return `Top Pair, ${RANK_DISPLAY[result.score[2]]}-kicker`
       if (pairRank > Math.min(...boardRanks)) return `Middle Pair of ${RANK_DISPLAY[pairRank]}s`
       return `Bottom Pair of ${RANK_DISPLAY[pairRank]}s`
@@ -737,6 +775,57 @@ export function describeHand(holeCards: [Card, Card], community: Card[]): string
   return result.name
 }
 
+// ─── Price of a Call ───────────────────────────────────────────
+export interface CallPrice {
+  call: number       // what calling costs: the bet, capped at the hero's stack
+  pot: number        // the pot that call can win
+  neededPct: number  // break-even equity, 0-100
+  ratio: number      // pot : call
+}
+
+/**
+ * The price the hero is really being laid. A player cannot call more than
+ * they have: facing a bet bigger than the stack, the call is the all-in
+ * amount, and the part of the bet it does not cover goes back to the bettor,
+ * so it comes out of the pot being played for. (Exact heads-up. Multiway,
+ * other callers' matching chips form a side pot the hero cannot win either,
+ * so this still slightly flatters the price.)
+ *
+ * `pot` includes the bet being faced. Returns null when there is nothing to
+ * call. An unknown or empty stack leaves the bet uncapped.
+ */
+export function callPrice(pot: number, toCall: number, heroChips?: number): CallPrice | null {
+  if (!(toCall > 0)) return null
+  const call = heroChips !== undefined && heroChips > 0 ? Math.min(toCall, heroChips) : toCall
+  const winnable = Math.max(pot - (toCall - call), 0)
+  return { call, pot: winnable, neededPct: (call / (winnable + call)) * 100, ratio: winnable / call }
+}
+
+// ─── Equity Against a Bet ──────────────────────────────────────
+/**
+ * Monte Carlo equity is measured against RANDOM hands. A player who bets is
+ * not holding a random hand, so that figure overstates how often the hero is
+ * good when facing a bet. This is a deliberately simple correction, not a
+ * range model:
+ *
+ *   adjusted = e × (1 − d × (1 − e))      d = 25% + 35% × (bet ÷ pot), max 60%
+ *
+ * The discount scales with the hero's own share of losing hands (1 − e), so
+ * a near-nut hand barely moves, while a medium hand loses up to a quarter of
+ * its equity against a pot-sized bet (60% → 46%) and less against a small
+ * one (60% → 51% at a third of the pot).
+ *
+ * A flush or straight draw wins by getting there, whatever the bettor
+ * holds, so the result never falls below `drawFloorPct` — the chance of
+ * completing one — and never rises above the raw equity.
+ */
+export function equityVsBettingRange(equityPct: number, betToPot: number, drawFloorPct: number = 0): number {
+  const e = Math.min(Math.max(equityPct, 0), 100) / 100
+  const d = Math.min(0.6, 0.25 + 0.35 * Math.max(betToPot, 0))
+  const adjusted = e * (1 - d * (1 - e)) * 100
+  return Math.max(adjusted, Math.min(equityPct, drawFloorPct))
+}
+
 // ─── Action Recommendation ─────────────────────────────────────
 export function recommend(
   street: string,
@@ -747,6 +836,7 @@ export function recommend(
   position: string,
   facingBet: boolean = true,
   potOddsNeeded?: number, // % equity the call needs; undefined = price unknown (legacy thresholds)
+  preflopRaised: boolean = false, // preflop only: the bet to call is a raise, not just the blind
 ): { action: HandAnalysis['action']; reasoning: string } {
   // Helper: if not facing a bet, CALL becomes CHECK
   function maybeCheck(result: { action: HandAnalysis['action']; reasoning: string }) {
@@ -755,29 +845,52 @@ export function recommend(
     }
     return result
   }
-  // Preflop logic
+  // Preflop logic — hand strength is the Chen score; what it is worth
+  // depends on the action: nothing to call (the big blind's option), an
+  // unraised pot, or a raise to call.
   if (street === 'preflop') {
     const isLate = ['BTN', 'CO', 'D', 'D/SB', 'D/BTN'].includes(position)
+    const raised = facingBet && preflopRaised
+    // A raise so big the call needs near coin-flip equity (a 3-bet shove, a
+    // large squeeze) is only a call with a premium hand.
+    const bigRaise = raised && potOddsNeeded !== undefined && potOddsNeeded > 45
 
     if (chenScoreVal >= 10) {
-      return { action: 'RAISE', reasoning: `Premium hand — raise for value from any position.` }
+      return raised
+        ? { action: 'RAISE', reasoning: `Premium hand facing a raise — re-raise for value.` }
+        : { action: 'RAISE', reasoning: `Premium hand — raise for value from any position.` }
     }
     if (chenScoreVal >= 8) {
-      return { action: 'RAISE', reasoning: `Strong hand — open-raise or 3-bet for value.` }
+      if (bigRaise) return { action: 'FOLD', reasoning: `Strong hand, but not strong enough to call a raise this large — fold.` }
+      if (raised) return { action: 'CALL', reasoning: `Strong hand facing a raise — call and see a flop.` }
+      return { action: 'RAISE', reasoning: `Strong hand — raise for value.` }
     }
     if (chenScoreVal >= 6) {
+      if (!facingBet) return { action: 'CHECK', reasoning: `Playable hand and nothing to call — check and see a free flop.` }
+      if (raised) {
+        if (bigRaise) return { action: 'FOLD', reasoning: `Playable hand, but the raise is too large to call — fold.` }
+        return isLate || position === 'BB'
+          ? { action: 'CALL', reasoning: `Playable hand facing a raise — call ${isLate ? 'in position' : 'from the big blind, where you close the action'}.` }
+          : { action: 'FOLD', reasoning: `Playable hand, but facing a raise out of position — fold.` }
+      }
       if (isLate) {
         return { action: 'RAISE', reasoning: `Playable hand in late position — raise to steal blinds or see a flop.` }
       }
       return { action: 'CALL', reasoning: `Playable hand but early position — call or fold depending on action.` }
     }
     if (chenScoreVal >= 4) {
+      if (!facingBet) return { action: 'CHECK', reasoning: `Marginal hand and nothing to call — check and see a free flop.` }
+      if (raised) return { action: 'FOLD', reasoning: `Marginal hand facing a raise — fold.` }
       if (isLate) {
         return { action: 'CALL', reasoning: `Marginal hand — only play in late position if cheap. Consider folding to a raise.` }
       }
       return { action: 'FOLD', reasoning: `Marginal hand in early position — fold.` }
     }
-    return { action: 'FOLD', reasoning: `Weak hand — fold preflop.` }
+    // Never fold when checking is free
+    if (!facingBet) return { action: 'CHECK', reasoning: `Weak hand, but there is nothing to call — check and see a free flop.` }
+    return raised
+      ? { action: 'FOLD', reasoning: `Weak hand facing a raise — fold.` }
+      : { action: 'FOLD', reasoning: `Weak hand — fold preflop.` }
   }
 
   // Postflop logic
@@ -923,6 +1036,7 @@ export function analyzeHand(
   toCall: number = 0,
   rng: Rng = Math.random,
   pot: number = 0,
+  opts: { heroChips?: number; bb?: number } = {}, // hero's stack (caps the call) and the big blind (tells a raise from a limp)
 ): HandAnalysis {
   const chen = chenScore(holeCards)
   const chenMax = chenPlusScore(holeCards, position)
@@ -930,7 +1044,8 @@ export function analyzeHand(
 
   const madeHand = community.length >= 3 ? bestHand(holeCards, community) : null
   const handDesc = describeHand(holeCards, community)
-  const draws = detectDraws(holeCards, community)
+  // Coach view: only the hero's own outs (see DrawOptions.strict)
+  const draws = detectDraws(holeCards, community, { strict: true })
   const outs = totalOuts(draws)
 
   // Cards remaining in deck
@@ -955,9 +1070,33 @@ export function analyzeHand(
     handProbabilities = categoryProbabilities(stats.categoryCounts, 1000, currentRank)
   }
 
-  // Price of the call: the equity needed to break even on a call right now
-  const potOddsNeeded = toCall > 0 && pot >= 0 ? (toCall / (pot + toCall)) * 100 : 0
-  const { action, reasoning } = recommend(streetName, equity, draws, madeHand, chen, position, toCall > 0, pot > 0 ? potOddsNeeded : undefined)
+  // Price of the call: the equity needed to break even on a call right now,
+  // with the call capped at what the hero can actually put in
+  const price = pot >= 0 ? callPrice(pot, toCall, opts.heroChips) : null
+  const potOddsNeeded = price?.neededPct ?? 0
+
+  // Facing a postflop bet, judge the call against a betting range rather
+  // than random hands. The bet's size is measured against the pot before it.
+  let equityVsRange = equity
+  if (price && community.length >= 3) {
+    const potBeforeBet = price.pot - price.call
+    const betToPot = potBeforeBet > 0 ? price.call / potBeforeBet : 1
+    const cleanDraws = community.length < 5 ? draws.filter(d => /flush draw|straight draw/i.test(d.type)) : []
+    const cleanOuts = totalOuts(cleanDraws)
+    const drawFloor = community.length === 3 ? probByRiver(cleanOuts, remaining) : probNextCard(cleanOuts, remaining)
+    equityVsRange = equityVsBettingRange(equity, betToPot, drawFloor)
+  }
+
+  // Preflop, any chips to call in the big blind mean a raise; everywhere else
+  // a raise is a call of more than one big blind (unknowable without the blind).
+  const preflopRaised = toCall > 0 && (position === 'BB' || (opts.bb !== undefined && toCall > opts.bb))
+
+  const rec = recommend(streetName, equityVsRange, draws, madeHand, chen, position, toCall > 0, pot > 0 && price ? potOddsNeeded : undefined, preflopRaised)
+  const action = rec.action
+  const discounted = Math.round(equityVsRange) < Math.round(equity)
+  const reasoning = discounted
+    ? `${rec.reasoning} (Equity here is judged against a betting range: ${Math.round(equity)}% vs random hands, about ${Math.round(equityVsRange)}% vs a hand that bets this size.)`
+    : rec.reasoning
 
   return {
     madeHand,
@@ -971,8 +1110,10 @@ export function analyzeHand(
     probNextCard: Math.round(probNext * 10) / 10,
     probByRiver: Math.round(probRiver * 10) / 10,
     equity: Math.round(equity * 10) / 10,
+    equityVsRange: Math.round(equityVsRange * 10) / 10,
     handProbabilities,
     potOddsNeeded: Math.round(potOddsNeeded * 10) / 10,
+    callAmount: price?.call ?? 0,
     action,
     reasoning,
   }

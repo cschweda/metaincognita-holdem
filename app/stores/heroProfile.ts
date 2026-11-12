@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import config from '@config'
 
 export interface HeroHandRecord {
-  enteredPot: boolean       // hero voluntarily put chips in (not just BB)
+  enteredPot: boolean       // hero voluntarily called or raised preflop (VPIP; a posted blind is not voluntary)
   faced3Bet: boolean        // hero faced a 3-bet this hand
   foldedTo3Bet: boolean     // hero folded to a 3-bet
   facedCbet: boolean        // hero faced a c-bet postflop
@@ -34,6 +34,8 @@ export const useHeroProfileStore = defineStore('heroProfile', () => {
     if (faced.length === 0) return 0
     return faced.filter(h => h.foldedToCbet).length / faced.length
   })
+
+  const heroCbetsFaced = computed(() => recentHands.value.filter(h => h.facedCbet).length)
 
   const heroAggression = computed(() => {
     const totalRaises = recentHands.value.reduce((sum, h) => sum + h.raiseCount, 0)
@@ -96,6 +98,7 @@ export const useHeroProfileStore = defineStore('heroProfile', () => {
     heroVpip,
     heroFoldTo3Bet,
     heroFoldToCbet,
+    heroCbetsFaced,
     heroAggression,
     handsTracked,
     recordHeroAction,

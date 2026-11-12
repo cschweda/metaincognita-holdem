@@ -13,6 +13,8 @@ import { displayCard } from '~/utils/cards'
 import { decideBotAction, createTiltState } from '~/utils/botDecision'
 import { bestHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
+import { actsLastPostflop } from '~/utils/bettingEngine'
+import { botStrategyFromPreset } from '~/utils/botConfig'
 import type { PlayerHand } from '~/composables/useSessionStats'
 import { useGameState } from '~/composables/useGameState'
 import { useGameEngine } from '~/composables/useGameEngine'
@@ -128,42 +130,36 @@ const engine = useGameEngine({
       numActivePlayers: gs.activePlayers.value.length,
       raiseLevel,
       position: positions.value[p.id] || '',
+      inPosition: actsLastPostflop(gs.playerStates.value, gs.dealerSeat.value, p.id),
       holeCards: p.holeCards ?? undefined,
       // Street-sliced board only — decideBotAction re-slices defensively,
       // but never hand the full runout to a decision in the first place.
       community: gs.visibleCommunity.value.length > 0 ? gs.visibleCommunity.value : undefined,
       wasPreflopRaiser: streetContext?.wasPreflopRaiser,
       preflopCallers: streetContext?.preflopCallers,
+      checkedThisStreet: streetContext?.checkedThisStreet,
       streetHistory: streetContext?.streetHistory as any,
       tableDynamics: streetContext?.tableDynamics,
       tableReads: streetContext?.tableReads,
-    })
+    }, consistencyForPlayer(player))
   },
   onEndHand: () => endHand(),
   botDelay: { min: 600, max: 1400, heroFoldedMin: 150, heroFoldedMax: 350 },
 })
 
 // ─── Bot profiles from original player names ──────────────────
+// The same full strategy the live table plays (sizing, style bias, limp and
+// donk frequencies) — the replay used to rebuild a cut-down profile by hand,
+// so a replayed opponent was not the opponent you had faced.
 function botProfileForPlayer(player: PlayerHand) {
-  const persona = config.personas.find(p => p.name === player.name)
-  if (persona) {
-    return {
-      vpip: persona.vpip, pfr: persona.pfr, aggression: persona.aggression,
-      bluffFreq: persona.bluffFreq, creativeFreq: persona.creativeFreq,
-      threeBetFreq: persona.threeBetFreq, fourBetFreq: persona.fourBetFreq,
-      fiveBetFreq: persona.fiveBetFreq,
-    }
-  }
-  const preset = config.botPresets.find(p => p.name === player.name)
-  if (preset) {
-    return {
-      vpip: preset.vpip, pfr: preset.pfr, aggression: preset.aggression,
-      bluffFreq: preset.bluffFreq, creativeFreq: preset.creativeFreq,
-      threeBetFreq: preset.threeBetFreq, fourBetFreq: preset.fourBetFreq,
-      fiveBetFreq: preset.fiveBetFreq,
-    }
-  }
-  return { vpip: 0.22, pfr: 0.18, aggression: 1.2, bluffFreq: 0.14, creativeFreq: 0.05 }
+  const source = config.personas.find(p => p.name === player.name)
+    ?? config.botPresets.find(p => p.name === player.name)
+  return source
+    ? botStrategyFromPreset(source as unknown as Record<string, unknown>)
+    : { vpip: 0.22, pfr: 0.18, aggression: 1.2, bluffFreq: 0.14, creativeFreq: 0.05 }
+}
+function consistencyForPlayer(player: PlayerHand): number {
+  return config.personas.find(p => p.name === player.name)?.consistency ?? 0.95
 }
 
 // ─── Determine dealer seat from original hand ─────────────────
@@ -278,7 +274,8 @@ function endHand() {
     const heroProfit = heroWon ? gs.pot.value - gs.heroTotalWagered.value : -gs.heroTotalWagered.value
     replayResult.value = {
       result: heroState.folded ? 'folded' : (heroWon ? 'won' : 'lost'),
-      profit: heroState.folded ? 0 : heroProfit,
+      // Net for the hand, as the session records it: a fold costs what was put in
+      profit: heroProfit,
     }
   }
   replayPhase.value = 'finished'
@@ -473,6 +470,8 @@ function resultClass(result: string): string {
             :to-call="gs.toCall.value"
             :min-raise="gs.minRaise.value"
             :max-raise="gs.maxRaise.value"
+            :hero-bet="gs.hero.value?.betThisRound ?? 0"
+            :raise-allowed="gs.heroCanRaise.value"
             :bb="bb"
             :enabled="true"
             @fold="engine.handleFold"

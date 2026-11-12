@@ -1,6 +1,7 @@
 /**
- * PokerStars hand history parser — inverse of pokerStarsExport.ts.
- * Parses PS-format text into structured data for replay.
+ * PokerStars hand history parser — reads this app's PokerStars-style export
+ * (pokerStarsExport.ts) and genuine PokerStars cash-game hands into
+ * structured data for replay.
  */
 import type { Card, Suit } from './cards'
 
@@ -79,7 +80,8 @@ export function parsePokerStarsHand(text: string): ParseResult {
   if (lines.length < 3) return { success: false, error: 'Too few lines to be a valid hand history' }
 
   // Header
-  const headerMatch = lines[0].match(/^PokerStars Hand #(\d+):.+?\(\$([0-9.]+)\/\$([0-9.]+)\)/)
+  // A real PokerStars header carries a currency code: ($1/$2 USD)
+  const headerMatch = lines[0].match(/^PokerStars Hand #(\d+):.+?\(\$([0-9.]+)\/\$([0-9.]+)(?: [A-Z]{3})?\)/)
   if (!headerMatch) return { success: false, error: 'Missing PokerStars hand header (line 1)' }
   const handId = headerMatch[1]
   const stakes = { sb: parseFloat(headerMatch[2]), bb: parseFloat(headerMatch[3]) }

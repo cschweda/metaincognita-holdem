@@ -34,8 +34,10 @@ describe('applyEngineAction rules', () => {
     expect(res.isAllIn).toBe(true)
     expect(res.reopened).toBe(false)
     expect(r.currentBet).toBe(14)
-    // player 0 already acted at bet 10; incomplete raise must not re-add them
-    expect(r.needsToAct.has(0)).toBe(false)
+    // player 0 already acted at bet 10: the betting is not reopened to them,
+    // but they still owe the extra 4 — call or fold only
+    expect(r.needsToAct.has(0)).toBe(true)
+    expect(r.raiseClosed?.has(0)).toBe(true)
     expect(r.needsToAct.has(2)).toBe(true) // hasn't acted yet this round
     // half-raise rule: incomplete raise does not reset the raise increment
     expect(r.lastRaiseIncrement).toBe(8)
