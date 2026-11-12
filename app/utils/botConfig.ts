@@ -48,3 +48,48 @@ export function botStrategyFromPreset(preset: Record<string, unknown>): BotStrat
     leak: typeof preset.leak === 'string' ? preset.leak : undefined,
   }
 }
+
+// ─── Hand records and /replay ────────────────────────────────────────────
+
+interface NamedSource { name: string; consistency?: number }
+interface BotSources { personas: readonly NamedSource[]; botPresets: readonly NamedSource[] }
+
+const STRATEGY_KEYS = ['vpip', 'pfr', 'aggression', 'bluffFreq', 'creativeFreq', 'tiltMultiplier',
+  'threeBetFreq', 'fourBetFreq', 'fiveBetFreq', 'donkBetFreq', 'limpFreq', 'betSizeMult', 'overbetFreq'] as const
+
+const findSource = (name: string | undefined, src: BotSources): NamedSource | undefined =>
+  name === undefined ? undefined
+    : src.personas.find(p => p.name === name) ?? src.botPresets.find(p => p.name === name)
+
+/**
+ * What a hand record keeps about a bot so /replay can seat the same opponent:
+ * the preset it was built from, and its strategy numbers only when they no
+ * longer match that preset (sliders moved). Display names are free text and
+ * cannot be relied on to find the persona again.
+ */
+export function recordedBotSpec(
+  bot: BotStrategyFields & { preset?: string; name: string },
+  src: BotSources,
+): { preset: string; profile?: BotStrategyFields } {
+  const preset = bot.preset || bot.name
+  const source = findSource(preset, src)
+  const base = source ? botStrategyFromPreset(source as unknown as Record<string, unknown>) : null
+  const same = !!base
+    && STRATEGY_KEYS.every(k => bot[k] === base[k])
+    && JSON.stringify(bot.styleBias ?? null) === JSON.stringify(base.styleBias ?? null)
+  if (same) return { preset }
+  const profile = botStrategyFromPreset(bot as unknown as Record<string, unknown>)
+  return { preset, profile }
+}
+
+/** The opponent /replay should seat for a recorded player. */
+export function replayOpponent(
+  player: { name: string; preset?: string; profile?: BotStrategyFields },
+  src: BotSources,
+): { profile: BotStrategyFields; consistency: number } {
+  const source = findSource(player.preset, src) ?? findSource(player.name, src)
+  const profile = player.profile
+    ?? (source ? botStrategyFromPreset(source as unknown as Record<string, unknown>)
+      : botStrategyFromPreset({}))
+  return { profile, consistency: source?.consistency ?? 0.95 }
+}

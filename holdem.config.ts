@@ -345,6 +345,13 @@ export default {
       monsterFloor: 0.15,
       neverFoldStrength: 0.70,   // trips/sets and better never fold to size alone
     },
+    // What creativeFreq (0.01-0.12 across personas, raised by tilt) buys.
+    creative: {
+      slowplayMult: 1.5,         // P(check trips+ on a non-wet flop/turn) = creativeFreq x this
+      slowplayMinStrength: 0.70,
+      openWindow: 0.10,          // suited hands up to this far outside the open range…
+      openMult: 2.0,             // …are opened at creativeFreq x this
+    },
     // Hero reads applied to specific spots (the profile-wide adaptation lives
     // in applyHeroAdaptation).
     heroRead: {
@@ -463,7 +470,6 @@ export default {
   // ─── Session & Bankroll ───────────────────────────────────────
   session: {
     heroTimeoutMs: 5 * 60 * 1000,        // 5 minutes of inactivity = session pause
-    autoSaveIntervalMs: 60 * 1000,
     rebuyEnabled: true,                    // allow re-buy after bust-out
     // Re-buy starts a new session (separate P&L from the bust-out session)
   },

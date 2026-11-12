@@ -13,7 +13,7 @@ defineOptions({ name: 'replay-hand' })
 useHead({ title: 'Hand Replay Viewer' })
 
 interface PlaybackStep {
-  type: 'blind' | 'deal' | 'action' | 'street' | 'showdown' | 'award'
+  type: 'blind' | 'deal' | 'action' | 'street' | 'showdown' | 'refund' | 'award'
   description: string
   player?: string
   actionType?: string
@@ -70,6 +70,11 @@ const actionQueue = computed<PlaybackStep[]>(() => {
         : `${a.player} ${a.type}`
       steps.push({ type: a.type === 'sb' || a.type === 'bb' ? 'blind' : 'action', description: desc, player: a.player, actionType: a.type, amount: a.amount })
     }
+  }
+
+  // Uncalled bets go back to the bettor before anything is awarded
+  for (const u of h.uncalledReturns ?? []) {
+    steps.push({ type: 'refund', description: `Uncalled $${u.amount} returned to ${u.player}`, player: u.player, amount: u.amount })
   }
 
   // Awards
@@ -142,6 +147,10 @@ function applyStep(idx: number) {
       if (paid > currentBet.value) currentBet.value = paid
       playerLastAction.value = new Map([...playerLastAction.value, [name, type]])
     }
+  } else if (step.type === 'refund') {
+    const chips = playerChips.value.get(step.player!) || 0
+    playerChips.value = new Map([...playerChips.value, [step.player!, chips + (step.amount || 0)]])
+    pot.value = Math.max(0, pot.value - (step.amount || 0))
   } else if (step.type === 'award') {
     const chips = playerChips.value.get(step.player!) || 0
     playerChips.value = new Map([...playerChips.value, [step.player!, chips + (step.amount || 0)]])
@@ -316,7 +325,7 @@ const playerAnalyses = computed<PlayerAnalysis[]>(() => {
     const result = bestHand(Array.from(p.holeCards), visibleBoard.value)
     // Don't show draws on river (no more cards to come)
     const isRiver = visibleBoard.value.length >= 5
-    const draws = (folded || isRiver) ? [] : detectDraws(Array.from(p.holeCards), visibleBoard.value)
+    const draws = (folded || isRiver) ? [] : detectDraws(Array.from(p.holeCards), visibleBoard.value, { strict: true })
     const desc = folded ? 'Folded' : (result ? describeHand(p.holeCards, visibleBoard.value) : 'Unknown')
     const rank = result?.rank ?? -1
     if (!folded && rank > bestRank) bestRank = rank
@@ -352,7 +361,7 @@ const playerAnalyses = computed<PlayerAnalysis[]>(() => {
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-white">Hand History Replay</h1>
-          <p class="text-gray-500 text-sm mt-1">Paste a PokerStars hand history, or this app's PokerStars-style export, to watch it play out visually.</p>
+          <p class="text-gray-500 text-sm mt-1">Paste a PokerStars hand history, or this app's PokerStars-format export, to watch it play out visually.</p>
         </div>
         <NuxtLink to="/">
           <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-arrow-left">Back</UButton>

@@ -98,6 +98,7 @@ export async function runSimulation(
 
   let totalPot = 0, preflopFoldOuts = 0, flopsSeen = 0, turnsSeen = 0, riversSeen = 0, showdowns = 0, threeBetPots = 0, allInHands = 0
   let dealerSeat = 0
+  const runStartedAt = Date.now() // prefixes the exported hand numbers, so two runs never share one
   const allHands: SimHandRecord[] = []
 
   // Table reads — public table-wide signals over a rolling window (see utils/tableReads.ts)
@@ -128,6 +129,7 @@ export async function runSimulation(
 
     const count = players.length
     const positions = assignPositions(count, dealerSeat)
+    const stacksAtDeal = players.map(p => p.chips) // before blinds — what the hand history seats show
     const deck = shuffleDeck(rng)
     let idx = 0
 
@@ -375,12 +377,12 @@ export async function runSimulation(
 
     // Build PokerStars format
     const psHand = {
-      hand_number: h + 1, session_id: 'sim', hole_cards: '', board: boardStr.trim(),
+      hand_number: h + 1, handId: `${runStartedAt}${String(h + 1).padStart(4, '0')}`, session_id: 'sim', hole_cards: '', board: boardStr.trim(),
       result: 'sim', profit: 0, position: '', pot_size: pot, stake_level: 3,
       player_count: numPlayers, played_at: new Date().toISOString(), actions,
       players: players.filter(p2 => !p2.eliminated || p2.holeCards).map(p2 => ({
         name: p2.name, position: positions[p2.id] || '', holeCards: p2.holeCards ? p2.holeCards.map(displayCard).join(' ') : '',
-        folded: p2.folded, isHero: false, chips: p2.chips, seatIndex: p2.id,
+        folded: p2.folded, isHero: false, chips: stacksAtDeal[p2.id], seatIndex: p2.id,
       })),
     }
     const psFormat = toPokerStarsFormat(psHand as any, { sb: SB, bb: BB })

@@ -167,12 +167,14 @@ export function useGameEngine(options: GameEngineOptions) {
       bb: bb.value,
       needsToAct: gs.needsToAct.value,
       raiseClosed: gs.raiseClosed.value,
+      fullBetLevel: gs.fullBetLevel.value,
     }
   }
   function writeBack(r: BettingRound) {
     gs.currentBet.value = r.currentBet
     gs.lastRaiseIncrement.value = r.lastRaiseIncrement
     gs.pot.value = r.pot
+    gs.fullBetLevel.value = r.fullBetLevel ?? r.currentBet
   }
 
   /**
@@ -292,6 +294,7 @@ export function useGameEngine(options: GameEngineOptions) {
       const r = engineRound()
       startBettingRound(r)
       gs.needsToAct.value = r.needsToAct
+      gs.fullBetLevel.value = r.fullBetLevel ?? r.currentBet
     }
 
     let seat = startSeat

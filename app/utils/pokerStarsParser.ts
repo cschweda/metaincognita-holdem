@@ -1,7 +1,11 @@
 /**
- * PokerStars hand history parser — reads this app's PokerStars-style export
- * (pokerStarsExport.ts) and genuine PokerStars cash-game hands into
- * structured data for replay.
+ * PokerStars hand history parser — reads genuine PokerStars cash-game hands,
+ * which is what this app exports (pokerStarsExport.ts), into structured data
+ * for replay. It also still reads the looser text the app wrote before the
+ * export conformed (`raises to $X`, `Dealt to` for every player).
+ *
+ * Amounts: `call`, `bet`, `all-in`, `sb` and `bb` carry the chips added;
+ * `raise` carries the raise-TO total for the street.
  */
 import type { Card, Suit } from './cards'
 
@@ -55,6 +59,8 @@ export interface PSHandHistory {
   players: PSPlayer[]
   streets: PSStreet[]
   winners: { player: string; amount: number }[]
+  /** `Uncalled bet ($X) returned to …` — chips that came back, not winnings */
+  uncalledReturns: { player: string; amount: number }[]
   board: Card[]
   totalPot: number
 }
@@ -97,7 +103,8 @@ export function parsePokerStarsHand(text: string): ParseResult {
   const players: PSPlayer[] = []
   let lineIdx = 2
   while (lineIdx < lines.length) {
-    const seatMatch = lines[lineIdx].match(/^Seat (\d+): (.+?) \(\$([0-9.]+) in chips\)$/)
+    // A real file may add "is sitting out" after the stack
+    const seatMatch = lines[lineIdx].match(/^Seat (\d+): (.+?) \(\$([0-9.]+) in chips\)/)
     if (!seatMatch) break
     players.push({
       seatNumber: parseInt(seatMatch[1]),
@@ -127,6 +134,9 @@ export function parsePokerStarsHand(text: string): ParseResult {
   const streets: PSStreet[] = []
   let currentStreet: PSStreet | null = null
   const winners: { player: string; amount: number }[] = []
+  const uncalledReturns: { player: string; amount: number }[] = []
+  // Blinds are posted before the HOLE CARDS marker; they open the preflop street.
+  const blindPosts: PSAction[] = []
   let inSummary = false
   let totalPot = 0
   const board: Card[] = []
@@ -136,7 +146,7 @@ export function parsePokerStarsHand(text: string): ParseResult {
 
     // Street markers
     if (line === '*** HOLE CARDS ***') {
-      currentStreet = { name: 'preflop', newCards: [], actions: [] }
+      currentStreet = { name: 'preflop', newCards: [], actions: [...blindPosts] }
       streets.push(currentStreet)
       continue
     }
@@ -186,9 +196,17 @@ export function parsePokerStarsHand(text: string): ParseResult {
     }
 
     // Collected
-    const collectedMatch = line.match(/^(.+?) collected \$([0-9.]+) from pot$/)
+    // Collected: "from pot", "from main pot", "from side pot", "from side pot-2"
+    const collectedMatch = line.match(/^(.+?) collected \$([0-9.]+) from (?:main |side )?pot(?:-\d+)?$/)
     if (collectedMatch) {
       winners.push({ player: collectedMatch[1], amount: parseFloat(collectedMatch[2]) })
+      continue
+    }
+
+    // Uncalled bet handed back to the bettor
+    const uncalledMatch = line.match(/^Uncalled bet \(\$([0-9.]+)\) returned to (.+)$/)
+    if (uncalledMatch) {
+      uncalledReturns.push({ player: uncalledMatch[2], amount: parseFloat(uncalledMatch[1]) })
       continue
     }
 
@@ -202,9 +220,10 @@ export function parsePokerStarsHand(text: string): ParseResult {
 
     // Summary seat cards (fallback for hole cards)
     if (inSummary) {
-      const seatCardsMatch = line.match(/^Seat \d+: (.+?) .+?showed \[(.+?)\]/)
+      // "Seat 3: bob smith (button) showed [Ad Qs] and won …" / "… mucked [Ad Qs]"
+      const seatCardsMatch = line.match(/^Seat (\d+): .*?(?:showed|mucked) \[(.+?)\]/)
       if (seatCardsMatch) {
-        const p = players.find(pl => pl.name === seatCardsMatch[1])
+        const p = players.find(pl => pl.seatNumber === parseInt(seatCardsMatch[1]))
         const cards = parseCards(seatCardsMatch[2])
         if (p && cards.length === 2 && !p.holeCards) p.holeCards = cards as [Card, Card]
       }
@@ -212,12 +231,11 @@ export function parsePokerStarsHand(text: string): ParseResult {
     }
 
     // Blind posts
-    const blindMatch = line.match(/^(.+?): posts (?:small|big) blind \$([0-9.]+)$/)
+    const blindMatch = line.match(/^(.+?): posts (small|big) blind \$([0-9.]+)(?: and is all-in)?$/)
     if (blindMatch) {
-      const isSmall = line.includes('small blind')
-      if (currentStreet) {
-        currentStreet.actions.push({ player: blindMatch[1], type: isSmall ? 'sb' : 'bb', amount: parseFloat(blindMatch[2]) })
-      }
+      const post: PSAction = { player: blindMatch[1], type: blindMatch[2] === 'small' ? 'sb' : 'bb', amount: parseFloat(blindMatch[3]) }
+      if (currentStreet) currentStreet.actions.push(post)
+      else if (streets.length === 0) blindPosts.push(post)
       continue
     }
 
@@ -255,7 +273,7 @@ export function parsePokerStarsHand(text: string): ParseResult {
 
   return {
     success: true,
-    hand: { handId, stakes, tableName, maxPlayers, buttonSeat, players, streets, winners, board, totalPot },
+    hand: { handId, stakes, tableName, maxPlayers, buttonSeat, players, streets, winners, uncalledReturns, board, totalPot },
   }
 }
 

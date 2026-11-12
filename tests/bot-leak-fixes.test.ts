@@ -219,3 +219,49 @@ describe('a draw needs one of the bot\'s own cards', () => {
     expect(freq({ hole: 'Ac 5c', board: 'Kc 9c 2h Js', potBefore: 40, bet: 20 }).continue).toBeGreaterThan(0.6)
   })
 })
+
+describe('creativeFreq does something', () => {
+  // Same seed, same spot, only creativeFreq differs.
+  const withCreative = (creativeFreq: number, spot: Spot, n = 4000) => {
+    const rng = mulberry32(31)
+    const board = cards(spot.board)
+    const out = { fold: 0, check: 0, call: 0, raise: 0 }
+    for (let i = 0; i < n; i++) {
+      out[decideBotAction({ ...SAM, creativeFreq }, {
+        street: streetOf(board.length), toCall: 0, pot: spot.potBefore, currentBet: 0, playerBet: 0,
+        chips: 198, bb: BB, numActivePlayers: 2, position: 'BTN', inPosition: true,
+        holeCards: cards(spot.hole) as [Card, Card], community: board, rng, ...spot.extra,
+      }).type]++
+    }
+    return { check: out.check / n, raise: out.raise / n }
+  }
+
+  it('a creative bot slow-plays a set on a dry flop more often', () => {
+    const set: Spot = { hole: '7s 7h', board: 'Kh 7c 2d', potBefore: 14 }
+    expect(withCreative(0.15, set).check).toBeGreaterThan(withCreative(0, set).check + 0.05)
+  })
+  it('…but not on a wet board, where free cards are expensive', () => {
+    const wet: Spot = { hole: '7s 7h', board: '9h 8h 7c', potBefore: 14 }
+    expect(withCreative(0.15, wet).check).toBeCloseTo(withCreative(0, wet).check, 1)
+  })
+
+  const openRate = (creativeFreq: number, hole: string) => {
+    const rng = mulberry32(5)
+    let opens = 0
+    for (let i = 0; i < 4000; i++) {
+      if (decideBotAction({ ...SAM, creativeFreq }, {
+        street: 'preflop', toCall: BB, pot: 3, currentBet: BB, playerBet: 0, chips: 200, bb: BB,
+        numActivePlayers: 6, raiseLevel: 0, position: 'CO', holeCards: cards(hole) as [Card, Card], rng,
+      }).type === 'raise') opens++
+    }
+    return opens / 4000
+  }
+  it('a creative bot sometimes opens a suited hand just outside its range', () => {
+    // 7-5 suited from the cutoff: a little outside Solid Sam's opens
+    expect(openRate(0, '7s 5s')).toBeLessThan(0.02)
+    expect(openRate(0.15, '7s 5s')).toBeGreaterThan(0.05)
+  })
+  it('…never offsuit trash', () => {
+    expect(openRate(0.15, '9s 3d')).toBe(0)
+  })
+})

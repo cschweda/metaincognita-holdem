@@ -407,7 +407,7 @@ const expandedHand = ref<string | null>(null)
                       <UButton size="xs" variant="outline" color="primary" icon="i-lucide-play">Replay on Table</UButton>
                     </NuxtLink>
                     <details class="flex-1">
-                      <summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-semibold">PokerStars-Style Hand History</summary>
+                      <summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-semibold">PokerStars Hand History</summary>
                       <pre class="text-[0.65rem] font-mono leading-relaxed whitespace-pre-wrap text-gray-400 max-h-80 overflow-y-auto bg-gray-950 rounded-lg p-3 mt-2">{{ hand.psFormat }}</pre>
                     </details>
                   </div>
@@ -419,16 +419,16 @@ const expandedHand = ref<string | null>(null)
           <div class="mt-4">
             <button class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(sim.r, sim.dlLabel)">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download {{ sim.label }} hand history (PokerStars-style text)
+              Download {{ sim.label }} hand history (PokerStars format)
             </button>
           </div>
         </section>
 
-        <!-- PokerStars-style export info -->
+        <!-- PokerStars export info -->
         <section class="mb-10">
-          <h2 class="text-xl font-bold text-white mb-4">PokerStars-Style Hand History</h2>
+          <h2 class="text-xl font-bold text-white mb-4">PokerStars Hand History</h2>
           <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-sm text-gray-300 space-y-3">
-            <p>All hands export as <strong class="text-white">PokerStars-style text</strong> &mdash; readable, and replayable in this app's Hand Replay. It follows the PokerStars layout but is not a conforming PokerStars file (every player's cards are listed, bets are written as raises), so tracking software may not import it.</p>
+            <p>All hands export as text in <strong class="text-white">PokerStars hand-history format</strong> &mdash; readable, and replayable in this app's Hand Replay. These tables have no hero, so no hand has a <code>Dealt to</code> line: a player's cards appear only if the hand reaches showdown.</p>
             <div class="flex flex-wrap gap-3 mt-2">
               <button v-if="result2p" class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" @click="downloadSim(result2p, '2p-headsup')">
                 <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

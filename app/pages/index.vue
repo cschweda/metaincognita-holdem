@@ -18,6 +18,7 @@ import { computeObservedStats } from '~/utils/observedStats'
 import { bestHand, HAND_RANK_NAMES, describeHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
 import { actsLastPostflop } from '~/utils/bettingEngine'
+import { recordedBotSpec } from '~/utils/botConfig'
 import type { HeroProfile } from '~/utils/botDecision'
 import { displayCard } from '~/utils/cards'
 import { useGameState } from '~/composables/useGameState'
@@ -131,26 +132,22 @@ function handleTimeout() {
   if (phase.value !== 'table') return
   engine.cleanup() // the abandoned hand must not keep advancing behind the pane
   const heroState = gs.playerStates.value[0]
-  if (heroState && !heroState.folded && gs.waitingForHero.value) {
-    heroState.folded = true
-    heroState.lastAction = 'fold'
-    gs.waitingForHero.value = false
-  }
-  // The abandoned hand is a fold: book it, so the chips left in its pot are
-  // that hand's loss and do not turn up in the next hand's result.
+  // A hand abandoned mid-way is finished, not dropped: the hero folds, and
+  // the pot goes to whoever is left (run out to a showdown if more than one
+  // bot is still in). Dropping it made every chip in that pot disappear —
+  // the bots' as well as the hero's — and left the hand out of the record.
   if (heroState && gs.dealt.value && gs.street.value !== 'showdown') {
-    recordHand({
-      handNumber: session.value.handsPlayed + 1,
-      holeCards: heroState.holeCards ? heroState.holeCards.map(c => displayCard(c)).join(' ') : '',
-      board: gs.visibleCommunity.value.map(c => displayCard(c)).join(' '),
-      result: 'folded',
-      position: positions.value[0] || '',
-      potSize: gs.pot.value,
-      actions: [...gs.handActionLog.value, `${heroState.name} folds (timed out)`],
-      players: [],
-      winnerName: '',
-    }, heroState.chips)
-    gs.street.value = 'showdown'
+    gs.waitingForHero.value = false
+    if (!heroState.folded) {
+      heroState.folded = true
+      heroState.lastAction = 'fold'
+      gs.handActionLog.value.push(`${heroState.name} folds`)
+    }
+    if (gs.activePlayers.value.length > 1) {
+      gs.streetAtEnd.value = 'river' // the rest of the board is dealt for the showdown
+      gs.street.value = 'showdown'
+    }
+    endHand()
   }
   if (careerMode.value) {
     // Inactivity ends the career session; current stack settles like a leave.
@@ -225,6 +222,7 @@ const queuedAction = ref<string | null>(null)
 // were awarded minus stack at the deal. Right for split and side pots, where
 // "the pot minus what I put in" is not what the hero actually received.
 let heroStackAtDeal = 0
+let stacksAtDeal: number[] = []
 const heroHandNet = ref(0)
 
 // ─── Bot Profile Modal ────────────────────────────────────────
@@ -424,7 +422,7 @@ function onGameKeydown(e: KeyboardEvent) {
     if (gs.toCall.value > 0) engine.handleCall(Math.min(gs.toCall.value, gs.maxRaise.value))
     else engine.handleCheck()
   }
-  else heroRaise(Math.round(gs.pot.value * 0.5))
+  else heroRaise(potFractionRaiseTo({ pot: gs.pot.value, toCall: gs.toCall.value, heroBet: gs.hero.value?.betThisRound ?? 0 }, 0.5))
 }
 // Keep-alive: bind on activation, unbind on deactivation — with only the
 // mounted/unmounted pair, the cached page keeps intercepting f/c/r on every
@@ -528,6 +526,7 @@ function dealNewHand() {
   }
   gs.playerStates.value = states
   heroStackAtDeal = states[0]?.chips ?? 0
+  stacksAtDeal = states.map(s => s.chips)
   noteHandStart(states) // stacks as dealt, for the hand log's before/after column
 
   idx++ // burn
@@ -565,6 +564,26 @@ function dealNewHand() {
   ]
 
   engine.schedule(() => engine.postBlindsAndStartBetting(), 400)
+}
+
+// Every seat as a hand record stores it (cards, start stack, bot identity).
+function recordedPlayers() {
+  return gs.playerStates.value.map((p, i) => ({
+    // Bots: what /replay needs to seat the same opponent again
+    ...(p.isHero || !settings.value?.botConfigs[i - 1] ? {} : recordedBotSpec(settings.value.botConfigs[i - 1]!, config)),
+    name: p.name,
+    position: positions.value[i] || '',
+    holeCards: p.holeCards ? p.holeCards.map(c => displayCard(c)).join(' ') : '',
+    folded: p.folded || p.eliminated, // an empty seat did not reach showdown
+    isHero: p.isHero,
+    chips: stacksAtDeal[i] ?? p.chips, // stack at the deal — what an export or replay starts from
+    seatIndex: i,
+  }))
+}
+// The facts an export needs to reproduce the hand: when it was played (also
+// what makes its hand number stable), the blinds and the button.
+function handMeta() {
+  return { playedAt: new Date().toISOString(), sb: sb.value, bb: bb.value, buttonSeat: gs.dealerSeat.value }
 }
 
 function endHand() {
@@ -705,16 +724,6 @@ function endHand() {
     const holeStr = heroState.holeCards ? heroState.holeCards.map(c => displayCard(c)).join(' ') : ''
     const boardStr = gs.visibleCommunity.value.map(c => displayCard(c)).join(' ')
 
-    const allPlayerHands = gs.playerStates.value.map((p, i) => ({
-      name: p.name,
-      position: positions.value[i] || '',
-      holeCards: p.holeCards ? p.holeCards.map(c => displayCard(c)).join(' ') : '',
-      folded: p.folded || p.eliminated, // an empty seat did not reach showdown
-      isHero: p.isHero,
-      chips: p.chips + (p.id === winnerId ? gs.pot.value : 0),
-      seatIndex: i,
-    }))
-
     recordHand({
       handNumber: session.value.handsPlayed + 1,
       holeCards: holeStr,
@@ -725,8 +734,9 @@ function endHand() {
       position: positions.value[0] || '',
       potSize: gs.pot.value,
       actions: [...gs.handActionLog.value],
-      players: allPlayerHands,
+      players: recordedPlayers(),
       winnerName: gs.handWinnerName.value,
+      ...handMeta(),
     }, heroState.chips)
   }
 

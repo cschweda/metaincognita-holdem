@@ -14,7 +14,7 @@ import { decideBotAction, createTiltState } from '~/utils/botDecision'
 import { bestHand } from '~/utils/handAnalysis'
 import { calculateSidePots, awardPots } from '~/utils/sidePots'
 import { actsLastPostflop } from '~/utils/bettingEngine'
-import { botStrategyFromPreset } from '~/utils/botConfig'
+import { replayOpponent } from '~/utils/botConfig'
 import type { PlayerHand } from '~/composables/useSessionStats'
 import { useGameState } from '~/composables/useGameState'
 import { useGameEngine } from '~/composables/useGameEngine'
@@ -118,7 +118,7 @@ const engine = useGameEngine({
     const player = originalHand.value.players[p.id]
     if (!player) return { type: 'fold' }
 
-    const profile = botProfileForPlayer(player)
+    const { profile, consistency } = opponentFor(player)
     return decideBotAction(profile, {
       street: gs.street.value as 'preflop' | 'flop' | 'turn' | 'river',
       toCall: gs.currentBet.value - p.betThisRound,
@@ -141,25 +141,18 @@ const engine = useGameEngine({
       streetHistory: streetContext?.streetHistory as any,
       tableDynamics: streetContext?.tableDynamics,
       tableReads: streetContext?.tableReads,
-    }, consistencyForPlayer(player))
+    }, consistency)
   },
   onEndHand: () => endHand(),
   botDelay: { min: 600, max: 1400, heroFoldedMin: 150, heroFoldedMax: 350 },
 })
 
 // ─── Bot profiles from original player names ──────────────────
-// The same full strategy the live table plays (sizing, style bias, limp and
-// donk frequencies) — the replay used to rebuild a cut-down profile by hand,
-// so a replayed opponent was not the opponent you had faced.
-function botProfileForPlayer(player: PlayerHand) {
-  const source = config.personas.find(p => p.name === player.name)
-    ?? config.botPresets.find(p => p.name === player.name)
-  return source
-    ? botStrategyFromPreset(source as unknown as Record<string, unknown>)
-    : { vpip: 0.22, pfr: 0.18, aggression: 1.2, bluffFreq: 0.14, creativeFreq: 0.05 }
-}
-function consistencyForPlayer(player: PlayerHand): number {
-  return config.personas.find(p => p.name === player.name)?.consistency ?? 0.95
+// The opponent you actually faced: the recorded preset (display names are
+// free text) and, when its sliders had been moved, the recorded numbers.
+// Records made before presets were stored fall back to the name.
+function opponentFor(player: PlayerHand) {
+  return replayOpponent(player, config)
 }
 
 // ─── Determine dealer seat from original hand ─────────────────
@@ -198,7 +191,8 @@ function startReplay() {
       knownCards.add(`${hc[1].rank}-${hc[1].suit}`)
     }
     states.push({
-      id: i, name: player.name, chips: startingStack.value,
+      // Recorded stack at the deal when there is one (older records: 100bb)
+      id: i, name: player.name, chips: player.chips && player.chips > 0 ? player.chips : startingStack.value,
       holeCards: hc, folded: false, eliminated: false, isHero: player.isHero,
       lastAction: null, currentBetAmount: 0, betThisRound: 0, totalInvested: 0,
       tilt: createTiltState(), tiltMultiplier: 1.0,

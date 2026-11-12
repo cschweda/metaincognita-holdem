@@ -37,6 +37,12 @@ export interface BettingRound {
    * that rebuild the round object per action must pass the same Set back in.
    */
   raiseClosed?: Set<number>
+  /**
+   * The bet level set by the last FULL bet or raise this street. Short
+   * all-ins stack on top of it: once they add up to a full raise over this
+   * level, the betting reopens. Managed by the engine like raiseClosed.
+   */
+  fullBetLevel?: number
 }
 
 export type EngineAction =
@@ -72,6 +78,7 @@ export function actsLastPostflop(players: EnginePlayer[], dealerSeat: number, se
 /** Reset needsToAct to everyone who can still act. Call at the start of each street. */
 export function startBettingRound(round: BettingRound): void {
   round.raiseClosed?.clear()
+  round.fullBetLevel = round.currentBet
   const able = round.players.filter(canAct)
   // One player with chips against all-in opponents: there is nobody to bet
   // into, so they act only if an all-in bet (e.g. a blind) is still bigger
@@ -132,8 +139,14 @@ export function applyEngineAction(round: BettingRound, seatId: number, action: E
     raiseTotal = Math.min(minRaiseAmt, p.chips + p.betThisRound)
   }
 
-  // Half-raise rule: an incomplete raise (all-in below min) doesn't reopen action
-  const isFullRaise = raiseTotal >= minRaiseAmt
+  // Half-raise rule: an incomplete raise (all-in below min) doesn't reopen
+  // action — unless it, stacked on earlier short all-ins, now amounts to a
+  // full raise over the last full bet level.
+  const fullLevel = round.fullBetLevel ?? prevBet
+  const stackedFull = raiseTotal > prevBet
+    && raiseTotal - fullLevel >= Math.max(round.lastRaiseIncrement, round.bb)
+  const isDirectFull = raiseTotal >= minRaiseAmt
+  const isFullRaise = isDirectFull || stackedFull
 
   const toAdd = raiseTotal - p.betThisRound
   p.chips -= toAdd
@@ -141,7 +154,8 @@ export function applyEngineAction(round: BettingRound, seatId: number, action: E
   p.totalInvested += toAdd
   round.pot += toAdd
   if (raiseTotal > round.currentBet) round.currentBet = raiseTotal
-  if (isFullRaise) round.lastRaiseIncrement = Math.max(raiseTotal - prevBet, round.bb)
+  if (isDirectFull) round.lastRaiseIncrement = Math.max(raiseTotal - prevBet, round.bb)
+  if (isFullRaise) round.fullBetLevel = raiseTotal
 
   round.needsToAct.delete(p.id)
   if (isFullRaise) {

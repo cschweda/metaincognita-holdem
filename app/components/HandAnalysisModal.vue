@@ -154,7 +154,7 @@ function describeHandStrength(holeCards: Card[], community: Card[]): string {
 
 function describeDraws(holeCards: Card[], community: Card[]): string {
   if (community.length < 3) return ''
-  const draws = detectDraws(holeCards, community)
+  const draws = detectDraws(holeCards, community, { strict: true })
   if (draws.length === 0) return 'No draws'
   return draws.map(d => `${d.type} (${d.outs} outs)`).join(', ')
 }
