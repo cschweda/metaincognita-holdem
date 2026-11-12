@@ -162,7 +162,7 @@ const profitTrendClass = computed(() => {
           <div class="bg-gradient-to-br from-gray-900 to-gray-900/60 border border-gray-800 rounded-2xl p-6 flex items-center justify-between">
             <div>
               <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                {{ selectedSession ? 'Session' : 'Lifetime' }} Profit
+                Session Profit
               </div>
               <div
                 class="text-4xl font-bold font-mono"
@@ -314,8 +314,8 @@ const profitTrendClass = computed(() => {
             <div class="flex gap-2">
               <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimeJSON">JSON</UButton>
               <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimeCSV">CSV</UButton>
-              <UTooltip text="PokerStars-style hand history text, for this app's Hand Replay. Not a conforming PokerStars file — tracking software may not import it.">
-                <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimePokerStars">PokerStars-style</UButton>
+              <UTooltip text="Hand histories as text in PokerStars hand-history format — for this app's Hand Replay, or for software that reads PokerStars hand histories.">
+                <UButton variant="outline" color="neutral" size="xs" icon="i-lucide-download" @click="exportLifetimePokerStars">PokerStars format</UButton>
               </UTooltip>
             </div>
             <UButton
@@ -455,7 +455,7 @@ const profitTrendClass = computed(() => {
     <!-- ═══ DELETE ALL MODAL ═══ -->
     <UModal
       v-model:open="showDeleteAllModal"
-      title="Delete All Lifetime Data"
+      title="Delete All Saved Data"
       :dismissible="true"
     >
       <template #body>
@@ -624,7 +624,7 @@ const profitTrendClass = computed(() => {
 
           <!-- Action buttons -->
           <div class="flex items-center gap-2 flex-wrap">
-            <NuxtLink v-if="selectedHand.players && selectedHand.players.length > 0" :to="`/replay-hand?hand=${encodeURIComponent(toPokerStarsFormat(selectedHand, getStakeFromLevel(selectedHand.stake_level)))}`">
+            <NuxtLink v-if="selectedHand.players && selectedHand.players.length > 0" :to="`/replay-hand?hand=${encodeURIComponent(toPokerStarsFormat(selectedHand, getStakeFromLevel(selectedHand.stake_level), undefined, { dealtTo: 'all' }))}`">
               <UTooltip text="Watch the hand play out step-by-step with all cards face-up. Pause and study each action.">
                 <UButton variant="outline" color="primary" size="xs" icon="i-lucide-eye">Watch</UButton>
               </UTooltip>

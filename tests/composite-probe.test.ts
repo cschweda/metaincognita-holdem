@@ -69,8 +69,16 @@ const HANDS = 30000
 // above on why a small seed set can misrepresent these specific cells.
 const SEEDS = [20260712, 999, 7, 4242, 55555, 111, 222, 333]
 
-function meanBB100(name: string, depthBB: number): number {
-  const rs = SEEDS.map(s => runComposite(name, HANDS, s, depthBB))
+// The 8 seeds above give a cell mean a standard error of roughly 2-4 bb/100.
+// That is fine for a cell whose bound sits 10+ above its true value, and not
+// for one whose margin is smaller than the noise: on 2026-11-11 the tightest
+// cell (prem3bet-25-fj, bound 4) read +5.9 on these 8 seeds while its
+// 32-seed value was +1.6 +/- 1.9 — a false alarm waiting for any change that
+// shifts the RNG stream. Cells flagged `wide` are measured on 32 seeds.
+const WIDE_SEEDS = [...SEEDS, ...Array.from({ length: 24 }, (_, i) => 1000 + i * 7919)]
+
+function meanBB100(name: string, depthBB: number, seeds: number[] = SEEDS): number {
+  const rs = seeds.map(s => runComposite(name, HANDS, s, depthBB))
   return rs.reduce((a, r) => a + r.bb100, 0) / rs.length
 }
 
@@ -82,17 +90,19 @@ function meanBB100(name: string, depthBB: number): number {
 // exploratory measurement in this task compared it to the wrong depth and
 // silently overstated its margin by ~1.3 bb/100. Memoized per depth so a
 // 13-cell run at 100bb only pays for `base` once.
-const baseMeanCache = new Map<number, number>()
-function baseMean(depthBB: number): number {
-  let m = baseMeanCache.get(depthBB)
+const baseMeanCache = new Map<string, number>()
+function baseMean(depthBB: number, seeds: number[] = SEEDS): number {
+  const key = `${depthBB}:${seeds.length}`
+  let m = baseMeanCache.get(key)
   if (m === undefined) {
-    m = meanBB100('base', depthBB)
-    baseMeanCache.set(depthBB, m)
+    m = meanBB100('base', depthBB, seeds)
+    baseMeanCache.set(key, m)
   }
   return m
 }
-function delta(name: string, depthBB: number): number {
-  return meanBB100(name, depthBB) - baseMean(depthBB)
+function delta(name: string, depthBB: number, wide = false): number {
+  const seeds = wide ? WIDE_SEEDS : SEEDS
+  return meanBB100(name, depthBB, seeds) - baseMean(depthBB, seeds)
 }
 
 // ── What's gated, and what isn't ──────────────────────────────────────────
@@ -131,7 +141,7 @@ function delta(name: string, depthBB: number): number {
 // a deterministic suite exists for that mechanism (river, turn, short
 // stacks, reraise sizing), THAT suite is the one actually proving the fix
 // holds; read its own file, not the absence of a red test here.
-const CELLS: Array<{ name: string; depthBB: number; bound: number }> = [
+const CELLS: Array<{ name: string; depthBB: number; bound: number; wide?: boolean }> = [
   // River family (Task 7+8 fixed the small/medium-bet leak; measured +17.8
   // and +19.2 bb/100 pre-fix for river-33/river-50 respectively).
   // NOT DEMONSTRATED: flattening river's size-awareness to a constant
@@ -191,7 +201,7 @@ const CELLS: Array<{ name: string; depthBB: number; bound: number }> = [
   // wide5-3bet-50-fj was the original motivating cell at +16.19 pre-fix).
   // TRIPPED: reverting Task 10's fix commit (9175981) locally reproduces
   // +9.09 against this bound of 4 (task-12-report.md §5a).
-  { name: 'prem3bet-25-fj', depthBB: 100, bound: 4 }, // true -4.0, range [-4.0, -1.9] — tightest margin in the file, and the tightest empirical spread
+  { name: 'prem3bet-25-fj', depthBB: 100, bound: 4, wide: true }, // 32 seeds: -2.6 +/- 1.8 after the 2026-11-11 round (was -9.0 +/- 2.4 before it)
   // TRIPPED: same Task 10 revert reproduces +16.42 against this bound of 7
   // (task-12-report.md §5a).
   { name: 'prem3bet-50-fj', depthBB: 100, bound: 7 }, // true -4.3, range [-10.2, 1.0]
@@ -236,16 +246,16 @@ describe('composite probe covers the cells gated below', () => {
 })
 
 describe('no single deviation from solid play beats the pro bots (Round 8 composite gate)', () => {
-  for (const { name, depthBB, bound } of CELLS) {
+  for (const { name, depthBB, bound, wide } of CELLS) {
     it(`${name} is unprofitable at ${depthBB}bb`, () => {
-      const d = delta(name, depthBB)
+      const d = delta(name, depthBB, wide)
       expect(
         d,
-        `${name} delta ${d.toFixed(1)} bb/100 over ${HANDS} hands x ${SEEDS.length} seeds at ${depthBB}bb ` +
+        `${name} delta ${d.toFixed(1)} bb/100 over ${HANDS} hands x ${wide ? WIDE_SEEDS.length : SEEDS.length} seeds at ${depthBB}bb ` +
         `(bound ${bound}) — possible engine leak reopened; re-run the spread analysis in task-12-report.md ` +
         `before touching the bound`,
       ).toBeLessThan(bound)
-    }, 60_000)
+    }, 180_000)
   }
 })
 

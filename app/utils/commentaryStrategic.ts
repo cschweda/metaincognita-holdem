@@ -11,7 +11,7 @@ import { pick } from './commentaryQuips'
 export function strategicFlopObs(heroCards: [Card, Card] | null, community: Card[], players: PlayerState[]): string | null {
   if (!heroCards || community.length < 3) return null
   const hand = bestHand(Array.from(heroCards), community)
-  const draws = detectDraws(Array.from(heroCards), community)
+  const draws = detectDraws(Array.from(heroCards), community, { strict: true })
   const numActive = players.filter(p => !p.folded && !p.eliminated).length
   const boardRanks = community.slice(0, 3).map(c => c.rank)
   const boardMax = Math.max(...boardRanks)

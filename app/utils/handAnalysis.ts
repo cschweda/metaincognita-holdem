@@ -481,9 +481,9 @@ export interface DrawOptions {
    *  - Trips count every card that fills them up, including the three that
    *    pair the hero's other hole card (K5 on K-K-9 is 7 outs, not 4).
    *
-   * The coach panel and the bots both ask for this (the bots since the
-   * 2026-11-11 review, re-measured against both probes). The default stays
-   * the legacy count for the display-only callers that have not moved.
+   * Every caller in the app asks for this — coach panel, bots, commentary,
+   * the Hand Analysis modal and /replay-hand. The legacy count remains the
+   * default only so the option reads as what it adds.
    */
   strict?: boolean
 }

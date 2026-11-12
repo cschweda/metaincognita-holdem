@@ -23,6 +23,8 @@ export interface HandRow {
   pot_size: number; stake_level: number; player_count: number; played_at: string
   actions: string[] | null
   players: { name: string; position: string; holeCards: string; folded: boolean; isHero: boolean }[] | null
+  // Carried through for the PokerStars export when the hand recorded them
+  sb?: number; bb?: number; buttonSeat?: number; handId?: string
 }
 
 export function useStatsData() {
@@ -64,8 +66,9 @@ export function useStatsData() {
         result: h.result, profit: h.profit, position: h.position,
         pot_size: h.potSize, stake_level: localSession.value!.stakeLevel,
         player_count: localSession.value!.playerCount,
-        played_at: new Date().toISOString(),
+        played_at: h.playedAt ?? new Date().toISOString(),
         actions: h.actions || null, players: h.players || null,
+        sb: h.sb, bb: h.bb, buttonSeat: h.buttonSeat, handId: h.handId,
       }))
     }
   }

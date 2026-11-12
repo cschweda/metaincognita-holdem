@@ -46,3 +46,35 @@ describe('botStrategyFromPreset', () => {
     for (const k of expected) expect(lucy[k as keyof typeof lucy]).toBeDefined()
   })
 })
+
+// ─── What a hand record remembers about each bot, and what /replay rebuilds ──
+import { recordedBotSpec, replayOpponent } from '../app/utils/botConfig'
+
+describe('a recorded hand remembers who the bot really was', () => {
+  const twan = { preset: 'Dom Twan', name: 'Dom Twan', ...botStrategyFromPreset(persona('Dom Twan')) }
+
+  it('stores only the preset for an untouched persona', () => {
+    expect(recordedBotSpec(twan, config)).toEqual({ preset: 'Dom Twan' })
+  })
+
+  it('a renamed bot is still replayed as its persona', () => {
+    const spec = recordedBotSpec({ ...twan, name: 'Uncle Bob' }, config)
+    const o = replayOpponent({ name: 'Uncle Bob', ...spec }, config)
+    expect(o.profile.overbetFreq).toBe(0.18)
+    expect(o.consistency).toBe(persona('Dom Twan').consistency)
+  })
+
+  it('a bot whose sliders were moved is replayed with those settings', () => {
+    const spec = recordedBotSpec({ ...twan, vpip: 0.61, bluffFreq: 0.02 }, config)
+    expect(spec.profile).toBeDefined()
+    const o = replayOpponent({ name: 'Dom Twan', ...spec }, config)
+    expect(o.profile.vpip).toBe(0.61)
+    expect(o.profile.bluffFreq).toBe(0.02)
+    expect(o.profile.overbetFreq).toBe(0.18) // untouched fields come along
+  })
+
+  it('an old record with only a name still resolves by name', () => {
+    expect(replayOpponent({ name: 'Calling Carl' }, config).profile.limpFreq).toBe(0.65)
+    expect(replayOpponent({ name: 'Nobody' }, config).profile.vpip).toBe(0.22)
+  })
+})

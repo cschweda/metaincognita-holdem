@@ -855,6 +855,15 @@ function decidePreflopCore(profile: BotProfile, ctx: DecisionContext, rand: numb
       if (handPct < effectiveVpip && rng() < (profile.limpFreq ?? 0)) {
         return { type: 'call' } // open-limp / over-limp
       }
+      // Creative open: a suited hand a little outside the range gets raised
+      // anyway, at a rate set by creativeFreq. Suited only — the play is to
+      // show up with an unexpected hand that can still make something.
+      if (ctx.holeCards && ctx.holeCards[0].suit === ctx.holeCards[1].suit
+        && handPct < openRange + STRAT.creative.openWindow
+        && rng() < profile.creativeFreq * STRAT.creative.openMult) {
+        const raiseSize = Math.round(currentBet * (2.5 + (profile.aggression - 1) * 0.5) * (profile.betSizeMult ?? 1.0))
+        return { type: 'raise', amount: Math.min(raiseSize, chips + playerBet) }
+      }
       return { type: 'fold' }
     }
 
@@ -1285,6 +1294,15 @@ function decidePostflopCore(profile: BotProfile, ctx: DecisionContext, _rand: nu
 
   if (toCall === 0) {
     // ─── Not facing a bet ──────────────────────────────
+
+    // Creative slow-play: trips or better on a board that is not wet, with
+    // cards still to come, is sometimes checked to let a worse hand catch up
+    // or bluff — at a rate set by creativeFreq. Never on a wet board, where a
+    // free card costs more than the trap earns.
+    if (strength >= STRAT.creative.slowplayMinStrength && ctx.street !== 'river' && !board?.isWet
+      && rng() < profile.creativeFreq * STRAT.creative.slowplayMult) {
+      return { type: 'check' }
+    }
 
     // C-bet: preflop raiser should bet the flop most of the time
     // Board texture matters: bet more on dry ace-high boards (range advantage),

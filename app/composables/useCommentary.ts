@@ -627,7 +627,7 @@ export function useCommentary(gs: GS) {
             normanSays(personalizeQuip(normanCallQuips.pick(), name), 'action')
             return
           }
-          const draws = gs.street.value !== 'river' ? detectDraws(Array.from(pl.holeCards!), community) : []
+          const draws = gs.street.value !== 'river' ? detectDraws(Array.from(pl.holeCards!), community, { strict: true }) : []
           if (draws.length > 0) {
             addTV(lonWantsToAnalyze() ? `${name} calls $${amount}, chasing the ${draws[0].type.toLowerCase()}.` : `${name} calls $${amount}.`, 'action', 'lon')
             normanSays(personalizeQuip(normanCallQuips.pick(), name), 'action')
@@ -668,7 +668,7 @@ export function useCommentary(gs: GS) {
       addHero(pick([`Flop: ${boardStr}.`, `The flop comes ${boardStr}.`]), 'street')
       if (h.holeCards && !h.folded) {
         const hand = bestHand(Array.from(h.holeCards), community)
-        const draws = detectDraws(Array.from(h.holeCards), community)
+        const draws = detectDraws(Array.from(h.holeCards), community, { strict: true })
         const handDesc = describeHand(h.holeCards, community)
         const numOpp = activePl().length - 1
 
@@ -826,7 +826,7 @@ export function useCommentary(gs: GS) {
         const flopH = bestHand(Array.from(h.holeCards), community.slice(0, 3))
         const turnH = bestHand(Array.from(h.holeCards), turnComm)
         const turnDesc = describeHand(h.holeCards, turnComm)
-        const turnDraws = detectDraws(Array.from(h.holeCards), turnComm)
+        const turnDraws = detectDraws(Array.from(h.holeCards), turnComm, { strict: true })
         const numOpp = activePl().length - 1
 
         if (turnH && flopH && turnH.rank > flopH.rank) {
@@ -1066,7 +1066,7 @@ export function useCommentary(gs: GS) {
       const hand = bestHand(Array.from(h.holeCards), community)
       // No draws on the river — all cards are dealt, no more outs
       const isRiver = gs.street.value === 'river'
-      const draws = isRiver ? [] : detectDraws(Array.from(h.holeCards), community)
+      const draws = isRiver ? [] : detectDraws(Array.from(h.holeCards), community, { strict: true })
       if (hand && hand.rank >= HAND_RANKS.FLUSH) {
         addHero(pick([`We have ${HAND_RANK_NAMES[hand.rank]}. Bet for value.`, `${HAND_RANK_NAMES[hand.rank]}. Time to build the pot.`]), 'aside')
         addTV(`Hero has ${HAND_RANK_NAMES[hand.rank]}. Decision time.`, 'aside', 'lon')

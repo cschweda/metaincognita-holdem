@@ -11,8 +11,10 @@ export interface PlayerHand {
   holeCards: string      // e.g. "Ah Kd"
   folded: boolean
   isHero: boolean
-  chips?: number         // stack at start of hand
+  chips?: number         // stack at the deal, before blinds
   seatIndex?: number
+  preset?: string        // bots: the persona/preset the seat was built from
+  profile?: import('~/utils/botConfig').BotStrategyFields // bots: strategy numbers, only when they differ from the preset
 }
 
 export interface HandRecord {
@@ -26,6 +28,12 @@ export interface HandRecord {
   actions: string[]      // play-by-play log
   players: PlayerHand[]  // all players' cards + status
   winnerName?: string    // name of the hand winner
+  // Optional — read by the PokerStars export when present (utils/pokerStarsExport.ts)
+  playedAt?: string      // ISO time the hand was played: the export's date and part of its hand number
+  sb?: number            // the blinds the hand was played at (else the session's stake is used)
+  bb?: number
+  buttonSeat?: number    // 0-based seat index of the button (else read from the position labels)
+  handId?: string        // digits only: a ready-made unique hand number for the export
 }
 
 export interface SessionData {
