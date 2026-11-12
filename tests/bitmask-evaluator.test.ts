@@ -95,7 +95,7 @@ describe('bitmask evaluator matches brute-force oracle', () => {
       if (fastCmp !== oCmp) mismatches++
     }
     expect(mismatches).toBe(0)
-  })
+  }, 30_000) // ~1s locally, but 6s on a shared CI runner while the probe suites run beside it (default limit 5s)
 
   it('handCategory7 equals bestHand.rank', () => {
     const deck = fullDeck()
