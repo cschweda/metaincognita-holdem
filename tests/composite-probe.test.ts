@@ -141,6 +141,21 @@ function delta(name: string, depthBB: number, wide = false): number {
 // a deterministic suite exists for that mechanism (river, turn, short
 // stacks, reraise sizing), THAT suite is the one actually proving the fix
 // holds; read its own file, not the absence of a red test here.
+//
+// The "true …, range […]" notes beside each cell below are Round 8 readings
+// (2026-09-06). They predate the 2026-11-11 round, which fixed chip
+// conservation in the side pots (the baseline moved from about -3 to about
+// +8) and changed the bots' postflop reads. Readings on the code as of that
+// round, delta vs base — 8 canonical seeds first, wider sample where taken:
+//   river-33 +13.9 (96 seeds: +9.3 +/- 1.2)   river-50 +2.6 (32: +4.9 +/- 1.7)
+//   river-66 +10.2 (96: +5.6 +/- 1.2)         river-100 +11.8 (32: +2.9 +/- 2.0)
+//   river-value-150 +9.6 (32: +2.7 +/- 1.9)   river-call-tp -4.4
+//   turn-river-33 +8.6   turn-33 +1.1         turn-value-150 +6.0 (32: -0.3 +/- 1.9)
+//   prem3bet-25-fj +1.6 (32: -2.9 +/- 1.4)    prem3bet-50-fj -5.8
+//   wide5-3bet-50-fj -5.2   reraise-cliff-bluff -242.2   pf-exploit@24bb -0.4
+//   value-jam-ft -6.7 (32: -6.5 +/- 1.7)      air-jam-flop -19.5   3bet-light -112.9
+// An 8-seed mean has a standard error of roughly 2-4 bb/100: read the wider
+// sample before concluding a cell has moved.
 const CELLS: Array<{ name: string; depthBB: number; bound: number; wide?: boolean }> = [
   // River family (Task 7+8 fixed the small/medium-bet leak; measured +17.8
   // and +19.2 bb/100 pre-fix for river-33/river-50 respectively).
