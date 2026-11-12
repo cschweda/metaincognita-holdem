@@ -44,6 +44,8 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
   // Players who may only call or fold: a short all-in raised over them after
   // they had acted (half-raise rule). Owned by utils/bettingEngine.
   const raiseClosed = ref<Set<number>>(new Set())
+  // Bet level of the last full bet/raise this street (short all-ins stack on it)
+  const fullBetLevel = ref(0)
 
   // Bot thinking insight — shown in the UI during the thinking delay
   const botThinkingInsight = ref<{
@@ -108,7 +110,7 @@ export function useGameState(bb: Ref<number>, currentBetRef?: Ref<number>) {
     playerStates, dealerSeat, street, dealt, activeSeat,
     pot, currentBet, waitingForHero, allCommunity, animating,
     handActionLog, streetAtEnd, heroWonHand, heroWinAmount,
-    heroTotalWagered, handWinnerName, handWinnerId, needsToAct, lastRaiseIncrement, raiseClosed,
+    heroTotalWagered, handWinnerName, handWinnerId, needsToAct, lastRaiseIncrement, raiseClosed, fullBetLevel,
     botThinkingInsight,
     hero, heroHoleCards, visibleCommunity, toCall, minRaise, maxRaise, heroCanRaise,
     heroTurn, heroBusted, activePlayers, activeNonAllIn,

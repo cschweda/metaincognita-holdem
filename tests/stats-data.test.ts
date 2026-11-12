@@ -247,3 +247,13 @@ describe('a running table respects deletions made on the stats page', () => {
     expect(stored().hands.map(h => h.handNumber)).toEqual([2])
   })
 })
+
+describe('the Hands tab', () => {
+  beforeEach(() => localStorage.clear())
+  it('lists the newest hand first, like Recent Hands', async () => {
+    seed([hand(1), hand(2), hand(3)])
+    const stats = useStatsData()
+    await stats.init()
+    expect(stats.displayedHands.value.map(h => h.hand_number)).toEqual([3, 2, 1])
+  })
+})

@@ -41,3 +41,13 @@ export function resolveQueuedAction(queued: QueuedAction, toCall: number): 'fold
   if (queued.type === 'call') return toCall > 0 && toCall === queued.price ? 'call' : null
   return null
 }
+
+/**
+ * The raise-TO total for a bet of `frac` of the pot. Facing a bet, the pot a
+ * raise is measured against is the pot after the hero calls — "pot" means
+ * call, then raise by everything now in the middle. `pot` includes every bet
+ * already made this street (the engine's convention).
+ */
+export function potFractionRaiseTo(s: { pot: number; toCall: number; heroBet: number }, frac: number): number {
+  return Math.round(s.heroBet + s.toCall + frac * (s.pot + s.toCall))
+}

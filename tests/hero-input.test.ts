@@ -104,3 +104,26 @@ describe('career mode has no free re-buy', () => {
     expect(fn).toContain('freeRebuyAllowed(careerMode')
   })
 })
+
+// ─── Pot-fraction bet sizes ────────────────────────────────────────────────
+import { potFractionRaiseTo } from '../app/utils/heroInput'
+
+describe('pot-fraction sizes are fractions of the pot AFTER calling', () => {
+  it('checked to: a pot bet is the pot', () => {
+    expect(potFractionRaiseTo({ pot: 40, toCall: 0, heroBet: 0 }, 1)).toBe(40)
+    expect(potFractionRaiseTo({ pot: 40, toCall: 0, heroBet: 0 }, 0.5)).toBe(20)
+  })
+  it('facing a bet: a pot raise calls first, then raises by the new pot', () => {
+    // pot 40 + a bet of 20 = 60 in the middle; call 20 makes 80; raise by 80 → to 100
+    expect(potFractionRaiseTo({ pot: 60, toCall: 20, heroBet: 0 }, 1)).toBe(100)
+    expect(potFractionRaiseTo({ pot: 60, toCall: 20, heroBet: 0 }, 0.5)).toBe(60)
+  })
+  it('counts chips the hero already has in front of them', () => {
+    // hero bet 10, raised to 30: pot 40 + 10 + 30 = 80, 20 to call → 100 after; pot raise to 30 + 100 = 130
+    expect(potFractionRaiseTo({ pot: 80, toCall: 20, heroBet: 10 }, 1)).toBe(130)
+  })
+  it('preflop from the big blind over a limp', () => {
+    // blinds 1/2, one limper: pot 5, nothing to call, 2 posted → pot raise to 2 + 5 = 7
+    expect(potFractionRaiseTo({ pot: 5, toCall: 0, heroBet: 2 }, 1)).toBe(7)
+  })
+})

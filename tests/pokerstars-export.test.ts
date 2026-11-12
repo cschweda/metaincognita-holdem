@@ -230,11 +230,13 @@ describe('a three-way all-in', () => {
 
   it('itemises the side pot and the main pot, each to its own winner', () => {
     expect(out).toContain([
+      // PokerStars settles the side pot first: its players show, it is paid,
+      // then the player who is only in the main pot shows
       '*** SHOW DOWN ***',
-      'Short: shows [As Ah] (a pair of Aces)',
       'Mid: shows [Ks Kd] (a pair of Kings)',
       'Hero: shows [Qs Qd] (a pair of Queens)',
       'Mid collected $140 from side pot',
+      'Short: shows [As Ah] (a pair of Aces)',
       'Short collected $150 from main pot',
       '*** SUMMARY ***',
       'Total pot $290 Main pot $150. Side pot $140. | Rake $0',
@@ -306,8 +308,10 @@ describe('a split pot', () => {
 // ─── Hand descriptions ─────────────────────────────────────────────
 describe('showdown hand descriptions use PokerStars wording', () => {
   const describeWith = (hole: string, board: string) => {
+    // Hero bets the river and is called, so he shows first whatever he holds
     const out = toPokerStarsFormat({
       ...headsUp, board,
+      actions: [...headsUp.actions.slice(0, -1), 'Hero raises to $10', 'Villain calls $10'],
       players: [{ ...headsUp.players[0]!, holeCards: hole }, headsUp.players[1]!],
     }, STAKE)
     return out.match(/^Hero: shows \[.+?\] \((.+)\)$/m)?.[1]
@@ -326,6 +330,193 @@ describe('showdown hand descriptions use PokerStars wording', () => {
     ['K♠ Q♠', 'A♠ 10♠ 7♣ 2♥ J♠', 'a Royal Flush'],
   ])('%s on %s is "%s"', (hole, board, expected) => {
     expect(describeWith(hole, board)).toBe(expected)
+  })
+})
+
+// ─── Showdown order, mucking, kicker qualifiers ────────────────────
+// Rules derived from genuine PokerStars histories (the Stars regression files
+// of the fpdb project and the PokerStars fixtures of the hhp, poker and
+// PokerHandHistoryParser projects — about 420 hold'em showdowns, 2005–2025).
+describe('who shows first and who mucks', () => {
+  const riverBet = (bettor: 'Hero' | 'Villain', caller: 'Hero' | 'Villain') => [
+    ...headsUp.actions.slice(0, -2),
+    ...(bettor === 'Hero' ? ['Villain checks', 'Hero raises to $10', 'Villain calls $10']
+      : ['Villain raises to $10', `${caller} calls $10`]),
+  ]
+  const sdOf = (out: string) => out.slice(out.indexOf('*** SHOW DOWN ***'), out.indexOf('*** SUMMARY ***')).trimEnd().split('\n')
+
+  it('with no bet on the river, the first player left of the button shows first; a later loser mucks', () => {
+    // Villain (big blind, left of the button) shows queens; Hero cannot beat them
+    const out = toPokerStarsFormat({
+      ...headsUp, players: [{ ...headsUp.players[0]!, holeCards: 'K♥ 4♦' }, headsUp.players[1]!],
+    }, STAKE)
+    expect(sdOf(out)).toEqual([
+      '*** SHOW DOWN ***',
+      'Villain: shows [Qs Qd] (a pair of Queens)',
+      'Hero: mucks hand',
+      'Villain collected $60 from pot',
+    ])
+    expect(out).toContain('Seat 1: Hero (button) (small blind) mucked [Kh 4d]')
+    expect(out).toContain('Seat 2: Villain (big blind) showed [Qs Qd] and won ($60) with a pair of Queens')
+  })
+
+  it('a later player who wins shows', () => {
+    expect(sdOf(toPokerStarsFormat(headsUp, STAKE))).toEqual([
+      '*** SHOW DOWN ***',
+      'Villain: shows [Qs Qd] (a pair of Queens)',
+      'Hero: shows [Ah Kd] (a pair of Aces)',
+      'Hero collected $60 from pot',
+    ])
+  })
+
+  it('the last player to bet or raise on the river shows first', () => {
+    const out = toPokerStarsFormat({ ...headsUp, actions: riverBet('Hero', 'Villain') }, STAKE)
+    expect(sdOf(out)).toEqual([
+      '*** SHOW DOWN ***',
+      'Hero: shows [Ah Kd] (a pair of Aces)',
+      'Villain: mucks hand',
+      'Hero collected $80 from pot',
+    ])
+    // The hero's own history lists what an opponent mucked
+    expect(out).toContain('Seat 2: Villain (big blind) mucked [Qs Qd]')
+    expect(out).toContain('Seat 1: Hero (button) (small blind) showed [Ah Kd] and won ($80) with a pair of Aces')
+  })
+
+  it('a history with no hero dealt in does not list mucked cards', () => {
+    const out = toPokerStarsFormat({
+      ...headsUp, actions: riverBet('Hero', 'Villain'),
+      players: headsUp.players.map(p => ({ ...p, isHero: false })),
+    }, STAKE)
+    expect(out).toContain('Villain: mucks hand')
+    expect(out).toContain('Seat 2: Villain (big blind) mucked\n')
+    expect(out).not.toContain('Qs Qd')
+  })
+
+  it('a tie is shown, not mucked', () => {
+    const out = toPokerStarsFormat({ ...split, players: split.players.map(p => ({ ...p, chips: 200 })),
+      actions: ['Hero raises to $6', 'Villain calls $4', ...split.actions.slice(4)] }, STAKE)
+    expect(sdOf(out)).toEqual([
+      '*** SHOW DOWN ***',
+      'Villain: shows [3s 3d] (a straight, Ten to Ace)',
+      'Hero: shows [2h 2d] (a straight, Ten to Ace)',
+      'Hero collected $6 from pot',
+      'Villain collected $6 from pot',
+    ])
+  })
+
+  it('when the betting ended all-in, every hand is shown', () => {
+    const out = toPokerStarsFormat({
+      ...split, board: 'A♠ K♠ Q♦ 7♣ 2♣',
+      players: [{ ...split.players[0]!, holeCards: '9♥ 8♦' }, { ...split.players[1]!, holeCards: 'A♦ 3♦' }],
+      actions: [...split.actions.slice(0, 5), '--- TURN: 7♣ ---', '--- RIVER: 2♣ ---'],
+    }, STAKE)
+    expect(sdOf(out)).toEqual([
+      '*** SHOW DOWN ***',
+      'Villain: shows [Ad 3d] (a pair of Aces)',
+      'Hero: shows [9h 8d] (high card Ace)',
+      'Villain collected $80 from pot',
+    ])
+    expect(out).toContain('Seat 1: Hero (button) (small blind) showed [9h 8d] and lost with high card Ace')
+  })
+
+  it('three-way: mucked hands keep their place in the order', () => {
+    const out = toPokerStarsFormat({
+      ...threeWay, board: '9♣ 8♦ 3♠ 2♥ 7♣',
+      players: threeWay.players.map(p => ({ ...p, chips: 500 })),
+      actions: [
+        'Hero raises to $6', 'Short calls $5', 'Mid calls $4',
+        '--- FLOP: 9♣ 8♦ 3♠ ---', 'Short checks', 'Mid checks', 'Hero checks',
+        '--- TURN: 2♥ ---', 'Short checks', 'Mid checks', 'Hero checks',
+        '--- RIVER: 7♣ ---', 'Short checks', 'Mid raises to $10', 'Hero calls $10', 'Short calls $10',
+      ],
+    }, STAKE)
+    // Mid (kings) bet the river and shows first; Hero (queens) mucks; Short (aces) wins
+    expect(sdOf(out)).toEqual([
+      '*** SHOW DOWN ***',
+      'Mid: shows [Ks Kd] (a pair of Kings)',
+      'Hero: mucks hand',
+      'Short: shows [As Ah] (a pair of Aces)',
+      'Short collected $48 from pot',
+    ])
+    expect(out).toContain('Seat 1: Hero (button) mucked [Qs Qd]')
+    expect(out).toContain('Seat 3: Mid (big blind) showed [Ks Kd] and lost with a pair of Kings')
+  })
+
+  it('the replay export (dealtTo all) still carries every hand, mucked or not', () => {
+    const text = toPokerStarsFormat({ ...headsUp, actions: riverBet('Hero', 'Villain'),
+      players: headsUp.players.map(p => ({ ...p, isHero: false })) }, STAKE, undefined, { dealtTo: 'all' })
+    expect(text).toContain('Villain: mucks hand')
+    const h = parsePokerStarsHand(text).hand!
+    expect(h.players.every(p => p.holeCards)).toBe(true)
+  })
+
+  it('the importer reads a mucked opponent\'s cards back from the summary', () => {
+    const h = parsePokerStarsHand(toPokerStarsFormat({ ...headsUp, actions: riverBet('Hero', 'Villain') }, STAKE)).hand!
+    expect(h.players[1]!.holeCards).toEqual([{ rank: 12, suit: 'spades' }, { rank: 12, suit: 'diamonds' }])
+    expect(h.winners).toEqual([{ player: 'Hero', amount: 80 }])
+  })
+})
+
+describe('kicker qualifiers on a later-shown hand', () => {
+  // Heads-up all-in before the flop: both hands are always shown, the big
+  // blind (Villain) first. Returns [first shown, second shown, summary text].
+  const showBoth = (first: string, second: string, board: string) => {
+    const out = toPokerStarsFormat({
+      ...split, board,
+      players: [{ ...split.players[0]!, holeCards: second }, { ...split.players[1]!, holeCards: first }],
+      actions: ['Hero goes ALL-IN $100', 'Villain calls $38'],
+    }, STAKE)
+    const desc = (name: string) => out.match(new RegExp(`^${name}: shows \\[.+?\\] \\((.+)\\)$`, 'm'))?.[1]
+    return { first: desc('Villain'), second: desc('Hero'), summary: out.slice(out.indexOf('*** SUMMARY ***')) }
+  }
+
+  // Each row is a showdown from a genuine PokerStars history
+  it.each([
+    ['5♠ 6♦', '2♥ A♠', 'K♥ 7♦ J♣ 9♥ K♦', 'a pair of Kings', 'a pair of Kings - Ace kicker'],
+    ['A♠ 10♦', 'A♦ K♦', '8♣ 3♠ 2♦ 3♥ 4♣', 'a pair of Threes', 'a pair of Threes - Ace+King kicker'],
+    ['A♠ 9♦', 'A♥ J♥', '6♦ 7♣ 6♥ 2♠ Q♣', 'a pair of Sixes', 'a pair of Sixes - Ace+Queen+Jack kicker'],
+    ['A♠ K♦', 'K♥ Q♠', '3♠ J♦ 3♣ 8♣ 2♦', 'a pair of Threes', 'a pair of Threes - lower kicker'],
+    ['J♥ A♠', 'Q♣ A♦', '10♦ 8♣ A♣ 6♥ 10♣', 'two pair, Aces and Tens', 'two pair, Aces and Tens - Queen kicker'],
+    ['K♥ A♣', 'J♦ A♥', 'Q♦ 3♠ 9♣ 9♠ A♠', 'two pair, Aces and Nines', 'two pair, Aces and Nines - lower kicker'],
+    ['6♥ A♣', 'K♦ 6♣', '6♦ 5♦ Q♥ 8♣ 6♠', 'three of a kind, Sixes', 'three of a kind, Sixes - lower kicker'],
+    ['J♠ A♥', 'K♦ A♠', '8♥ 4♥ 6♦ 5♦ 3♣', 'high card Ace', 'high card Ace - King kicker'],
+    ['J♠ 2♠', 'J♣ 9♣', 'K♦ 7♣ A♦ 4♦ 6♦', 'high card Ace', 'high card Ace - King+Jack+Nine kicker'],
+    ['9♦ A♠', '7♦ 8♦', '2♥ 2♦ Q♦ 5♦ 4♦', 'a flush, Queen high', 'a flush, Queen high - lower cards'],
+  ])('%s then %s on %s', (first, second, board, firstDesc, secondDesc) => {
+    const r = showBoth(first, second, board)
+    expect(r.first).toBe(firstDesc)
+    expect(r.second).toBe(secondDesc)
+    // the summary never carries the qualifier
+    expect(r.summary).not.toMatch(/ - (lower|\w+(\+\w+)* kicker)/)
+    expect(r.summary).toContain(`with ${firstDesc}\n`)
+  })
+
+  it.each([
+    ['same hand: a tie has no qualifier', 'K♥ 3♥', '7♦ 9♥', '2♥ 10♠ 10♥ 2♦ A♠', 'two pair, Tens and Deuces', 'two pair, Tens and Deuces'],
+    ['a different hand: nothing to tell apart', 'Q♠ Q♦', 'A♥ K♦', 'A♠ 10♦ 7♣ 2♥ 9♠', 'a pair of Queens', 'a pair of Aces'],
+    ['a straight has no kicker', 'K♦ J♥', 'K♣ 2♦', 'A♠ A♣ 10♠ J♣ Q♥', 'a straight, Ten to Ace', 'a straight, Ten to Ace'],
+  ])('%s', (_label, first, second, board, firstDesc, secondDesc) => {
+    const r = showBoth(first, second, board)
+    expect([r.first, r.second]).toEqual([firstDesc, secondDesc])
+  })
+
+  it('the qualifier compares with the best hand shown so far, and only if it has the same name', () => {
+    // From a genuine five-way all-in: a full house was shown first, so the
+    // hands of three eights that follow carry no qualifier.
+    const out = toPokerStarsFormat({
+      ...threeWay, board: '6♥ 8♦ 2♣ 8♠ 8♥',
+      players: [
+        { ...threeWay.players[0]!, chips: 120, holeCards: '3♦ 10♣' },
+        { ...threeWay.players[1]!, chips: 120, holeCards: 'A♠ A♦' },
+        { ...threeWay.players[2]!, chips: 120, holeCards: '5♥ K♦' },
+      ],
+      actions: ['Hero goes ALL-IN $120', 'Short goes ALL-IN $120', 'Mid calls $118'],
+    }, STAKE)
+    expect(out).toContain([
+      'Short: shows [As Ad] (a full house, Eights full of Aces)',
+      'Mid: shows [5h Kd] (three of a kind, Eights)',
+      'Hero: shows [3d Tc] (three of a kind, Eights)',
+    ].join('\n'))
   })
 })
 

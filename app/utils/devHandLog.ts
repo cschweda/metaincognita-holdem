@@ -1,21 +1,13 @@
 // app/utils/devHandLog.ts
 /**
- * TEMPORARY debugging aid — a per-hand dump to the browser console.
+ * Opt-in debugging aid — a per-decision and per-hand dump to the browser
+ * console. Off by default: type `holdemLog('on')` in the console to turn it
+ * on for this browser (it persists in localStorage), `holdemLog('off')` to
+ * stop. Finished hands are kept in memory either way, so `holdemHands()` can
+ * hand back the last hands after the fact without the log having been on.
  *
- * Added while chasing a river spot where a bot led its whole stack off with
- * king-high out of the small blind and the table badge blamed tilt.
- *
- * Design notes, both of them learned the hard way:
- *
- *  - It runs in EVERY build. The first cut hid it behind `import.meta.dev`,
- *    which deleted it from exactly the built artifact the game is normally
- *    played on. If this reaches a public deploy the dumps are visible to
- *    anyone who opens a console, so it comes out before that matters.
- *  - The hand dump is ONE flat `console.log` per hand, a single plain string.
- *    The first cut used `console.groupCollapsed` + `console.table`, which
- *    collapses to a line that is easy to miss among Vite/Pinia boot noise
- *    and, worse, cannot be copied out — a console table is a rendered
- *    widget, not text. Select the block and paste it; that is the point.
+ * The hand dump is ONE flat `console.log` per hand, a single plain string,
+ * so it can be selected and pasted (a console table cannot).
  *
  * Two kinds of output, and what each may show:
  *
@@ -32,7 +24,7 @@
  *   holdemHands()      last 10 hands as one pasteable string
  *   holdemHands(50)    last 50
  *   holdemCopy()       same, copied straight to the clipboard
- *   holdemLog('off')   stop logging   ('on' resumes; persists in localStorage)
+ *   holdemLog('on')    start printing (persists in localStorage); 'off' stops
  *
  * To remove it, delete this file and its call sites: `noteHandStart`,
  * `logHandToConsole` and `installHandLogHelpers` in pages/index.vue, and
@@ -58,7 +50,7 @@ let handNo = 0
 /**
  * localStorage can throw outright (Safari private mode, a browser set to
  * block site data). This is a debugging aid: it must never be the reason a
- * hand fails to end, so every access is guarded and failure means "on".
+ * hand fails to end, so every access is guarded and failure means "off".
  */
 function readSwitch(): string | null {
   try {
@@ -68,7 +60,9 @@ function readSwitch(): string | null {
   }
 }
 
-const isOff = (): boolean => readSwitch() === 'off'
+// Opt-in: nothing is printed unless holdemLog('on') has been called in this
+// browser. Finished hands are still kept in memory for holdemHands().
+const isOff = (): boolean => readSwitch() !== 'on'
 
 const cards = (cs: Card[] | null): string => (cs && cs.length ? cs.map(displayCard).join(' ') : '')
 
@@ -210,11 +204,10 @@ export function renderHand(input: DevHandLogInput): string {
 
 /** One flat, selectable, pasteable block per hand. */
 export function logHandToConsole(input: DevHandLogInput): void {
-  if (isOff()) return
   const text = renderHand(input)
   history.push(text)
   if (history.length > HISTORY_CAP) history.shift()
-  console.log(text)
+  if (!isOff()) console.log(text)
 }
 
 /**
@@ -245,7 +238,7 @@ export function installHandLogHelpers(): void {
   }
   w.holdemLog = (mode: 'on' | 'off'): string => {
     try {
-      if (mode === 'off') globalThis.localStorage?.setItem(STORE_KEY, 'off')
+      if (mode === 'on') globalThis.localStorage?.setItem(STORE_KEY, 'on')
       else globalThis.localStorage?.removeItem(STORE_KEY)
       return `hand log ${mode}`
     } catch {
@@ -253,8 +246,11 @@ export function installHandLogHelpers(): void {
     }
   }
 
+  // Quiet unless the log has been switched on: a public page should not
+  // greet every visitor's console with a banner.
+  if (isOff()) return
   console.log(
-    `%c HOLDEM HAND LOG ACTIVE %c every hand prints below${isOff() ? ' — currently OFF via holdemLog("on")' : ''}\n`
+    '%c HOLDEM HAND LOG ON %c every decision and hand prints below\n'
     + 'holdemHands(n) = last n hands as text · holdemCopy(n) = copy to clipboard · holdemLog("off") = stop',
     'background:#00DC82;color:#000;font-weight:bold;padding:2px 6px;border-radius:3px',
     'color:inherit',

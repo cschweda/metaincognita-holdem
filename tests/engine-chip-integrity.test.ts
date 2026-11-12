@@ -243,3 +243,28 @@ describe('5. the All-In button commits the whole stack', () => {
     expect(w.emitted('raise')![0]).toEqual([200])
   })
 })
+
+describe('3. two short all-ins that add up to a full raise reopen the betting', () => {
+  it('reopens for a player who had already acted', () => {
+    // P0 bets 100 (min raise is to 200). P1 all-in 160, P2 all-in 220:
+    // neither is a full raise over the bet in front of it, but together they
+    // raise P0's 100 by 120 — more than the 100 a full raise needs.
+    const r = mkRound([1000, 160, 220, 1000])
+    startBettingRound(r)
+    applyEngineAction(r, 0, { type: 'raise', amount: 100 })
+    applyEngineAction(r, 1, { type: 'raise', amount: 160 })
+    const res = applyEngineAction(r, 2, { type: 'raise', amount: 220 })
+    expect(res.reopened).toBe(true)
+    applyEngineAction(r, 3, { type: 'fold' })
+    const reraise = applyEngineAction(r, 0, { type: 'raise', amount: 600 })
+    expect(reraise.type).toBe('raise')
+    expect(r.currentBet).toBe(600)
+  })
+  it('one short all-in alone still does not', () => {
+    const r = mkRound([1000, 160, 1000])
+    startBettingRound(r)
+    applyEngineAction(r, 0, { type: 'raise', amount: 100 })
+    const res = applyEngineAction(r, 1, { type: 'raise', amount: 160 })
+    expect(res.reopened).toBe(false)
+  })
+})

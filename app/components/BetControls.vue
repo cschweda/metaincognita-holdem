@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { potFractionRaiseTo } from '~/utils/heroInput'
 /**
  * Hero betting controls — fold, check/call, and raise/all-in buttons,
  * with pot-fraction presets (1/4, 1/2, 3/4, pot, all-in), a raise slider,
@@ -34,7 +35,7 @@ const emit = defineEmits<{
 
 // Default raise to half-pot (clamped to min/max) — more useful than min-raise on big pots
 function defaultRaise(): number {
-  const halfPot = Math.round(props.pot * 0.5)
+  const halfPot = potFractionRaiseTo({ pot: props.pot, toCall: props.toCall, heroBet: props.heroBet }, 0.5)
   return Math.min(Math.max(halfPot, props.minRaise), allInTo.value)
 }
 
@@ -60,7 +61,7 @@ const presets = computed(() => {
     { label: 'Pot', mult: 1.0 },
   ]
   return fractions.map(f => {
-    const raw = Math.round(props.pot * f.mult)
+    const raw = potFractionRaiseTo({ pot: props.pot, toCall: props.toCall, heroBet: props.heroBet }, f.mult)
     const clamped = Math.min(Math.max(raw, props.minRaise), allInTo.value)
     const isClamped = raw < props.minRaise // true if the fraction was below min-raise
     return { ...f, amount: clamped, raw, isClamped, disabled: clamped > allInTo.value }

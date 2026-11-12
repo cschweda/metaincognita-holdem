@@ -15,10 +15,13 @@
  *    `… and is all-in` on whichever action emptied the stack; a shove over
  *    players who are all all-in already is the call it amounts to;
  *  - `Uncalled bet ($X) returned to …`;
- *  - `*** SHOW DOWN ***` only when two or more players reach it, with hand
- *    descriptions, and one `collected` line per winner per pot
- *    (`from pot` / `from main pot` / `from side pot`);
- *  - a summary that says where each player folded and what the winners held.
+ *  - `*** SHOW DOWN ***` only when two or more players reach it, in
+ *    PokerStars' order, with hand descriptions (and kicker qualifiers),
+ *    `mucks hand` for a beaten hand that need not be shown, and one
+ *    `collected` line per winner per pot (`from pot` / `from main pot` /
+ *    `from side pot`), each side pot settled before the pot below it;
+ *  - a summary that says where each player folded, who mucked and what the
+ *    shown hands were.
  *
  * `players[].chips` is read as the stack at the deal, before blinds.
  * Pots are settled with the game's own side-pot code (utils/sidePots.ts), so
@@ -85,10 +88,8 @@ const one = (rank: number) => RANK_NAME[rank] ?? '?'
 const many = (rank: number) => (rank === 6 ? 'Sixes' : `${one(rank)}s`)
 
 /** The made hand in PokerStars wording: "a pair of Queens", "a flush, Ace high". */
-function describeShowdownHand(hole: Card[], board: Card[]): string {
-  const result = bestHand(hole, board)
-  if (!result) return ''
-  const [cat, a = 0, b = 0] = result.score
+function describeScore(score: number[]): string {
+  const [cat, a = 0, b = 0] = score
   // A straight is named low card to high; the wheel runs Ace to Five.
   const run = (high: number) => (high === 5 ? 'Ace to Five' : `${one(high - 4)} to ${one(high)}`)
   switch (cat) {
@@ -102,6 +103,36 @@ function describeShowdownHand(hole: Card[], board: Card[]): string {
     case 1: return `a pair of ${many(a)}`
     default: return `high card ${one(a)}`
   }
+}
+
+// Where the kickers start in a score ([category, ...ranks]) — after the
+// ranks the description already names.
+const FIRST_KICKER: Record<number, number> = { 0: 2, 1: 2, 2: 3, 3: 2 }
+
+/**
+ * What PokerStars appends to a hand shown AFTER a better-or-equal-named one.
+ * When the hand has the same description as the best hand shown so far but
+ * is not the same strength, the SHOW DOWN line (never the summary) tells
+ * them apart:
+ *   a better hand names its kickers down to the one that decides —
+ *     "a pair of Kings - Ace kicker", "a pair of Threes - Ace+King kicker";
+ *   a worse hand says "- lower kicker" (a flush: "- lower cards").
+ * A tie, or a best-so-far hand with a different description, adds nothing.
+ * Seen in real histories for high card, one pair, two pair, three of a kind
+ * (lower only) and flush (lower only); a better flush and four of a kind were
+ * not in the samples and are left without a qualifier.
+ */
+function kickerQualifier(score: number[], best: number[] | null): string {
+  if (!best || describeScore(score) !== describeScore(best)) return ''
+  const diff = score.findIndex((v, i) => v !== best[i])
+  if (diff < 0) return ''
+  const cat = score[0]!
+  const lower = score[diff]! < (best[diff] ?? 0)
+  if (cat === 5) return lower ? ' - lower cards' : ''
+  const from = FIRST_KICKER[cat]
+  if (from === undefined) return ''
+  if (lower) return ' - lower kicker'
+  return ` - ${score.slice(from, diff + 1).map(one).join('+')} kicker`
 }
 
 // ─── Header pieces ─────────────────────────────────────────────────
@@ -146,6 +177,7 @@ interface Seat {
   street: number          // put in on the current street
   folded: boolean
   foldStreet: number      // 0 preflop … 3 river
+  shown: boolean          // tabled the hand at showdown
   won: number
 }
 
@@ -179,7 +211,7 @@ export function toPokerStarsFormat(
     .map((p, i): Seat => ({
       p, seat: p.seatIndex ?? i, hole: readCards(p.holeCards),
       recorded: typeof p.chips === 'number' && p.chips > 0 ? p.chips : null,
-      allIn: false, stackPin: null, invested: 0, peak: 0, street: 0, folded: false, foldStreet: 0, won: 0,
+      allIn: false, stackPin: null, invested: 0, peak: 0, street: 0, folded: false, foldStreet: 0, shown: false, won: 0,
     }))
     .filter(s => s.p.position || s.hole.length > 0)
     .sort((x, y) => x.seat - y.seat)
@@ -246,11 +278,14 @@ export function toPokerStarsFormat(
   streetBet = bb
 
   body.push('*** HOLE CARDS ***')
+  let dealtIn = false // does the history have a hero?
   for (const s of seats) {
     if (s.hole.length === 2 && (options.dealtTo === 'all' || s.p.isHero)) {
       body.push(`Dealt to ${s.p.name} [${cardText(s.hole)}]`)
+      dealtIn = true
     }
   }
+  let riverAggressor: Seat | null = null // last to bet or raise on the river
 
   for (const line of actions) {
     const marker = line.match(STREET_RE)
@@ -308,9 +343,11 @@ export function toPokerStarsFormat(
       } else if (streetBet === 0) {
         body.push(`${name}: bets ${money(amount)}${suffix}`)
         streetBet = amount
+        if (streetIdx === 3) riverAggressor = s
       } else {
         body.push(`${name}: raises ${money(amount - streetBet)} to ${money(amount)}${suffix}`)
         streetBet = amount
+        if (streetIdx === 3) riverAggressor = s
       }
     }
   }
@@ -336,13 +373,22 @@ export function toPokerStarsFormat(
   const totalPot = cents(seats.reduce((sum, s) => sum + s.invested, 0))
   const community = board.slice(0, 5).map(c => c.card)
   const canEvaluate = showdown && community.length === 5 && live.some(s => s.hole.length === 2)
-  const describe = (s: Seat) => (canEvaluate && s.hole.length === 2
-    ? describeShowdownHand(s.hole.map(c => c.card), community) : '')
-  // Clockwise from the seat after the button: showdown order
+  /** [category, ...ranks] of the player's best five; lexicographic order is hand strength */
+  const scoreOf = (s: Seat): number[] | null => (canEvaluate && s.hole.length === 2
+    ? bestHand(s.hole.map(c => c.card), community)?.score ?? null : null)
+  const describe = (s: Seat) => { const score = scoreOf(s); return score ? describeScore(score) : '' }
+  const compareScores = (x: number[], y: number[]) => {
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+      const d = (x[i] ?? 0) - (y[i] ?? 0)
+      if (d !== 0) return d
+    }
+    return 0
+  }
+  // Clockwise from the seat after the button
   const clockwise = (list: Seat[]) => [...list].sort((x, y) =>
     ((x.seat - buttonSeat - 1 + 2 * tableSize) % tableSize) - ((y.seat - buttonSeat - 1 + 2 * tableSize) % tableSize))
 
-  interface Pot { amount: number; label: string; winners: { s: Seat; amount: number }[] }
+  interface Pot { amount: number; label: string; eligible: Seat[]; winners: { s: Seat; amount: number }[] }
   const pots: Pot[] = []
 
   if (canEvaluate) {
@@ -363,6 +409,7 @@ export function toPokerStarsFormat(
         : sidePots.length === 2 ? 'side pot' : `side pot-${i}`
       pots.push({
         amount: pot.amount, label,
+        eligible: seats.filter(s => pot.eligible.includes(s.seat)),
         winners: seats.filter(s => awards.has(s.seat)).map(s => ({ s, amount: awards.get(s.seat)! })),
       })
     })
@@ -376,22 +423,49 @@ export function toPokerStarsFormat(
       winners = byRecord.length > 0 ? byRecord : [live[0]!]
     }
     const share = cents(totalPot / winners.length)
-    pots.push({ amount: totalPot, label: 'pot', winners: winners.map(s => ({ s, amount: share })) })
+    pots.push({ amount: totalPot, label: 'pot', eligible: live, winners: winners.map(s => ({ s, amount: share })) })
   }
   for (const pot of pots) for (const w of pot.winners) w.s.won = cents(w.s.won + w.amount)
 
   // ─── Showdown / collection ───────────────────────────────────────
+  // As PokerStars runs it (derived from genuine histories):
+  //  - The last player to bet or raise on the river shows first; with no bet
+  //    on the river (checked through, or all-in earlier) it is the first
+  //    player left of the button. The rest follow clockwise.
+  //  - A later player shows only a hand that beats or ties the best one
+  //    shown so far; otherwise `mucks hand`. When the betting ended with
+  //    players all-in (at most one still had chips), every hand is shown.
+  //  - With side pots the highest side pot is settled first: the players in
+  //    it show, it is paid, then those only in the next pot down show, and
+  //    so on to the main pot.
   if (showdown) {
     body.push('*** SHOW DOWN ***')
-    for (const s of clockwise(live)) {
-      if (s.hole.length !== 2) { body.push(`${s.p.name}: mucks hand`); continue }
-      const desc = describe(s)
-      body.push(`${s.p.name}: shows [${cardText(s.hole)}]${desc ? ` (${desc})` : ''}`)
+    let order = clockwise(live)
+    const first = riverAggressor ? order.indexOf(riverAggressor) : -1
+    if (first > 0) order = [...order.slice(first), ...order.slice(0, first)]
+    const everyoneShows = live.filter(s => !s.allIn).length <= 1
+    let best: number[] | null = null
+    const done = new Set<Seat>()
+    for (const pot of [...pots].reverse()) {
+      for (const s of order) {
+        if (done.has(s) || !pot.eligible.includes(s)) continue
+        done.add(s)
+        const score = scoreOf(s)
+        if (s.hole.length !== 2 || (score && best && !everyoneShows && compareScores(score, best) < 0)) {
+          body.push(`${s.p.name}: mucks hand`)
+          continue
+        }
+        s.shown = true
+        const desc = score ? ` (${describeScore(score)}${kickerQualifier(score, best)})` : ''
+        body.push(`${s.p.name}: shows [${cardText(s.hole)}]${desc}`)
+        if (score && (!best || compareScores(score, best) > 0)) best = score
+      }
+      for (const w of pot.winners) body.push(`${w.s.p.name} collected ${money(w.amount)} from ${pot.label}`)
     }
-  }
-  // Side pots are paid before the main pot
-  for (const pot of [...pots].reverse()) {
-    for (const w of pot.winners) body.push(`${w.s.p.name} collected ${money(w.amount)} from ${pot.label}`)
+  } else {
+    for (const pot of pots) {
+      for (const w of pot.winners) body.push(`${w.s.p.name} collected ${money(w.amount)} from ${pot.label}`)
+    }
   }
   if (!showdown && live[0]) body.push(`${live[0].p.name}: doesn't show hand`)
 
@@ -410,8 +484,10 @@ export function toPokerStarsFormat(
       outcome = `folded ${STREET_FOLD_TEXT[s.foldStreet]}${s.foldStreet === 0 && s.invested === 0 ? ' (didn\'t bet)' : ''}`
     } else if (!showdown) {
       outcome = `collected (${money(s.won)})`
-    } else if (s.hole.length !== 2) {
-      outcome = 'mucked'
+    } else if (!s.shown) {
+      // A player's own history lists the cards opponents mucked at showdown;
+      // one with no hero dealt in (an observed table) does not.
+      outcome = s.hole.length === 2 && dealtIn ? `mucked [${cardText(s.hole)}]` : 'mucked'
     } else {
       const desc = describe(s)
       outcome = `showed [${cardText(s.hole)}] and ${s.won > 0 ? `won (${money(s.won)})` : 'lost'}${desc ? ` with ${desc}` : ''}`

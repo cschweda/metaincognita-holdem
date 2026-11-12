@@ -132,27 +132,22 @@ function handleTimeout() {
   if (phase.value !== 'table') return
   engine.cleanup() // the abandoned hand must not keep advancing behind the pane
   const heroState = gs.playerStates.value[0]
-  if (heroState && !heroState.folded && gs.waitingForHero.value) {
-    heroState.folded = true
-    heroState.lastAction = 'fold'
-    gs.waitingForHero.value = false
-  }
-  // The abandoned hand is a fold: book it, so the chips left in its pot are
-  // that hand's loss and do not turn up in the next hand's result.
+  // A hand abandoned mid-way is finished, not dropped: the hero folds, and
+  // the pot goes to whoever is left (run out to a showdown if more than one
+  // bot is still in). Dropping it made every chip in that pot disappear —
+  // the bots' as well as the hero's — and left the hand out of the record.
   if (heroState && gs.dealt.value && gs.street.value !== 'showdown') {
-    recordHand({
-      handNumber: session.value.handsPlayed + 1,
-      holeCards: heroState.holeCards ? heroState.holeCards.map(c => displayCard(c)).join(' ') : '',
-      board: gs.visibleCommunity.value.map(c => displayCard(c)).join(' '),
-      result: 'folded',
-      position: positions.value[0] || '',
-      potSize: gs.pot.value,
-      actions: [...gs.handActionLog.value, `${heroState.name} folds (timed out)`],
-      players: recordedPlayers(),
-      winnerName: '',
-      ...handMeta(),
-    }, heroState.chips)
-    gs.street.value = 'showdown'
+    gs.waitingForHero.value = false
+    if (!heroState.folded) {
+      heroState.folded = true
+      heroState.lastAction = 'fold'
+      gs.handActionLog.value.push(`${heroState.name} folds`)
+    }
+    if (gs.activePlayers.value.length > 1) {
+      gs.streetAtEnd.value = 'river' // the rest of the board is dealt for the showdown
+      gs.street.value = 'showdown'
+    }
+    endHand()
   }
   if (careerMode.value) {
     // Inactivity ends the career session; current stack settles like a leave.
@@ -427,7 +422,7 @@ function onGameKeydown(e: KeyboardEvent) {
     if (gs.toCall.value > 0) engine.handleCall(Math.min(gs.toCall.value, gs.maxRaise.value))
     else engine.handleCheck()
   }
-  else heroRaise(Math.round(gs.pot.value * 0.5))
+  else heroRaise(potFractionRaiseTo({ pot: gs.pot.value, toCall: gs.toCall.value, heroBet: gs.hero.value?.betThisRound ?? 0 }, 0.5))
 }
 // Keep-alive: bind on activation, unbind on deactivation — with only the
 // mounted/unmounted pair, the cached page keeps intercepting f/c/r on every

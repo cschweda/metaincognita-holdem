@@ -6,7 +6,7 @@
  *
  * Also here: two config leftovers from the removed Supabase backend.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logDecision, renderHand } from '../app/utils/devHandLog'
@@ -28,7 +28,9 @@ const decision = (over: Partial<DecisionLogInput>): DecisionLogInput => ({
 })
 
 describe('per-decision console line', () => {
-  afterEach(() => vi.restoreAllMocks())
+  // The log is opt-in; these describe what it prints once switched on.
+  beforeEach(() => vi.stubGlobal('localStorage', { getItem: () => 'on', setItem: () => {}, removeItem: () => {} }))
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
   it('does not print a bot\'s hole cards during the hand', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -77,5 +79,24 @@ describe('config leftovers', () => {
   it('does not mention Supabase', () => {
     const src = readFileSync(join(import.meta.dirname, '..', 'holdem.config.ts'), 'utf8')
     expect(src).not.toMatch(/supabase/i)
+  })
+})
+
+describe('the console log is opt-in', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+  const withSwitch = (value: string | null) =>
+    vi.stubGlobal('localStorage', { getItem: () => value, setItem: () => {}, removeItem: () => {} })
+
+  it('prints nothing by default', () => {
+    withSwitch(null)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    logDecision(decision({ isHero: true }))
+    expect(log).not.toHaveBeenCalled()
+  })
+  it('prints once switched on', () => {
+    withSwitch('on')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    logDecision(decision({ isHero: true }))
+    expect(log).toHaveBeenCalledTimes(1)
   })
 })

@@ -177,7 +177,7 @@ export function useStatsData() {
   const displayedHands = computed(() => {
     let source = selectedSession.value ? sessionHands.value : hands.value
     if (positionFilter.value) source = source.filter(h => h.position === positionFilter.value)
-    return source
+    return [...source].reverse() // stored oldest-first; show the newest hand first
   })
 
   const recentHands = computed(() => {
